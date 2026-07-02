@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>cadence — inglês, pouco e sempre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ============ HOME ============ -->
+  <section class="screen screen-home" id="screen-home">
+    <div class="home-header">
+      <div class="logo">cadence</div>
+      <div class="streak-pill">
+        <span class="streak-dot"></span>
+        <span class="streak-num" id="streak-num">1</span>
+        <span class="streak-label">dias</span>
+      </div>
+    </div>
+
+    <div class="home-title">
+      <h1>O que vamos<br>praticar hoje?</h1>
+      <p>Pouco e sempre. Cenários reais, correção na hora.</p>
+    </div>
+
+    <button class="review-banner" id="review-banner" hidden>
+      <span class="review-count" id="review-count">0</span>
+      <span class="review-text">
+        <span class="review-title">Revisar agora</span>
+        <span class="review-sub" id="review-sub">frases no ponto de revisão</span>
+      </span>
+      <span class="review-arrow">→</span>
+    </button>
+
+    <div class="home-actions">
+      <button class="action-btn action-write" id="btn-start-write">
+        <span class="action-icon">W</span>
+        <span class="action-copy">
+          <span class="action-title">Escrever</span>
+          <span class="action-sub">Responda um cenário por escrito</span>
+        </span>
+        <span class="action-arrow">→</span>
+      </button>
+      <button class="action-btn action-speak" id="btn-start-speak">
+        <span class="action-icon">S</span>
+        <span class="action-copy">
+          <span class="action-title">Falar</span>
+          <span class="action-sub">Fale a resposta em voz alta</span>
+        </span>
+        <span class="action-arrow">→</span>
+      </button>
+    </div>
+
+    <div class="saved-section">
+      <div class="saved-header">
+        <span class="saved-title">Suas frases</span>
+        <span class="saved-count" id="saved-count">0 na memória espaçada</span>
+      </div>
+      <div class="saved-list" id="saved-list"></div>
+      <div class="saved-empty" id="saved-empty" hidden>Cada correção vira uma frase salva aqui e volta pra revisão na hora certa.</div>
+    </div>
+  </section>
+
+  <!-- ============ WRITE ============ -->
+  <section class="screen screen-write" id="screen-write" hidden>
+    <div class="sub-header">
+      <button class="back-btn" data-action="go-home">←</button>
+      <span class="sub-label" id="write-header">ESCRITA</span>
+    </div>
+
+    <div class="scenario-block">
+      <div class="scenario-context" id="write-context"></div>
+      <div class="scenario-ask" id="write-ask"></div>
+    </div>
+
+    <textarea class="write-textarea" id="write-textarea" placeholder="Escreva em inglês…"></textarea>
+
+    <div class="error-box" id="write-error" hidden></div>
+
+    <button class="submit-btn" id="write-submit" disabled>Verificar</button>
+  </section>
+
+  <!-- ============ SPEAK ============ -->
+  <section class="screen screen-speak" id="screen-speak" hidden>
+    <div class="sub-header">
+      <button class="back-btn back-btn-dark" data-action="go-home">←</button>
+      <span class="sub-label" id="speak-header">FALA</span>
+    </div>
+
+    <div class="scenario-block">
+      <div class="scenario-context scenario-context-dark" id="speak-context"></div>
+      <div class="scenario-ask scenario-ask-dark" id="speak-ask"></div>
+    </div>
+
+    <div class="speak-body">
+      <div class="transcript-box" id="transcript-box">
+        <div class="transcript-hint" id="speak-hint">TOQUE NO MICROFONE E FALE</div>
+        <div class="transcript-text"><span id="transcript-text"></span><span class="rec-dot" id="rec-dot" hidden></span></div>
+      </div>
+      <div class="speak-fallback" id="speak-fallback" hidden>
+        <div class="transcript-hint">SEU NAVEGADOR NÃO ABRE O MICROFONE — DIGITE O QUE VOCÊ DIRIA</div>
+        <textarea class="speak-textarea" id="speak-textarea" placeholder="Type what you'd say…"></textarea>
+      </div>
+    </div>
+
+    <div class="error-box error-box-dark" id="speak-error" hidden></div>
+
+    <div class="mic-area">
+      <button class="mic-btn" id="mic-btn">
+        <span class="mic-pulse" id="mic-pulse" hidden></span>
+        <span class="mic-circle" id="mic-circle"><span class="mic-glyph"></span></span>
+      </button>
+      <div class="mic-caption" id="mic-caption">toque para falar</div>
+      <button class="submit-btn submit-btn-accent" id="speak-submit" hidden>Verificar</button>
+    </div>
+  </section>
+
+  <!-- ============ RESULT ============ -->
+  <section class="screen screen-result" id="screen-result" hidden>
+    <div class="sub-header">
+      <button class="back-btn" data-action="go-home">←</button>
+      <span class="sub-label sub-label-muted" id="result-mode-label"></span>
+    </div>
+
+    <div class="result-badge">
+      <span class="badge-icon" id="badge-icon"></span>
+      <span class="badge-text" id="badge-text"></span>
+    </div>
+
+    <div class="result-card">
+      <div class="result-card-label" id="result-original-label"></div>
+      <div class="result-card-text" id="result-original-text"></div>
+    </div>
+
+    <div class="result-card result-card-accent">
+      <div class="result-card-row">
+        <span class="result-card-label result-card-label-accent">VERSÃO NATURAL</span>
+        <button class="replay-btn" id="replay-btn">▷ ouvir</button>
+      </div>
+      <div class="result-natural-text" id="result-natural-text"></div>
+    </div>
+
+    <div class="result-why">
+      <div class="why-bar"></div>
+      <div class="why-text"><strong>Por quê:</strong> <span id="result-why-text"></span></div>
+    </div>
+    <div class="result-tip" id="result-tip-block" hidden>
+      <div class="why-bar why-bar-muted"></div>
+      <div class="why-text why-text-muted"><strong>Dica:</strong> <span id="result-tip-text"></span></div>
+    </div>
+
+    <div class="sr-card">
+      <div class="sr-row">
+        <span id="sr-label"></span>
+        <span class="sr-next" id="sr-next"></span>
+      </div>
+      <div class="ladder" id="ladder"></div>
+      <div class="sr-scale"><span>hoje</span><span>amanhã</span><span>1 sem</span><span>1 mês</span></div>
+    </div>
+
+    <div class="result-footer">
+      <button class="footer-btn-home" data-action="go-home">Início</button>
+      <button class="footer-btn-next" id="result-next">Próximo cenário</button>
+    </div>
+  </section>
+
+  <!-- ============ LOADING ============ -->
+  <div class="loading-overlay" id="loading-overlay" hidden>
+    <span class="spinner"></span>
+    <span class="loading-label" id="loading-label">corrigindo…</span>
+  </div>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>
