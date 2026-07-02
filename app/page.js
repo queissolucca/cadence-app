@@ -52,47 +52,61 @@ const SPEAK_SCENARIOS = [
 
 const SCHEDULE = [1, 7, 30];
 const STORAGE_KEY = 'cadence-progress-v2';
+const SESSION_KEY = 'cadence-session-v1';
+const SESSION_SIZE = 6;
+const WEEKDAY_LABELS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
 function getTodayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
 function parseStored() {
-  if (typeof window === 'undefined') return { streak: 1, items: [] };
+  if (typeof window === 'undefined') return { streak: 1, items: [], activity: {} };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { streak: 1, items: [] };
+    if (!raw) return { streak: 1, items: [], activity: {} };
     const parsed = JSON.parse(raw);
     return {
       streak: parsed.streak || 1,
       items: Array.isArray(parsed.items) ? parsed.items : [],
       lastSeen: parsed.lastSeen || '',
+      activity: parsed.activity && typeof parsed.activity === 'object' ? parsed.activity : {},
     };
   } catch {
-    return { streak: 1, items: [] };
+    return { streak: 1, items: [], activity: {} };
   }
 }
 
-function scheduleItem(item, passed) {
-  let stage = passed ? (item.stage || 0) + 1 : 0;
-  let mastered = false;
-  let due = Date.now() + 86400000;
-
-  if (stage >= SCHEDULE.length) {
-    mastered = true;
-    stage = SCHEDULE.length;
-    due = Date.now() + 365 * 86400000;
-  } else {
-    due = Date.now() + SCHEDULE[stage] * 86400000;
+function loadStoredSession() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed.date !== getTodayKey() || !Array.isArray(parsed.queue)) return null;
+    return parsed;
+  } catch {
+    return null;
   }
+}
 
-  return {
-    ...item,
-    stage,
-    mastered,
-    due,
-    lastResult: passed ? 'ok' : 'fail',
-  };
+function saveStoredSession(session) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+// Reviewing an item advances its own stage instead of always jumping to the
+// next milestone, so "amanhã" is reachable on a first pass and not skipped.
+function scheduleItem(item, passed) {
+  const oldStage = item.stage || 0;
+  if (!passed) {
+    return { ...item, stage: 0, mastered: false, due: Date.now() + SCHEDULE[0] * 86400000, lastResult: 'fail' };
+  }
+  const dueDays = SCHEDULE[Math.min(oldStage, SCHEDULE.length - 1)];
+  const newStage = oldStage + 1;
+  const mastered = newStage >= SCHEDULE.length;
+  const due = mastered ? Date.now() + 365 * 86400000 : Date.now() + dueDays * 86400000;
+  return { ...item, stage: mastered ? SCHEDULE.length : newStage, mastered, due, lastResult: 'ok' };
 }
 
 function normalizeText(text) {
@@ -227,7 +241,7 @@ function localCorrect(scenario, text) {
       {
         re: /\bi don t think it will work\b/i,
         why: '“I’m not sure that would work” soa mais natural e colaborativo.',
-        tip: 'Use “I’m not sure that…” para suavizar a discordância.',
+        tip: 'Use “I’m not sure que…” para suavizar a discordância.',
       },
     ],
   };
@@ -297,8 +311,194 @@ function dueLabel(item, now) {
   return d <= 1 ? 'amanhã' : d < 7 ? `em ${d}d` : d < 30 ? '1 sem' : '1 mês';
 }
 
+function reviewTag(item, now) {
+  if (item.due <= now) return 'hoje';
+  const d = Math.ceil((item.due - now) / 86400000);
+  return `+${d} dia${d > 1 ? 's' : ''}`;
+}
+
+function bucketCounts(items) {
+  const now = Date.now();
+  const buckets = { hoje: 0, amanha: 0, semana: 0, mes: 0 };
+  items.forEach((item) => {
+    if (item.mastered) return;
+    if (item.due <= now) { buckets.hoje += 1; return; }
+    if ((item.stage || 0) === 0) buckets.amanha += 1;
+    else if (item.stage === 1) buckets.semana += 1;
+    else buckets.mes += 1;
+  });
+  return buckets;
+}
+
+function getWeekDays() {
+  const now = new Date();
+  const day = now.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() + mondayOffset);
+  const today = getTodayKey();
+  const days = [];
+  for (let i = 0; i < 7; i += 1) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    days.push({ key, label: WEEKDAY_LABELS[i], isToday: key === today });
+  }
+  return days;
+}
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bom dia! Vamos praticar?';
+  if (h < 18) return 'Boa tarde! Vamos praticar?';
+  return 'Boa noite! Vamos praticar?';
+}
+
+function buildSessionQueue(items, writeStart, speakStart) {
+  const due = [...items]
+    .filter((it) => !it.mastered && typeof it.due === 'number' && it.due <= Date.now())
+    .sort((a, b) => a.due - b.due);
+
+  const reviewCount = Math.min(2, due.length);
+  const remaining = SESSION_SIZE - reviewCount;
+  const writeCount = Math.ceil(remaining / 2);
+  const speakCount = remaining - writeCount;
+
+  const queue = [];
+  for (let i = 0; i < reviewCount; i += 1) {
+    queue.push({ mode: due[i].mode === 'speak' ? 'speak' : 'write', scenario: due[i], isReview: true });
+  }
+  for (let i = 0; i < writeCount; i += 1) {
+    queue.push({ mode: 'write', scenario: WRITE_SCENARIOS[(writeStart + i) % WRITE_SCENARIOS.length], isReview: false });
+  }
+  for (let i = 0; i < speakCount; i += 1) {
+    queue.push({ mode: 'speak', scenario: SPEAK_SCENARIOS[(speakStart + i) % SPEAK_SCENARIOS.length], isReview: false });
+  }
+  return queue;
+}
+
+// Word-level LCS diff — used to highlight the exact change between what the
+// user wrote/said and the natural version, instead of just showing both.
+function diffWords(oldText, newText) {
+  const a = (oldText || '').split(/\s+/).filter(Boolean);
+  const b = (newText || '').split(/\s+/).filter(Boolean);
+  const m = a.length;
+  const n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i -= 1) {
+    for (let j = n - 1; j >= 0; j -= 1) {
+      dp[i][j] = a[i].toLowerCase() === b[j].toLowerCase()
+        ? dp[i + 1][j + 1] + 1
+        : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const ops = [];
+  let i = 0;
+  let j = 0;
+  while (i < m && j < n) {
+    if (a[i].toLowerCase() === b[j].toLowerCase()) {
+      ops.push({ type: 'same', text: b[j] });
+      i += 1; j += 1;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      ops.push({ type: 'removed', text: a[i] });
+      i += 1;
+    } else {
+      ops.push({ type: 'added', text: b[j] });
+      j += 1;
+    }
+  }
+  while (i < m) { ops.push({ type: 'removed', text: a[i] }); i += 1; }
+  while (j < n) { ops.push({ type: 'added', text: b[j] }); j += 1; }
+  return ops;
+}
+
+function badgeCopy(result, editCount) {
+  if (result.verdict === 'rework') return 'Erro grave: precisa reescrever';
+  if (result.verdict === 'good') return result.mode === 'speak' ? 'Perfeito, soou natural' : 'Perfeito, ficou natural';
+  if (result.mode === 'speak') return 'Entendível, mas pode soar mais natural';
+  return `Quase lá — ${editCount} ajuste${editCount > 1 ? 's' : ''}`;
+}
+
+function DiffLine({ original, natural }) {
+  const ops = useMemo(() => diffWords(original, natural), [original, natural]);
+  return (
+    <p>
+      {ops.map((op, idx) => {
+        if (op.type === 'removed') return <span key={idx} className="diff-removed">{op.text} </span>;
+        if (op.type === 'added') return <span key={idx} className="diff-added">{op.text} </span>;
+        return <span key={idx}>{op.text} </span>;
+      })}
+    </p>
+  );
+}
+
+function ReviewPipeline({ due, mastered }) {
+  const labels = ['hoje', 'amanhã', '1 sem', '1 mês'];
+  const days = Math.round(((due || Date.now()) - Date.now()) / 86400000);
+  const fillUpTo = mastered ? 3 : days <= 1 ? 1 : days <= 7 ? 2 : 3;
+  return (
+    <div className="pipeline-box">
+      <span className="pipeline-label">VOLTA PARA REVISÃO</span>
+      <div className="pipeline-track">
+        {labels.map((label, idx) => (
+          <div key={label} className={`pipeline-step ${idx <= fillUpTo ? 'filled' : ''}`}>
+            <span className="pipeline-dot" />
+            <span>{idx === 3 && mastered ? 'dominado' : label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SessionRing({ completed, total }) {
+  const size = 64;
+  const stroke = 6;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const fraction = total > 0 ? Math.min(completed / total, 1) : 0;
+  const offset = c * (1 - fraction);
+  return (
+    <div className="session-ring">
+      <svg width={size} height={size}>
+        <circle className="session-ring-track" cx={size / 2} cy={size / 2} r={r} />
+        <circle className="session-ring-fill" cx={size / 2} cy={size / 2} r={r} strokeDasharray={c} strokeDashoffset={offset} />
+      </svg>
+      <div className="session-ring-label">{completed}/{total}</div>
+    </div>
+  );
+}
+
+function IconHome() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 11.5 12 4l8 7.5" />
+      <path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9" />
+    </svg>
+  );
+}
+
+function IconPractice() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
+      <circle cx="12" cy="12" r="4.5" />
+    </svg>
+  );
+}
+
+function IconProgress() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 19V10M12 19V5M19 19v-7" />
+    </svg>
+  );
+}
+
 export default function HomePage() {
   const [screen, setScreen] = useState('home');
+  const [originTab, setOriginTab] = useState('home');
   const [writeIdx, setWriteIdx] = useState(0);
   const [speakIdx, setSpeakIdx] = useState(0);
   const [draft, setDraft] = useState('');
@@ -309,9 +509,11 @@ export default function HomePage() {
   const [result, setResult] = useState(null);
   const [streak, setStreak] = useState(1);
   const [items, setItems] = useState([]);
-  const [reviewing, setReviewing] = useState(false);
-  const [reviewList, setReviewList] = useState([]);
-  const [reviewPos, setReviewPos] = useState(0);
+  const [activity, setActivity] = useState({});
+  const [greeting, setGreeting] = useState('');
+  const [queue, setQueue] = useState(null);
+  const [queueIndex, setQueueIndex] = useState(0);
+  const [queueKind, setQueueKind] = useState(null); // 'session' | 'review' | null
   const [recording, setRecording] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [recognition, setRecognition] = useState(null);
@@ -324,10 +526,17 @@ export default function HomePage() {
       const diff = (new Date(today) - new Date(stored.lastSeen)) / 86400000;
       nextStreak = diff === 1 ? nextStreak + 1 : 1;
     }
-    const updated = { streak: nextStreak, lastSeen: today, items: stored.items || [] };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     setStreak(nextStreak);
     setItems(stored.items || []);
+    setActivity(stored.activity || {});
+    setGreeting(getGreeting());
+
+    const storedSession = loadStoredSession();
+    if (storedSession) {
+      setQueue(storedSession.queue);
+      setQueueIndex(storedSession.index || 0);
+      setQueueKind('session');
+    }
 
     const SpeechCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechCtor) {
@@ -361,57 +570,102 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = parseStored();
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ streak, lastSeen: getTodayKey(), items: stored.items || items }));
-  }, [items, streak]);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ streak, lastSeen: getTodayKey(), items, activity }));
+  }, [items, streak, activity]);
 
-  const writeScenario = useMemo(() => (reviewing ? reviewList[reviewPos] : WRITE_SCENARIOS[writeIdx]), [reviewing, reviewList, reviewPos, writeIdx]);
-  const speakScenario = useMemo(() => (reviewing ? reviewList[reviewPos] : SPEAK_SCENARIOS[speakIdx]), [reviewing, reviewList, reviewPos, speakIdx]);
-  const dueItems = useMemo(() => (items || []).filter((it) => !it.mastered && it.due <= Date.now()), [items]);
+  const activeQueueItem = queue ? queue[queueIndex] : null;
+  const writeScenario = activeQueueItem && activeQueueItem.mode === 'write' ? activeQueueItem.scenario : WRITE_SCENARIOS[writeIdx];
+  const speakScenario = activeQueueItem && activeQueueItem.mode === 'speak' ? activeQueueItem.scenario : SPEAK_SCENARIOS[speakIdx];
+
+  const dueItems = useMemo(() => items.filter((it) => !it.mastered && it.due <= Date.now()), [items]);
+  const upcomingReview = useMemo(
+    () => [...items].filter((it) => !it.mastered).sort((a, b) => a.due - b.due).slice(0, 4),
+    [items],
+  );
+  const masteredCount = useMemo(() => items.filter((it) => it.mastered).length, [items]);
+
+  const sessionPreview = useMemo(() => buildSessionQueue(items, writeIdx, speakIdx), [items, writeIdx, speakIdx]);
+  const sessionQueue = queueKind === 'session' ? queue : null;
+  const sessionActive = !!sessionQueue;
+  const sessionFinishedToday = sessionActive && queueIndex >= sessionQueue.length;
+  const displayQueue = sessionActive ? sessionQueue : sessionPreview;
+  const displayCompleted = sessionActive ? Math.min(queueIndex, displayQueue.length) : 0;
+  const sessionWriteCount = displayQueue.filter((q) => q.mode === 'write' && !q.isReview).length;
+  const sessionSpeakCount = displayQueue.filter((q) => q.mode === 'speak' && !q.isReview).length;
+  const sessionReviewCount = displayQueue.filter((q) => q.isReview).length;
+  const sessionMinutes = Math.max(5, Math.round(displayQueue.length * 1.6));
+
+  const weekDays = useMemo(() => getWeekDays().map((d) => ({ ...d, count: activity[d.key] || 0 })), [activity]);
+  const maxWeekCount = Math.max(1, ...weekDays.map((d) => d.count));
+  const buckets = useMemo(() => bucketCounts(items), [items]);
+  const maxBucket = Math.max(1, buckets.hoje, buckets.amanha, buckets.semana, buckets.mes);
+  const pipelineRows = [
+    { key: 'hoje', label: 'hoje', count: buckets.hoje },
+    { key: 'amanha', label: 'amanhã', count: buckets.amanha },
+    { key: 'semana', label: '1 sem', count: buckets.semana },
+    { key: 'mes', label: '1 mês', count: buckets.mes },
+  ];
+
+  const isLastInQueue = !queue || queueIndex + 1 >= queue.length;
+  const queueButtonLabel = queueKind === 'session'
+    ? (isLastInQueue ? 'Concluir sessão' : 'Próximo da sessão')
+    : queueKind === 'review'
+      ? (isLastInQueue ? 'Concluir revisão' : 'Próxima frase')
+      : 'Próximo cenário';
+
+  const diffEditCount = result ? Math.max(1, diffWords(result.original, result.natural).filter((o) => o.type === 'removed').length) : 1;
 
   const resetView = () => {
-    setScreen('home');
-    setError('');
-    setDraft('');
-    setTranscript('');
-    setSpeakTyped('');
-    setResult(null);
-    setReviewing(false);
-    setReviewList([]);
-    setReviewPos(0);
-    setRecording(false);
+    setScreen(originTab);
+    setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null); setRecording(false);
+    if (queueKind === 'review') { setQueue(null); setQueueKind(null); setQueueIndex(0); }
   };
 
   const startWrite = () => {
-    setScreen('write');
-    setError('');
-    setDraft('');
-    setResult(null);
-    setReviewing(false);
+    setOriginTab('practice');
+    setQueue(null); setQueueKind(null); setQueueIndex(0);
+    setScreen('write'); setError(''); setDraft(''); setResult(null);
   };
 
   const startSpeak = () => {
-    setScreen('speak');
-    setError('');
-    setTranscript('');
-    setSpeakTyped('');
-    setResult(null);
-    setReviewing(false);
+    setOriginTab('practice');
+    setQueue(null); setQueueKind(null); setQueueIndex(0);
+    setScreen('speak'); setError(''); setTranscript(''); setSpeakTyped(''); setResult(null);
   };
 
-  const startReview = () => {
-    const list = [...items]
-      .filter((it) => !it.mastered && typeof it.due === 'number' && it.due <= Date.now())
-      .sort((a, b) => a.due - b.due);
-    if (!list.length) return;
-    setReviewList(list);
-    setReviewPos(0);
-    setReviewing(true);
-    setScreen(list[0].mode === 'speak' ? 'speak' : 'write');
-    setError('');
-    setDraft('');
-    setTranscript('');
-    setSpeakTyped('');
+  const startOrContinueSession = () => {
+    if (sessionFinishedToday) return;
+    setOriginTab('home');
+    if (sessionActive) {
+      setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null);
+      setScreen(sessionQueue[queueIndex].mode);
+      return;
+    }
+    const freshQueue = buildSessionQueue(items, writeIdx, speakIdx);
+    if (!freshQueue.length) return;
+    setQueue(freshQueue); setQueueIndex(0); setQueueKind('session');
+    saveStoredSession({ date: getTodayKey(), queue: freshQueue, index: 0 });
+    setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null);
+    setScreen(freshQueue[0].mode);
+  };
+
+  const startSingleReview = (item) => {
+    setOriginTab('home');
+    setQueue([{ mode: item.mode, scenario: item, isReview: true }]);
+    setQueueIndex(0);
+    setQueueKind('review');
+    setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null);
+    setScreen(item.mode);
+  };
+
+  const startFullReview = () => {
+    const due = [...items].filter((it) => !it.mastered && it.due <= Date.now()).sort((a, b) => a.due - b.due);
+    if (!due.length) return;
+    setOriginTab('home');
+    const reviewQueue = due.map((it) => ({ mode: it.mode, scenario: it, isReview: true }));
+    setQueue(reviewQueue); setQueueIndex(0); setQueueKind('review');
+    setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null);
+    setScreen(reviewQueue[0].mode);
   };
 
   const toggleRec = () => {
@@ -434,13 +688,57 @@ export default function HomePage() {
     }
   };
 
-  const saveEntry = (entry) => {
-    const nextItems = [entry, ...items].slice(0, 40);
-    setItems(nextItems);
-    if (typeof window !== 'undefined') {
-      const stored = parseStored();
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ streak, lastSeen: getTodayKey(), items: nextItems }));
+  const finalizeResult = (resultData, mode, text) => {
+    const scenario = mode === 'speak' ? speakScenario : writeScenario;
+    const passed = resultData.verdict !== 'rework';
+    let scheduled;
+
+    if (activeQueueItem?.isReview) {
+      const existing = items.find((it) => it.id === scenario.id) || scenario;
+      const merged = {
+        ...existing,
+        natural: resultData.natural || existing.natural,
+        why: resultData.why,
+        tip: resultData.tip,
+        learningPoint: resultData.learningPoint,
+      };
+      scheduled = scheduleItem(merged, passed);
+      setItems((prev) => prev.map((it) => (it.id === scheduled.id ? scheduled : it)));
+    } else {
+      const entry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        mode,
+        label: scenario.label,
+        context: scenario.context,
+        askPt: scenario.askPt,
+        natural: resultData.natural,
+        why: resultData.why,
+        tip: resultData.tip,
+        stage: 0,
+        mastered: false,
+        due: Date.now() + 86400000,
+        created: Date.now(),
+        lastResult: 'new',
+        learningPoint: resultData.learningPoint,
+      };
+      scheduled = scheduleItem(entry, passed);
+      setItems((prev) => [scheduled, ...prev].slice(0, 40));
     }
+
+    setActivity((prev) => ({ ...prev, [getTodayKey()]: (prev[getTodayKey()] || 0) + 1 }));
+
+    setResult({
+      ...resultData,
+      original: text,
+      mode,
+      pass: passed,
+      stage: scheduled.stage,
+      mastered: scheduled.mastered,
+      due: scheduled.due,
+      isReview: !!activeQueueItem?.isReview,
+    });
+    setScreen('result');
+    setLoading(false);
   };
 
   const submitAnswer = async (mode) => {
@@ -453,10 +751,11 @@ export default function HomePage() {
     setLoading(true);
     setError('');
 
+    const scenario = mode === 'speak' ? speakScenario : writeScenario;
     const payload = {
       mode,
       userText: text,
-      scenario: mode === 'speak' ? speakScenario : writeScenario,
+      scenario,
       memory: items.slice(0, 3).map((item) => ({ natural: item.natural, why: item.why })),
     };
 
@@ -467,104 +766,53 @@ export default function HomePage() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      const normalized = normalizeResult(data, mode === 'speak' ? speakScenario : writeScenario);
-      const resultData = normalized || localCorrect(mode === 'speak' ? speakScenario : writeScenario, text);
-      const entry = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        mode,
-        label: (mode === 'speak' ? speakScenario : writeScenario).label,
-        context: (mode === 'speak' ? speakScenario : writeScenario).context,
-        askPt: (mode === 'speak' ? speakScenario : writeScenario).askPt,
-        natural: resultData.natural,
-        why: resultData.why,
-        tip: resultData.tip,
-        stage: 0,
-        mastered: false,
-        due: Date.now() + 86400000,
-        created: Date.now(),
-        lastResult: 'new',
-        learningPoint: resultData.learningPoint,
-      };
-
-      const passed = resultData.verdict !== 'rework';
-      const scheduled = scheduleItem(entry, passed);
-      saveEntry(scheduled);
-      setResult({
-        ...resultData,
-        original: text,
-        mode,
-        pass: passed,
-        stage: scheduled.stage,
-        mastered: scheduled.mastered,
-        nextLabel: scheduled.mastered ? 'dominado' : 'amanhã',
-        isReview: reviewing,
-      });
-      setScreen('result');
-      setLoading(false);
+      const normalized = normalizeResult(data, scenario);
+      const resultData = normalized || localCorrect(scenario, text);
+      finalizeResult(resultData, mode, text);
     } catch {
-      const fallback = localCorrect(mode === 'speak' ? speakScenario : writeScenario, text);
-      const entry = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        mode,
-        label: (mode === 'speak' ? speakScenario : writeScenario).label,
-        context: (mode === 'speak' ? speakScenario : writeScenario).context,
-        askPt: (mode === 'speak' ? speakScenario : writeScenario).askPt,
-        natural: fallback.natural,
-        why: fallback.why,
-        tip: fallback.tip,
-        stage: 0,
-        mastered: false,
-        due: Date.now() + 86400000,
-        created: Date.now(),
-        lastResult: 'new',
-        learningPoint: fallback.learningPoint,
-      };
-      const passed = fallback.verdict !== 'rework';
-      const scheduled = scheduleItem(entry, passed);
-      saveEntry(scheduled);
-      setResult({
-        ...fallback,
-        original: text,
-        mode,
-        pass: passed,
-        stage: scheduled.stage,
-        mastered: scheduled.mastered,
-        nextLabel: scheduled.mastered ? 'dominado' : 'amanhã',
-        isReview: reviewing,
-      });
-      setScreen('result');
-      setLoading(false);
+      const fallback = localCorrect(scenario, text);
+      finalizeResult(fallback, mode, text);
     }
   };
 
-  const nextScenario = () => {
-    if (reviewing) {
-      const nextPos = reviewPos + 1;
-      if (nextPos < reviewList.length) {
-        setReviewPos(nextPos);
-        setScreen(reviewList[nextPos].mode === 'speak' ? 'speak' : 'write');
-        setDraft('');
-        setTranscript('');
-        setSpeakTyped('');
-        setError('');
-        return;
+  const advanceQueue = () => {
+    if (!queue) {
+      if (result?.mode === 'speak') {
+        setSpeakIdx((prev) => (prev + 1) % SPEAK_SCENARIOS.length);
+        setTranscript(''); setSpeakTyped(''); setError(''); setResult(null);
+        setScreen('speak');
+      } else {
+        setWriteIdx((prev) => (prev + 1) % WRITE_SCENARIOS.length);
+        setDraft(''); setError(''); setResult(null);
+        setScreen('write');
       }
-      resetView();
       return;
     }
 
-    if (screen === 'speak') {
-      setSpeakIdx((speakIdx + 1) % SPEAK_SCENARIOS.length);
-      setTranscript('');
-      setSpeakTyped('');
-      setError('');
-      setScreen('speak');
-    } else {
-      setWriteIdx((writeIdx + 1) % WRITE_SCENARIOS.length);
-      setDraft('');
-      setError('');
-      setScreen('write');
+    const nextIndex = queueIndex + 1;
+    setDraft(''); setTranscript(''); setSpeakTyped(''); setError(''); setResult(null);
+
+    if (nextIndex < queue.length) {
+      setQueueIndex(nextIndex);
+      if (queueKind === 'session') saveStoredSession({ date: getTodayKey(), queue, index: nextIndex });
+      setScreen(queue[nextIndex].mode);
+      return;
     }
+
+    setQueueIndex(nextIndex);
+    if (queueKind === 'session') {
+      saveStoredSession({ date: getTodayKey(), queue, index: nextIndex });
+    } else {
+      setQueue(null); setQueueKind(null); setQueueIndex(0);
+    }
+    setScreen(originTab);
+  };
+
+  const redoAttempt = () => {
+    setError(''); setResult(null);
+    if (result?.mode === 'speak') { setTranscript(''); setSpeakTyped(''); }
+    else { setDraft(''); }
+    setScreen(result?.mode === 'speak' ? 'speak' : 'write');
   };
 
   const speakText = (text) => {
@@ -579,178 +827,302 @@ export default function HomePage() {
     }
   };
 
+  const showTabs = ['home', 'practice', 'progress'].includes(screen);
+
   return (
     <main className="app-shell">
       <div className="app-card">
-        {screen === 'home' && (
-          <section className="screen home-screen">
-            <div className="topbar">
-              <div>
-                <div className="logo">cadence</div>
-                <p className="subtitle">inglês, pouco e sempre</p>
-              </div>
-              <div className="streak-pill">
-                <span className="dot" />
-                <strong>{streak}</strong>
-                <span>dias</span>
-              </div>
-            </div>
-
-            <div className="hero">
-              <h1>O que vamos praticar hoje?</h1>
-              <p>Correção inteligente, revisão espaçada e memória para evoluir com consistência.</p>
-            </div>
-
-            {dueItems.length > 0 && (
-              <button className="review-banner" onClick={startReview}>
-                <span className="review-count">{dueItems.length}</span>
-                <span className="review-copy">
-                  <strong>Revisar agora</strong>
-                  <span>{dueItems.length === 1 ? '1 frase pronta para revisão' : `${dueItems.length} frases prontas para revisão`}</span>
-                </span>
-              </button>
-            )}
-
-            <div className="actions">
-              <button className="action-btn primary" onClick={startWrite}>
-                <span className="action-icon">W</span>
-                <span>
-                  <strong>Escrever</strong>
-                  <small>Responda um cenário por escrito</small>
-                </span>
-              </button>
-              <button className="action-btn secondary" onClick={startSpeak}>
-                <span className="action-icon">S</span>
-                <span>
-                  <strong>Falar</strong>
-                  <small>Pratique com voz e receba correção</small>
-                </span>
-              </button>
-            </div>
-
-            <div className="saved-card">
-              <div className="saved-header">
-                <strong>Suas frases</strong>
-                <span>{items.length} na memória</span>
-              </div>
-              <div className="saved-list">
-                {items.length === 0 ? (
-                  <div className="empty-state">Cada correção vira uma frase salva aqui e volta na hora certa.</div>
-                ) : items.slice(0, 6).map((item) => (
-                  <button key={item.id} className="saved-item" onClick={() => speakText(item.natural)}>
-                    <div>
-                      <strong>{item.natural}</strong>
-                      <span>{item.why}</span>
-                    </div>
-                    <span className="pill">{dueLabel(item, Date.now())}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {(screen === 'write' || screen === 'speak') && (
-          <section className={`screen ${screen === 'speak' ? 'dark-screen' : ''}`}>
-            <div className="sub-header">
-              <button className="back-btn" onClick={resetView}>←</button>
-              <span className="sub-label">{screen === 'speak' ? 'FALA' : 'ESCRITA'}{reviewing ? ` · ${reviewPos + 1}/${reviewList.length}` : ''}</span>
-            </div>
-
-            <div className="scenario-box">
-              <h2>{screen === 'write' ? writeScenario.label : speakScenario.label}</h2>
-              <p>{screen === 'write' ? writeScenario.context : speakScenario.context}</p>
-              <small>{screen === 'write' ? writeScenario.askPt : speakScenario.askPt}</small>
-            </div>
-
-            {screen === 'write' ? (
-              <>
-                <textarea
-                  className="input-area"
-                  placeholder="Escreva em inglês…"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                />
-                {error && <div className="error-box">{error}</div>}
-                <button className={`submit-btn ${draft.trim() ? 'ready' : ''}`} onClick={() => submitAnswer('write')} disabled={loading}>
-                  {loading ? 'Corrigindo…' : 'Verificar'}
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="transcript-box">
-                  <span className="hint">{recording ? 'OUVINDO…' : (transcript ? 'VOCÊ DISSE' : 'TOQUE NO MICROFONE E FALE')}</span>
-                  <div>{transcript || (speakTyped || '...')}</div>
+        <div className="app-body">
+          {screen === 'home' && (
+            <section className="screen home-screen">
+              <div className="topbar">
+                <div>
+                  <div className="logo">cadence</div>
+                  <p className="greeting">{greeting}</p>
                 </div>
-                {speechSupported ? (
-                  <button className={`mic-btn ${recording ? 'recording' : ''}`} onClick={toggleRec}>
-                    <span className="mic-inner" />
-                  </button>
-                ) : (
-                  <textarea
-                    className="input-area compact"
-                    placeholder="Digite o que você diria…"
-                    value={speakTyped}
-                    onChange={(e) => setSpeakTyped(e.target.value)}
-                  />
-                )}
-                {error && <div className="error-box dark">{error}</div>}
-                <button className="submit-btn accent" onClick={() => submitAnswer('speak')} disabled={loading || (!transcript && !speakTyped)}>
-                  {loading ? 'Corrigindo…' : 'Verificar'}
+                <div className="streak-pill">
+                  <span className="dot" />
+                  <strong>{streak}</strong>
+                  <span>dias</span>
+                </div>
+              </div>
+
+              <div className="session-card">
+                <div className="session-top">
+                  <SessionRing completed={displayCompleted} total={displayQueue.length} />
+                  <div className="session-info">
+                    <span className="session-meta">SESSÃO DE HOJE</span>
+                    <span className="session-title">{sessionMinutes} min · {displayQueue.length} itens</span>
+                  </div>
+                </div>
+                <div className="session-breakdown">
+                  <span>{sessionWriteCount} escrita</span>
+                  <span>{sessionSpeakCount} fala</span>
+                  <span>{sessionReviewCount} revisão</span>
+                </div>
+                <button className="session-cta" onClick={startOrContinueSession} disabled={sessionFinishedToday || displayQueue.length === 0}>
+                  {sessionFinishedToday ? 'Sessão concluída ✓' : sessionActive ? 'Continuar sessão' : 'Começar sessão'}
                 </button>
-              </>
-            )}
-          </section>
-        )}
-
-        {screen === 'result' && result && (
-          <section className="screen result-screen">
-            <div className="sub-header">
-              <button className="back-btn" onClick={resetView}>←</button>
-              <span className="sub-label">{result.mode === 'speak' ? 'FALA · CORREÇÃO' : 'ESCRITA · CORREÇÃO'}</span>
-            </div>
-
-            <div className="result-badge">
-              <span className={`badge-icon ${result.verdict === 'rework' ? 'warn' : 'ok'}`}>{result.verdict === 'rework' ? '!' : '✓'}</span>
-              <strong>{result.verdict === 'rework' ? 'Erro grave: precisa reescrever' : (result.verdict === 'good' ? 'Perfeito, soa natural' : 'Quase lá — ajuste pequeno')}</strong>
-            </div>
-            <div className="result-card">
-              <span className="result-label">VOCÊ ESCREVEU</span>
-              <p>{result.original}</p>
-            </div>
-
-            <div className="result-card accent">
-              <div className="result-row">
-                <span className="result-label">VERSÃO NATURAL</span>
-                <button className="play-btn" onClick={() => speakText(result.natural)}>▷ ouvir</button>
               </div>
-              <p>{result.natural}</p>
-            </div>
 
-            <div className="insight-box">
-              <strong>Por quê:</strong>
-              <p>{result.why}</p>
-            </div>
-
-            {result.tip && (
-              <div className="insight-box muted">
-                <strong>Dica:</strong>
-                <p>{result.tip}</p>
+              <div>
+                <div className="section-title">
+                  <h3>Para revisar</h3>
+                  <span>repetição espaçada</span>
+                </div>
+                <div className="review-list">
+                  {upcomingReview.length === 0 ? (
+                    <div className="empty-state">Cada correção vira uma frase salva aqui e volta na hora certa.</div>
+                  ) : upcomingReview.map((item) => (
+                    <button key={item.id} className="review-row" onClick={() => startSingleReview(item)}>
+                      <div>
+                        <strong>{item.natural}</strong>
+                        <span>{item.why}</span>
+                      </div>
+                      <span className="review-tag">{reviewTag(item, Date.now())}</span>
+                    </button>
+                  ))}
+                </div>
+                {dueItems.length > 0 && (
+                  <button className="review-more" onClick={startFullReview}>revisar todas ({dueItems.length})</button>
+                )}
               </div>
-            )}
+            </section>
+          )}
 
-            {result.learningPoint && (
-              <div className="insight-box muted">
-                <strong>Próximo foco:</strong>
-                <p>{result.learningPoint}</p>
+          {screen === 'practice' && (
+            <section className="screen practice-screen">
+              <div className="topbar">
+                <div>
+                  <div className="logo">cadence</div>
+                  <p className="greeting">O que vamos praticar?</p>
+                </div>
               </div>
-            )}
 
-            <div className="footer-actions">
-              <button className="ghost-btn" onClick={resetView}>Início</button>
-              <button className="submit-btn ready" onClick={nextScenario}>{reviewing ? (reviewPos + 1 < reviewList.length ? 'Próxima frase' : 'Concluir revisão') : 'Próximo cenário'}</button>
-            </div>
-          </section>
+              <div className="actions">
+                <button className="action-btn primary" onClick={startWrite}>
+                  <span className="action-icon">W</span>
+                  <span>
+                    <strong>Escrever</strong>
+                    <small>Responda um cenário por escrito</small>
+                  </span>
+                </button>
+                <button className="action-btn secondary" onClick={startSpeak}>
+                  <span className="action-icon">S</span>
+                  <span>
+                    <strong>Falar</strong>
+                    <small>Pratique com voz e receba correção</small>
+                  </span>
+                </button>
+              </div>
+
+              <div className="saved-card">
+                <div className="saved-header">
+                  <strong>Suas frases</strong>
+                  <span>{items.length} na memória</span>
+                </div>
+                <div className="saved-list">
+                  {items.length === 0 ? (
+                    <div className="empty-state">Suas frases corrigidas aparecem aqui.</div>
+                  ) : items.slice(0, 8).map((item) => (
+                    <button key={item.id} className="saved-item" onClick={() => speakText(item.natural)}>
+                      <div>
+                        <strong>{item.natural}</strong>
+                        <span>{item.why}</span>
+                      </div>
+                      <span className="pill">{dueLabel(item, Date.now())}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {screen === 'progress' && (
+            <section className="screen progress-screen">
+              <div className="progress-header">
+                <h1>Progresso</h1>
+              </div>
+
+              <div className="stat-row">
+                <div className="stat-card">
+                  <strong>{streak}</strong>
+                  <span>dias seguidos</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{masteredCount}</strong>
+                  <span>itens dominados</span>
+                </div>
+              </div>
+
+              <div className="chart-card">
+                <h4>Minutos esta semana</h4>
+                <div className="bar-chart">
+                  {weekDays.map((d) => (
+                    <div key={d.key} className={`bar-col ${d.isToday ? 'today' : ''}`}>
+                      <div className="bar-fill" style={{ height: `${Math.max(6, Math.round((d.count / maxWeekCount) * 100))}%` }} />
+                      <span>{d.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="chart-card">
+                <h4>Memória espaçada</h4>
+                <div className="pipeline-list">
+                  {pipelineRows.map((row) => (
+                    <div key={row.key} className="pipeline-row">
+                      <span className="pipeline-row-label">{row.label}</span>
+                      <div className="pipeline-row-track">
+                        <div className="pipeline-row-fill" style={{ width: `${(row.count / maxBucket) * 100}%` }} />
+                      </div>
+                      <span className="pipeline-row-count">{row.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {(screen === 'write' || screen === 'speak') && (
+            <section className={`screen ${screen === 'speak' ? 'dark-screen' : ''}`}>
+              <div className="sub-header">
+                <button className="back-btn" onClick={resetView}>←</button>
+                <span className="sub-label">{screen === 'speak' ? 'FALA' : 'ESCRITA'}</span>
+                {queue && <span className="sub-count">{queueIndex + 1}/{queue.length}</span>}
+              </div>
+              {queue && (
+                <div className="session-progress-track">
+                  <div className="session-progress-fill" style={{ width: `${((queueIndex + 1) / queue.length) * 100}%` }} />
+                </div>
+              )}
+
+              <div className="scenario-box">
+                <h2>{screen === 'write' ? writeScenario.label : speakScenario.label}</h2>
+                <p>{screen === 'write' ? writeScenario.context : speakScenario.context}</p>
+                <small>{screen === 'write' ? writeScenario.askPt : speakScenario.askPt}</small>
+              </div>
+
+              {screen === 'write' ? (
+                <>
+                  <div className="input-wrap">
+                    <textarea
+                      className="input-area"
+                      placeholder="Escreva em inglês…"
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                    />
+                    <div className="input-footer">
+                      <span className="char-count">{draft.length} caracteres</span>
+                      <span className="lang-select" title="Somente inglês por enquanto">EN ▾</span>
+                    </div>
+                  </div>
+                  {error && <div className="error-box">{error}</div>}
+                  <button className={`submit-btn ${draft.trim() ? 'ready' : ''}`} onClick={() => submitAnswer('write')} disabled={loading}>
+                    {loading ? 'Corrigindo…' : 'Verificar'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="transcript-box">
+                    <span className="hint">{recording && <span className="rec-dot" />}{recording ? 'OUVINDO…' : (transcript ? 'VOCÊ DISSE' : 'TOQUE NO MICROFONE E FALE')}</span>
+                    <div>{transcript || (speakTyped || '...')}</div>
+                  </div>
+                  {speechSupported ? (
+                    <>
+                      <button className={`mic-btn ${recording ? 'recording' : ''}`} onClick={toggleRec}>
+                        <span className="mic-inner" />
+                      </button>
+                      <div className="mic-caption">{recording ? 'toque para parar' : 'toque para falar'}</div>
+                    </>
+                  ) : (
+                    <textarea
+                      className="input-area compact"
+                      placeholder="Digite o que você diria…"
+                      value={speakTyped}
+                      onChange={(e) => setSpeakTyped(e.target.value)}
+                    />
+                  )}
+                  {error && <div className="error-box dark">{error}</div>}
+                  <button className="submit-btn accent" onClick={() => submitAnswer('speak')} disabled={loading || (!transcript && !speakTyped)}>
+                    {loading ? 'Corrigindo…' : 'Verificar'}
+                  </button>
+                </>
+              )}
+            </section>
+          )}
+
+          {screen === 'result' && result && (
+            <section className="screen result-screen">
+              <div className="sub-header">
+                <button className="back-btn" onClick={resetView}>←</button>
+                <span className="sub-label">{result.mode === 'speak' ? 'FALA · CORREÇÃO' : 'ESCRITA · CORREÇÃO'}</span>
+              </div>
+
+              <div className="result-badge">
+                <span className={`badge-icon ${result.verdict === 'rework' ? 'warn' : 'ok'}`}>{result.verdict === 'rework' ? '!' : '✓'}</span>
+                <strong>{badgeCopy(result, diffEditCount)}</strong>
+              </div>
+
+              <div className="result-card">
+                <span className="result-label">{result.mode === 'speak' ? 'VOCÊ FALOU' : 'VOCÊ ESCREVEU'}</span>
+                <DiffLine original={result.original} natural={result.natural} />
+              </div>
+
+              <div className="result-card accent">
+                <div className="result-row">
+                  <span className="result-label">{result.mode === 'speak' ? 'COMO UM NATIVO DIRIA' : 'VERSÃO NATURAL'}</span>
+                  <button className="play-btn" onClick={() => speakText(result.natural)}>▷ ouvir</button>
+                </div>
+                <p>{result.natural}</p>
+              </div>
+
+              <div className="insight-box">
+                <strong>Por quê:</strong>
+                <p>{result.why}</p>
+              </div>
+
+              {result.tip && (
+                <div className="insight-box muted">
+                  <strong>Dica:</strong>
+                  <p>{result.tip}</p>
+                </div>
+              )}
+
+              {result.learningPoint && (
+                <div className="insight-box muted">
+                  <strong>Próximo foco:</strong>
+                  <p>{result.learningPoint}</p>
+                </div>
+              )}
+
+              <ReviewPipeline due={result.due} mastered={result.mastered} />
+
+              <div className="footer-actions">
+                {result.mode === 'speak' && (
+                  <button className="icon-btn" onClick={redoAttempt} title="Tentar de novo">↺</button>
+                )}
+                <button className="submit-btn ready" style={{ flex: 1 }} onClick={advanceQueue}>{queueButtonLabel}</button>
+              </div>
+            </section>
+          )}
+        </div>
+
+        {showTabs && (
+          <nav className="bottom-nav">
+            <button className={`nav-btn ${screen === 'home' ? 'active' : ''}`} onClick={() => setScreen('home')}>
+              <IconHome />
+              <span>Hoje</span>
+            </button>
+            <button className={`nav-btn ${screen === 'practice' ? 'active' : ''}`} onClick={() => setScreen('practice')}>
+              <IconPractice />
+              <span>Praticar</span>
+            </button>
+            <button className={`nav-btn ${screen === 'progress' ? 'active' : ''}`} onClick={() => setScreen('progress')}>
+              <IconProgress />
+              <span>Progresso</span>
+            </button>
+          </nav>
         )}
       </div>
     </main>
