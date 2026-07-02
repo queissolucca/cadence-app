@@ -457,7 +457,7 @@ export default function HomePage() {
       mode,
       userText: text,
       scenario: mode === 'speak' ? speakScenario : writeScenario,
-      memory: items.slice(0, 6).map((item) => ({ natural: item.natural, why: item.why, tip: item.tip })),
+      memory: items.slice(0, 3).map((item) => ({ natural: item.natural, why: item.why })),
     };
 
     try {

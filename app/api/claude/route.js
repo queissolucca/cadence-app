@@ -41,35 +41,24 @@ export async function POST(request) {
     });
   }
 
-  const prompt = `
-Você é um coach de inglês para aprendizado prático e constante.
+  const recentErrors = (memory || [])
+    .slice(0, 3)
+    .map((item) => `${item.natural} (${item.why || ''})`)
+    .join('; ');
 
-Objetivo: avaliar a resposta do usuário para um cenário específico e devolver:
-- uma versão natural em inglês;
-- um motivo claro da correção;
-- uma dica curta para melhorar;
-- um ponto de aprendizado.
+  const prompt = `Você é um coach de inglês. Avalie a resposta do usuário para o cenário abaixo e retorne: versão natural em inglês, motivo da correção, dica curta e ponto de aprendizado.
 
-Contexto do cenário:
-- Tipo: ${mode}
-- Contexto: ${scenario?.context || ''}
-- Pedido: ${scenario?.askPt || ''}
-- Resposta do usuário: ${userText}
+Cenário (${mode}): ${scenario?.context || ''}
+Pedido: ${scenario?.askPt || ''}
+Resposta do usuário: ${userText}${recentErrors ? `\nErros recentes do usuário: ${recentErrors}` : ''}
 
-Memória recente de aprendizado:
-${(memory || []).map((item) => `- ${item.natural} | ${item.why || ''}`).join('\n')}
-
-Avalie a resposta do usuário e retorne o resultado da correção.
-Se a resposta do usuário estiver fora do contexto do cenário ou incorreta de forma grave, use "rework" como verdict.
-`;
+Use "rework" se a resposta estiver fora do contexto do cenário ou incorreta de forma grave.`;
 
   try {
     const response = await client.messages.create({
-      model: 'claude-sonnet-5',
+      model: 'claude-haiku-4-5',
       max_tokens: 500,
-      thinking: { type: 'disabled' },
       output_config: {
-        effort: 'low',
         format: { type: 'json_schema', schema: RESULT_SCHEMA },
       },
       messages: [{ role: 'user', content: prompt }],
