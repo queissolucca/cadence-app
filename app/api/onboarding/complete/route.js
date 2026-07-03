@@ -23,27 +23,31 @@ export async function POST(request) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 });
   }
 
-  // O client do Supabase NÃO lança erro em `.update()` — precisa checar
-  // `error` explicitamente, senão uma falha (RLS, rede, 0 linhas afetadas)
-  // passa batido e o front acha que salvou quando não salvou nada.
+  // Upsert em vez de update: se por qualquer motivo a linha do profile não
+  // bater 1:1 (corrida com o trigger de signup, cache, etc.), isso garante
+  // que os dados sejam gravados de qualquer forma, em vez de silenciosamente
+  // não afetar nenhuma linha.
   const { data, error } = await supabase
     .from('profiles')
-    .update({
-      weekly_cadence_target: weeklyCadence,
-      current_track: track,
-      current_stage: 1,
-      diagnostic_completed: true,
-    })
-    .eq('id', user.id)
+    .upsert(
+      {
+        id: user.id,
+        weekly_cadence_target: weeklyCadence,
+        current_track: track,
+        current_stage: 1,
+        diagnostic_completed: true,
+      },
+      { onConflict: 'id' },
+    )
     .select('id');
 
   if (error) {
-    console.error('onboarding/complete update error:', error);
+    console.error('onboarding/complete upsert error:', error);
     return NextResponse.json({ error: 'update_failed', details: error.message }, { status: 500 });
   }
 
   if (!data || data.length === 0) {
-    console.error('onboarding/complete: update matched 0 rows for user', user.id);
+    console.error('onboarding/complete: upsert returned 0 rows for user', user.id);
     return NextResponse.json({ error: 'no_rows_updated' }, { status: 500 });
   }
 

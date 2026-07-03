@@ -93,8 +93,8 @@ export default function Diagnostic() {
         throw new Error(body.error || 'setup_failed');
       }
       router.refresh();
-    } catch {
-      setError('Não consegui salvar agora. Tenta de novo.');
+    } catch (err) {
+      setError(`Não consegui salvar agora (${err.message}). Tenta de novo.`);
       setSaving(false);
     }
   };
