@@ -12,17 +12,19 @@ const DIAGNOSTIC_TASKS = [
   { id: 'diag_s2', skill: 'speaking', label: 'SITUAÇÃO INESPERADA', context: 'Seu voo foi cancelado em cima da hora.', askPt: 'Negocie com a atendente um novo voo.' },
 ];
 
-const CADENCE_OPTIONS = [3, 5, 7];
+// Cadência e trilha ficam com um padrão sensato aplicado automaticamente —
+// dá pra ajustar depois na aba Progresso. Menos uma etapa manual no meio do
+// onboarding (e uma rota a menos que pode travar o fluxo).
+const DEFAULT_CADENCE = 5;
+const DEFAULT_TRACK = TRACKS[0].id;
 
 export default function Diagnostic() {
   const router = useRouter();
-  const [phase, setPhase] = useState('intro'); // intro | tasks | loading | reveal | setup | done
+  const [phase, setPhase] = useState('intro'); // intro | tasks | loading | reveal
   const [taskIndex, setTaskIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [draft, setDraft] = useState('');
   const [reveal, setReveal] = useState(null);
-  const [cadence, setCadence] = useState(5);
-  const [track, setTrack] = useState(TRACKS[0].id);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -81,12 +83,15 @@ export default function Diagnostic() {
       const res = await fetch('/api/onboarding/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weeklyCadence: cadence, track }),
+        body: JSON.stringify({ weeklyCadence: DEFAULT_CADENCE, track: DEFAULT_TRACK }),
       });
       // fetch não lança erro em respostas 4xx/5xx — precisa checar res.ok,
       // senão a gente segue pro refresh achando que salvou e trava aqui
       // pra sempre esperando o diagnóstico virar "completo".
-      if (!res.ok) throw new Error('setup_failed');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'setup_failed');
+      }
       router.refresh();
     } catch {
       setError('Não consegui salvar agora. Tenta de novo.');
@@ -184,37 +189,9 @@ export default function Diagnostic() {
                 ))}
               </div>
 
-              <button className="submit-btn ready" onClick={() => setPhase('setup')}>Continuar</button>
-            </>
-          )}
-
-          {phase === 'setup' && (
-            <>
-              <div>
-                <div className="logo">cadence</div>
-                <p className="subtitle">Últimos dois ajustes</p>
-              </div>
-
-              <div className="chart-card">
-                <h4>Quantas sessões por semana?</h4>
-                <div className="cadence-pill-row">
-                  {CADENCE_OPTIONS.map((n) => (
-                    <button key={n} className={`cadence-pill ${cadence === n ? 'selected' : ''}`} onClick={() => setCadence(n)}>{n}x</button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="chart-card">
-                <h4>Escolha sua trilha</h4>
-                <div className="track-options">
-                  {TRACKS.map((t) => (
-                    <button key={t.id} className={`track-card ${track === t.id ? 'selected' : ''}`} onClick={() => setTrack(t.id)}>
-                      <strong>{t.label}</strong>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+              <p style={{ fontSize: 12, color: '#a3a68f', margin: 0 }}>
+                Começamos com {DEFAULT_CADENCE}x por semana na trilha {TRACKS[0].label} — dá pra ajustar depois em Progresso.
+              </p>
               {error && <div className="error-box">{error}</div>}
               <button className="submit-btn ready" onClick={finishSetup} disabled={saving}>
                 {saving ? 'Preparando seu cadence…' : 'Começar a praticar'}

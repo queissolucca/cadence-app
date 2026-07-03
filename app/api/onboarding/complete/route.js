@@ -23,7 +23,10 @@ export async function POST(request) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 });
   }
 
-  await supabase
+  // O client do Supabase NÃO lança erro em `.update()` — precisa checar
+  // `error` explicitamente, senão uma falha (RLS, rede, 0 linhas afetadas)
+  // passa batido e o front acha que salvou quando não salvou nada.
+  const { data, error } = await supabase
     .from('profiles')
     .update({
       weekly_cadence_target: weeklyCadence,
@@ -31,7 +34,18 @@ export async function POST(request) {
       current_stage: 1,
       diagnostic_completed: true,
     })
-    .eq('id', user.id);
+    .eq('id', user.id)
+    .select('id');
+
+  if (error) {
+    console.error('onboarding/complete update error:', error);
+    return NextResponse.json({ error: 'update_failed', details: error.message }, { status: 500 });
+  }
+
+  if (!data || data.length === 0) {
+    console.error('onboarding/complete: update matched 0 rows for user', user.id);
+    return NextResponse.json({ error: 'no_rows_updated' }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }
