@@ -41,6 +41,7 @@ export default function LoginScreen() {
             </svg>
             {loading ? 'Entrando…' : 'Entrar com Google'}
           </button>
+          <a href="/privacy" className="privacy-link">Política de privacidade</a>
         </div>
       </div>
     </main>
