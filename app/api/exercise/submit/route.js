@@ -4,6 +4,8 @@ import { correctAnswer } from '../../../../lib/correct';
 import { computeReviewOutcome, nextReviewDate } from '../../../../lib/srs';
 import { clampAxis } from '../../../../lib/patents';
 
+export const maxDuration = 30;
+
 export async function POST(request) {
   const supabase = createClient();
   const {

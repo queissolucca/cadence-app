@@ -3,6 +3,10 @@ import { createClient } from '../../../../lib/supabase/server';
 import { runDiagnostic } from '../../../../lib/diagnostic';
 import { clampAxis } from '../../../../lib/patents';
 
+// Avaliação batch das 5 tarefas no Sonnet pode passar do limite padrão de
+// função serverless — dá folga (Vercel Hobby permite até 60s).
+export const maxDuration = 30;
+
 export async function POST(request) {
   const supabase = createClient();
   const {
