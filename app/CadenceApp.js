@@ -3,59 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../lib/supabase/client';
+import { mapLedgerItem, ledgerStatus } from '../lib/ledger';
+import { composeSession } from '../lib/session';
+import { getStage, trackLabel } from '../lib/tracks';
+import { computePatent } from '../lib/patents';
 
-// Usados só quando /api/task/generate falha (ex: sem internet) — o conteúdo
-// real do dia a dia vem de tarefas geradas pelo Claude, calibradas por CEFR.
-const FALLBACK_WRITE_SCENARIOS = [
-  {
-    label: 'EMAIL DE TRABALHO',
-    context: 'Seu gerente perguntou se o relatório fica pronto hoje.',
-    askPt: 'Responda dizendo que você envia amanhã de manhã.',
-    natural: "I'll send you the report by tomorrow morning.",
-    why: 'Use “by” para marcar o prazo final.',
-  },
-  {
-    label: 'MENSAGEM A UM COLEGA',
-    context: 'Você vai se atrasar para a reunião.',
-    askPt: 'Avise que chega 10 minutos atrasado e peça para começarem sem você.',
-    natural: "I'm running about 10 minutes late — please start without me.",
-    why: '“I’m running late” é a forma natural de dizer que você está atrasado.',
-  },
-  {
-    label: 'EMAIL PARA O HOTEL',
-    context: 'Você chega antes do horário de check-in.',
-    askPt: 'Pergunte educadamente se dá para fazer o check-in mais cedo.',
-    natural: 'Would it be possible to check in a little earlier than usual?',
-    why: '“Would it be possible to…?” soa educado e profissional.',
-  },
-];
-
-const FALLBACK_SPEAK_SCENARIOS = [
-  {
-    label: 'RESTAURANTE',
-    context: 'Você terminou de comer e quer ir embora.',
-    askPt: 'Peça a conta com educação.',
-    natural: 'Could we get the bill, please?',
-    why: '“Could we get…?” é o pedido educado.',
-  },
-  {
-    label: 'AEROPORTO',
-    context: 'Você está perdido no terminal.',
-    askPt: 'Pergunte a alguém onde fica o portão 22.',
-    natural: 'Excuse me, do you know where gate 22 is?',
-    why: 'Comece com “Excuse me” para chamar atenção com educação.',
-  },
-  {
-    label: 'REUNIÃO',
-    context: 'Você discorda de uma ideia que acabaram de propor.',
-    askPt: 'Discorde de forma educada e diga o porquê.',
-    natural: "I see your point, but I'm not sure that would work because...",
-    why: 'Reconheça o outro lado antes de discordar.',
-  },
-];
-
-const SESSION_KEY = 'cadence-session-v1';
-const SESSION_SIZE = 6;
+const SESSION_KEY = 'cadence-session-v2';
 
 function getTodayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -79,217 +32,18 @@ function saveStoredSession(session) {
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
-function normalizeText(text) {
-  return text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean).join(' ');
-}
-
-function similarity(a, b) {
-  const wa = new Set(normalizeText(a).split(' '));
-  const wb = new Set(normalizeText(b).split(' '));
-  if (!wa.size || !wb.size) return 0;
-  let inter = 0;
-  wa.forEach((word) => { if (wb.has(word)) inter += 1; });
-  return inter / Math.max(wa.size, wb.size);
-}
-
-function localCorrect(scenario, text) {
-  // Tarefas geradas dinamicamente não têm uma "resposta natural" de referência
-  // pré-definida — sem conexão com o servidor não dá pra corrigir de verdade.
-  if (!scenario.natural) {
-    return {
-      verdict: 'rework',
-      natural: '',
-      why: 'Sem conexão com o servidor, não foi possível avaliar sua resposta.',
-      tip: 'Verifique sua internet e tente novamente.',
-      learningPoint: '',
-    };
-  }
-
-  const genericMistakes = [
-    { re: /\bcan i\b/i, why: '“Can I…?” soa informal; prefira “Would it be possible…?”.' },
-    { re: /\bI want\b/i, why: '“I want…” pode soar rude em um pedido; use “Could we get…” ou “Could you…?”.' },
-    { re: /\buntil\b/i, why: 'Use “by” para marcar o prazo final em vez de “until”.' },
-  ];
-
-  for (const m of genericMistakes) {
-    if (m.re.test(text)) {
-      return {
-        verdict: 'minor',
-        natural: scenario.natural,
-        why: m.why,
-        tip: 'Tente mudar essa frase para uma forma mais natural e educada.',
-        learningPoint: 'Evite construções muito literais ou diretas.',
-      };
-    }
-  }
-
-  const scenarioRules = {
-    'EMAIL DE TRABALHO': [
-      {
-        re: /\bcan i send\b/i,
-        why: 'Para dizer que você envia amanhã, use “I’ll send” ou “I will send”.',
-        tip: 'Use futuro simples para compromissos futuros.',
-      },
-      {
-        re: /\buntil tomorrow\b/i,
-        why: '“Until tomorrow” não passa a ideia de prazo. Use “by tomorrow morning”.',
-        tip: '“By” marca o prazo exato de entrega.',
-      },
-      {
-        re: /\bwill send tomorrow\b/i,
-        why: 'Para a versão natural, diga “I’ll send you the report by tomorrow morning.”',
-        tip: 'Use “by tomorrow morning” para dar um prazo claro.',
-      },
-    ],
-    'MENSAGEM A UM COLEGA': [
-      {
-        re: /\bi will be late\b/i,
-        why: 'Para avisar que você se atrasará, “I’m running about 10 minutes late” soa mais natural.',
-        tip: 'Use expressões idiomáticas para atrasos.',
-      },
-      {
-        re: /\bplease start without me\b/i,
-        why: 'Essa frase está correta; ela pode ser mantida como alternativa natural.',
-        tip: 'Essa estrutura já é boa para contexto informal.',
-      },
-      {
-        re: /\bi am late\b/i,
-        why: '“I’m running about 10 minutes late” é mais natural que “I am late.”',
-        tip: 'Use frases com “running late” para atrasos.',
-      },
-    ],
-    'EMAIL PARA O HOTEL': [
-      {
-        re: /\bcan i check in earlier\b/i,
-        why: 'Para pedir educadamente, prefira “Would it be possible to check in a little earlier?”.',
-        tip: 'Use perguntas indiretas em emails formais.',
-      },
-      {
-        re: /\bis it possible\b/i,
-        why: '“Is it possible…” é aceitável, mas “Would it be possible…” é mais educado.',
-        tip: 'Use formas condicionais para pedidos educados.',
-      },
-      {
-        re: /\bearly check in\b/i,
-        why: '“Early check-in” é entendido, mas prefira a forma completa com “Would it be possible to check in…”.',
-        tip: 'Apresente o pedido de forma completa e educada.',
-      },
-    ],
-    RESTAURANTE: [
-      {
-        re: /\bi want the bill\b/i,
-        why: '“I want the bill” soa rude; prefira “Could we get the bill, please?”.',
-        tip: 'Use pedidos mais suaves em restaurantes.',
-      },
-      {
-        re: /\bcheck please\b/i,
-        why: '“Check, please” é aceito, mas “Could we get the bill, please?” soa mais educado.',
-        tip: 'Use “Could we get…” para pedidos em serviço.',
-      },
-      {
-        re: /\bi would like the bill\b/i,
-        why: '“Could we get the bill, please?” soa mais natural do que “I would like the bill.”',
-        tip: 'Use pedidos com “Could we get…” para tom mais leve.',
-      },
-    ],
-    AEROPORTO: [
-      {
-        re: /\bwhere is gate\b/i,
-        why: 'A estrutura está boa; use “Excuse me, do you know where gate 22 is?”.',
-        tip: 'Adicione “Excuse me” para iniciar a pergunta educadamente.',
-      },
-      {
-        re: /\bhow do i get to gate\b/i,
-        why: '“Do you know where gate 22 is?” é mais natural para pedir direção rapidamente.',
-        tip: 'Mantenha a frase curta e direta.',
-      },
-      {
-        re: /\bwhere can i find gate\b/i,
-        why: '“Excuse me, do you know where gate 22 is?” soa mais natural que “Where can I find gate 22?”.',
-        tip: 'Use perguntas diretas começando com “Excuse me”.',
-      },
-    ],
-    REUNIÃO: [
-      {
-        re: /\bi disagree\b/i,
-        why: '“I disagree” funciona, mas para ser mais colaborativo, comece com “I see your point, but…”.',
-        tip: 'Reconheça o outro lado antes de discordar.',
-      },
-      {
-        re: /\bthat won t work\b/i,
-        why: 'Dizer “I’m not sure that would work” soa menos agressivo do que “That won’t work”.',
-        tip: 'Use linguagem mais suave para discordar em reunião.',
-      },
-      {
-        re: /\bi don t think it will work\b/i,
-        why: '“I’m not sure that would work” soa mais natural e colaborativo.',
-        tip: 'Use “I’m not sure que…” para suavizar a discordância.',
-      },
-    ],
-  };
-
-  const rules = scenarioRules[scenario.label] || [];
-  for (const rule of rules) {
-    if (rule.re.test(text)) {
-      return {
-        verdict: 'minor',
-        natural: scenario.natural,
-        why: rule.why,
-        tip: rule.tip || 'Compare com a versão natural e ajuste conforme o cenário.',
-        learningPoint: 'Ajuste a resposta usando o padrão do cenário.',
-      };
-    }
-  }
-
-  const sim = similarity(text, scenario.natural);
-  if (sim >= 0.75) {
-    return {
-      verdict: 'good',
-      natural: scenario.natural,
-      why: 'Sua frase está muito próxima do padrão natural do cenário.',
-      tip: '',
-      learningPoint: 'Mantenha essa construção natural e clara.',
-    };
-  }
-  if (sim >= 0.4) {
-    return {
-      verdict: 'minor',
-      natural: scenario.natural,
-      why: `A estrutura está no caminho certo para o cenário “${scenario.label}”. Ajuste o vocabulário para ficar mais natural.`,
-      tip: 'Use a versão natural como modelo e copie a ordem das palavras.',
-      learningPoint: 'Foque na escolha de palavras mais naturais para o contexto.',
-    };
-  }
-
-  return {
-    verdict: 'rework',
-    natural: scenario.natural,
-    why: `Sua resposta não corresponde ao cenário “${scenario.label}” e precisa ser reescrita completamente.`,
-    tip: 'Foque na intenção do pedido e use a versão natural como modelo direto.',
-    learningPoint: 'Reescreva usando a forma mais natural do exemplo; respostas fora do contexto são consideradas erro grave.',
-  };
-}
-
 function dueLabel(item, now) {
-  if (!item) return '';
   if (item.mastered) return 'dominado';
-  if (typeof item.due !== 'number') return 'salva';
-  if (item.due <= now) return 'revisar';
-  const d = Math.ceil((item.due - now) / 86400000);
-  return d <= 1 ? 'amanhã' : d < 7 ? `em ${d}d` : d < 30 ? '1 sem' : '1 mês';
-}
-
-function reviewTag(item, now) {
   if (item.due <= now) return 'hoje';
   const d = Math.ceil((item.due - now) / 86400000);
-  return `+${d} dia${d > 1 ? 's' : ''}`;
+  return d <= 1 ? 'amanhã' : d < 7 ? `+${d}d` : d < 30 ? '1 sem' : '1 mês';
 }
 
-// Estágios do SRS: 0=hoje, 1=+1 dia (amanhã), 2=+7 dias, 3=+30 dias.
-function bucketCounts(items) {
+// hoje / amanhã / 1 sem / 1 mês — pipeline SRS (§3.5), mapeado 1:1 pro stage.
+function bucketCounts(ledger) {
   const now = Date.now();
   const buckets = { hoje: 0, amanha: 0, semana: 0, mes: 0 };
-  items.forEach((item) => {
+  ledger.forEach((item) => {
     if (item.mastered) return;
     if (item.due <= now) { buckets.hoje += 1; return; }
     if (item.stage === 1) buckets.amanha += 1;
@@ -299,23 +53,6 @@ function bucketCounts(items) {
   return buckets;
 }
 
-// Converte uma linha de review_items (Supabase) para o formato usado pela UI.
-function mapReviewItem(row) {
-  const c = row.content || {};
-  return {
-    id: row.id,
-    mode: c.skill === 'speaking' ? 'speak' : 'write',
-    label: c.label || '',
-    context: c.context || '',
-    askPt: c.askPt || '',
-    natural: c.correction || '',
-    why: c.note || '',
-    stage: row.stage,
-    mastered: row.mastered,
-    due: row.next_review_at ? new Date(row.next_review_at).getTime() : Date.now(),
-  };
-}
-
 function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Bom dia! Vamos praticar?';
@@ -323,71 +60,42 @@ function getGreeting() {
   return 'Boa noite! Vamos praticar?';
 }
 
-// Só calcula a composição (quantos itens de cada tipo) — o conteúdo real das
-// tarefas novas é buscado à parte, de forma assíncrona, via /api/task/generate.
-function computeSessionComposition(items) {
-  const due = [...items]
-    .filter((it) => !it.mastered && typeof it.due === 'number' && it.due <= Date.now())
-    .sort((a, b) => a.due - b.due);
+// Reconstrói o texto do usuário com o(s) trecho(s) problemático(s) riscados
+// e a correção inserida ao lado — o card "VOCÊ ESCREVEU" do PDF de referência.
+function HighlightedAnswer({ userText, problemas, veredito }) {
+  const list = problemas || [];
+  if (!list.length) return <p>{userText}</p>;
 
-  const reviewCount = Math.min(2, due.length);
-  const remaining = SESSION_SIZE - reviewCount;
-  const writeCount = Math.ceil(remaining / 2);
-  const speakCount = remaining - writeCount;
+  let remaining = userText;
+  let offset = 0;
+  const segments = [];
+  list.forEach((p, idx) => {
+    const needle = (p.trecho_problema || '').toLowerCase();
+    if (!needle) return;
+    const i = remaining.toLowerCase().indexOf(needle);
+    if (i === -1) return;
+    segments.push({ type: 'text', key: `t${idx}`, text: remaining.slice(0, i) });
+    segments.push({ type: 'strike', key: `s${idx}`, text: remaining.slice(i, i + needle.length), insert: p.correcao });
+    remaining = remaining.slice(i + needle.length);
+    offset += 1;
+  });
+  segments.push({ type: 'text', key: 'tail', text: remaining });
 
-  return { due, reviewCount, writeCount, speakCount };
-}
+  if (offset === 0) return <p>{userText}</p>;
+  const amberClass = veredito === 'nao_natural' ? 'amber' : '';
 
-// Word-level LCS diff — used to highlight the exact change between what the
-// user wrote/said and the natural version, instead of just showing both.
-function diffWords(oldText, newText) {
-  const a = (oldText || '').split(/\s+/).filter(Boolean);
-  const b = (newText || '').split(/\s+/).filter(Boolean);
-  const m = a.length;
-  const n = b.length;
-  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-  for (let i = m - 1; i >= 0; i -= 1) {
-    for (let j = n - 1; j >= 0; j -= 1) {
-      dp[i][j] = a[i].toLowerCase() === b[j].toLowerCase()
-        ? dp[i + 1][j + 1] + 1
-        : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
-  const ops = [];
-  let i = 0;
-  let j = 0;
-  while (i < m && j < n) {
-    if (a[i].toLowerCase() === b[j].toLowerCase()) {
-      ops.push({ type: 'same', text: b[j] });
-      i += 1; j += 1;
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      ops.push({ type: 'removed', text: a[i] });
-      i += 1;
-    } else {
-      ops.push({ type: 'added', text: b[j] });
-      j += 1;
-    }
-  }
-  while (i < m) { ops.push({ type: 'removed', text: a[i] }); i += 1; }
-  while (j < n) { ops.push({ type: 'added', text: b[j] }); j += 1; }
-  return ops;
-}
-
-function badgeCopy(result, editCount) {
-  if (result.verdict === 'rework') return 'Erro grave: precisa reescrever';
-  if (result.verdict === 'good') return result.mode === 'speak' ? 'Perfeito, soou natural' : 'Perfeito, ficou natural';
-  if (result.mode === 'speak') return 'Entendível, mas pode soar mais natural';
-  return `Quase lá — ${editCount} ajuste${editCount > 1 ? 's' : ''}`;
-}
-
-function DiffLine({ original, natural }) {
-  const ops = useMemo(() => diffWords(original, natural), [original, natural]);
   return (
     <p>
-      {ops.map((op, idx) => {
-        if (op.type === 'removed') return <span key={idx} className="diff-removed">{op.text} </span>;
-        if (op.type === 'added') return <span key={idx} className="diff-added">{op.text} </span>;
-        return <span key={idx}>{op.text} </span>;
+      {segments.map((seg) => {
+        if (seg.type === 'strike') {
+          return (
+            <span key={seg.key}>
+              <span className={`answer-strike ${amberClass}`}>{seg.text}</span>{' '}
+              <span className="answer-insert">{seg.insert}</span>{' '}
+            </span>
+          );
+        }
+        return <span key={seg.key}>{seg.text}</span>;
       })}
     </p>
   );
@@ -438,11 +146,13 @@ function IconHome() {
   );
 }
 
-function IconPractice() {
+function IconMap() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
-      <circle cx="12" cy="12" r="4.5" />
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
     </svg>
   );
 }
@@ -455,41 +165,53 @@ function IconProgress() {
   );
 }
 
-export default function CadenceApp({ user, initialReviewItems, initialStreak, initialWeekDays, initialCefrLevels }) {
+export default function CadenceApp({
+  user,
+  initialLedger,
+  initialCadenceWeeks,
+  initialCadenceStreak,
+  initialWeekDays,
+  initialSkillProgress,
+  initialProfile,
+  initialStageCompletions,
+}) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const [screen, setScreen] = useState('home');
   const [originTab, setOriginTab] = useState('home');
-  const [freeWriteScenario, setFreeWriteScenario] = useState(() => FALLBACK_WRITE_SCENARIOS[0]);
-  const [freeSpeakScenario, setFreeSpeakScenario] = useState(() => FALLBACK_SPEAK_SCENARIOS[0]);
-  const [taskLoading, setTaskLoading] = useState(false);
-  const [sessionLoading, setSessionLoading] = useState(false);
   const [draft, setDraft] = useState('');
   const [transcript, setTranscript] = useState('');
   const [speakTyped, setSpeakTyped] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
-  const [levelUpBanner, setLevelUpBanner] = useState(null);
-  const [streak, setStreak] = useState(initialStreak);
-  const [items, setItems] = useState(() => initialReviewItems.map(mapReviewItem));
-  const [weekDays, setWeekDays] = useState(initialWeekDays);
-  const [cefrLevels, setCefrLevels] = useState(initialCefrLevels);
   const [greeting, setGreeting] = useState('');
   const [queue, setQueue] = useState(null);
   const [queueIndex, setQueueIndex] = useState(0);
-  const [queueKind, setQueueKind] = useState(null); // 'session' | 'review' | null
+  const [queueKind, setQueueKind] = useState(null); // 'session' | 'boss' | null
   const [recording, setRecording] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [recognition, setRecognition] = useState(null);
 
-  // Dados vêm do Server Component (page.js), lido do Supabase. Ao rodar
-  // router.refresh() depois de cada exercício, esses props são atualizados
-  // e re-sincronizamos o estado local sem perder a tela/fluxo em andamento.
-  useEffect(() => { setStreak(initialStreak); }, [initialStreak]);
+  const [ledger, setLedger] = useState(() => initialLedger.map(mapLedgerItem));
+  const [cadenceWeeks, setCadenceWeeks] = useState(initialCadenceWeeks);
+  const [cadenceStreak, setCadenceStreak] = useState(initialCadenceStreak);
+  const [weekDays, setWeekDays] = useState(initialWeekDays);
+  const [skillProgress, setSkillProgress] = useState(initialSkillProgress);
+  const [profile, setProfile] = useState(initialProfile);
+  const [stageCompletions, setStageCompletions] = useState(initialStageCompletions);
+
+  const [mapSkillFilter, setMapSkillFilter] = useState('all');
+  const [mapStatusFilter, setMapStatusFilter] = useState('all');
+  const [expandedLedgerId, setExpandedLedgerId] = useState(null);
+
+  useEffect(() => { setLedger(initialLedger.map(mapLedgerItem)); }, [initialLedger]);
+  useEffect(() => { setCadenceWeeks(initialCadenceWeeks); }, [initialCadenceWeeks]);
+  useEffect(() => { setCadenceStreak(initialCadenceStreak); }, [initialCadenceStreak]);
   useEffect(() => { setWeekDays(initialWeekDays); }, [initialWeekDays]);
-  useEffect(() => { setItems(initialReviewItems.map(mapReviewItem)); }, [initialReviewItems]);
-  useEffect(() => { setCefrLevels(initialCefrLevels); }, [initialCefrLevels]);
+  useEffect(() => { setSkillProgress(initialSkillProgress); }, [initialSkillProgress]);
+  useEffect(() => { setProfile(initialProfile); }, [initialProfile]);
+  useEffect(() => { setStageCompletions(initialStageCompletions); }, [initialStageCompletions]);
 
   useEffect(() => {
     setGreeting(getGreeting());
@@ -513,11 +235,8 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
         let finalText = '';
         for (let i = event.resultIndex; i < event.results.length; i += 1) {
           const chunk = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalText += chunk;
-          } else {
-            interim += chunk;
-          }
+          if (event.results[i].isFinal) finalText += chunk;
+          else interim += chunk;
         }
         setTranscript((finalText + interim).trim());
       };
@@ -532,54 +251,34 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
   }, []);
 
   const activeQueueItem = queue ? queue[queueIndex] : null;
-  const writeScenario = activeQueueItem && activeQueueItem.mode === 'write' ? activeQueueItem.scenario : freeWriteScenario;
-  const speakScenario = activeQueueItem && activeQueueItem.mode === 'speak' ? activeQueueItem.scenario : freeSpeakScenario;
 
-  // Busca uma tarefa nova (TBLT, calibrada por CEFR/i+1) via Claude; usa um
-  // fallback estático só se a chamada falhar (ex: sem internet).
-  const fetchGeneratedTask = async (mode) => {
-    try {
-      const res = await fetch('/api/task/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode }),
-      });
-      if (!res.ok) throw new Error('generate_failed');
-      const data = await res.json();
-      return data.scenario;
-    } catch {
-      const fallbackList = mode === 'speak' ? FALLBACK_SPEAK_SCENARIOS : FALLBACK_WRITE_SCENARIOS;
-      return fallbackList[Math.floor(Math.random() * fallbackList.length)];
-    }
-  };
+  const writingProgress = skillProgress.writing || { precisao: 0, naturalidade: 0, vocabulario: 0, fluencia: 0 };
+  const speakingProgress = skillProgress.speaking || { precisao: 0, naturalidade: 0, vocabulario: 0, fluencia: 0 };
+  const writingPatent = computePatent(writingProgress);
+  const speakingPatent = computePatent(speakingProgress);
 
-  const dueItems = useMemo(() => items.filter((it) => !it.mastered && it.due <= Date.now()), [items]);
-  const upcomingReview = useMemo(
-    () => [...items].filter((it) => !it.mastered).sort((a, b) => a.due - b.due).slice(0, 4),
-    [items],
+  const dueLedger = useMemo(() => ledger.filter((it) => !it.mastered && it.due <= Date.now()), [ledger]);
+  const upcomingLedger = useMemo(
+    () => [...ledger].filter((it) => !it.mastered).sort((a, b) => a.due - b.due).slice(0, 4),
+    [ledger],
   );
-  const masteredCount = useMemo(() => items.filter((it) => it.mastered).length, [items]);
+  const masteredCount = useMemo(() => ledger.filter((it) => it.mastered).length, [ledger]);
 
-  const sessionComposition = useMemo(() => computeSessionComposition(items), [items]);
+  const sessionPreview = useMemo(
+    () => composeSession(ledger, profile.current_track, profile.current_stage),
+    [ledger, profile.current_track, profile.current_stage],
+  );
   const sessionQueue = queueKind === 'session' ? queue : null;
   const sessionActive = !!sessionQueue;
   const sessionFinishedToday = sessionActive && queueIndex >= sessionQueue.length;
-  const previewTotal = sessionComposition.reviewCount + sessionComposition.writeCount + sessionComposition.speakCount;
-  const displayTotal = sessionActive ? sessionQueue.length : previewTotal;
-  const displayCompleted = sessionActive ? Math.min(queueIndex, displayTotal) : 0;
-  const sessionWriteCount = sessionActive
-    ? sessionQueue.filter((q) => q.mode === 'write' && !q.isReview).length
-    : sessionComposition.writeCount;
-  const sessionSpeakCount = sessionActive
-    ? sessionQueue.filter((q) => q.mode === 'speak' && !q.isReview).length
-    : sessionComposition.speakCount;
-  const sessionReviewCount = sessionActive
-    ? sessionQueue.filter((q) => q.isReview).length
-    : sessionComposition.reviewCount;
-  const sessionMinutes = Math.max(5, Math.round(displayTotal * 1.6));
+  const displayQueue = sessionActive ? sessionQueue : sessionPreview;
+  const displayCompleted = sessionActive ? Math.min(queueIndex, displayQueue.length) : 0;
+  const sessionWriteCount = displayQueue.filter((q) => q.skill === 'writing').length;
+  const sessionSpeakCount = displayQueue.filter((q) => q.skill === 'speaking').length;
+  const sessionReviewCount = displayQueue.filter((q) => q.kind === 'review').length;
+  const sessionMinutes = Math.max(5, Math.round(displayQueue.length * 1.6));
 
-  const maxWeekCount = Math.max(1, ...weekDays.map((d) => d.count));
-  const buckets = useMemo(() => bucketCounts(items), [items]);
+  const buckets = useMemo(() => bucketCounts(ledger), [ledger]);
   const maxBucket = Math.max(1, buckets.hoje, buckets.amanha, buckets.semana, buckets.mes);
   const pipelineRows = [
     { key: 'hoje', label: 'hoje', count: buckets.hoje },
@@ -588,89 +287,64 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
     { key: 'mes', label: '1 mês', count: buckets.mes },
   ];
 
-  const isLastInQueue = !queue || queueIndex + 1 >= queue.length;
-  const queueButtonLabel = queueKind === 'session'
-    ? (isLastInQueue ? 'Concluir sessão' : 'Próximo da sessão')
-    : queueKind === 'review'
-      ? (isLastInQueue ? 'Concluir revisão' : 'Próxima frase')
-      : 'Próximo cenário';
+  const currentWeek = cadenceWeeks[cadenceWeeks.length - 1] || { sessions: 0 };
+  const maxWeekCount = Math.max(1, ...weekDays.map((d) => d.count));
 
-  const diffEditCount = result ? Math.max(1, diffWords(result.original, result.natural).filter((o) => o.type === 'removed').length) : 1;
+  const stageDef = getStage(profile.current_track, profile.current_stage);
+  const bossAvailable = { writing: !!stageDef?.scenarios?.boss?.writing, speaking: !!stageDef?.scenarios?.boss?.speaking };
+  const bossDoneThisStage = stageCompletions.some((c) => c.track === profile.current_track && c.stage === profile.current_stage);
+
+  const filteredLedger = useMemo(() => {
+    return ledger.filter((it) => {
+      if (mapSkillFilter !== 'all' && it.skill !== mapSkillFilter) return false;
+      if (mapStatusFilter !== 'all' && ledgerStatus(it) !== mapStatusFilter) return false;
+      return true;
+    });
+  }, [ledger, mapSkillFilter, mapStatusFilter]);
+
+  const isLastInQueue = !queue || queueIndex + 1 >= queue.length;
+  const queueButtonLabel = queueKind === 'boss'
+    ? 'Concluir desafio'
+    : isLastInQueue ? 'Concluir sessão' : 'Próximo';
 
   const resetView = () => {
     setScreen(originTab);
-    setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null); setRecording(false); setLevelUpBanner(null);
-    if (queueKind === 'review') { setQueue(null); setQueueKind(null); setQueueIndex(0); }
+    setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null); setRecording(false);
   };
 
-  const startWrite = async () => {
-    setOriginTab('practice');
-    setQueue(null); setQueueKind(null); setQueueIndex(0);
-    setScreen('write'); setError(''); setDraft(''); setResult(null);
-    setTaskLoading(true);
-    const scenario = await fetchGeneratedTask('write');
-    setFreeWriteScenario(scenario);
-    setTaskLoading(false);
-  };
-
-  const startSpeak = async () => {
-    setOriginTab('practice');
-    setQueue(null); setQueueKind(null); setQueueIndex(0);
-    setScreen('speak'); setError(''); setTranscript(''); setSpeakTyped(''); setResult(null);
-    setTaskLoading(true);
-    const scenario = await fetchGeneratedTask('speak');
-    setFreeSpeakScenario(scenario);
-    setTaskLoading(false);
-  };
-
-  const startOrContinueSession = async () => {
+  const startOrContinueSession = () => {
     if (sessionFinishedToday) return;
     setOriginTab('home');
     if (sessionActive) {
       setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null);
-      setScreen(sessionQueue[queueIndex].mode);
+      setScreen(sessionQueue[queueIndex].skill === 'speaking' ? 'speak' : 'write');
       return;
     }
-
-    const { due, reviewCount, writeCount, speakCount } = computeSessionComposition(items);
-    if (reviewCount + writeCount + speakCount === 0) return;
-
-    setSessionLoading(true);
-    const [writeTasks, speakTasks] = await Promise.all([
-      Promise.all(Array.from({ length: writeCount }, () => fetchGeneratedTask('write'))),
-      Promise.all(Array.from({ length: speakCount }, () => fetchGeneratedTask('speak'))),
-    ]);
-    setSessionLoading(false);
-
-    const freshQueue = [
-      ...due.slice(0, reviewCount).map((it) => ({ mode: it.mode, scenario: it, isReview: true })),
-      ...writeTasks.map((scenario) => ({ mode: 'write', scenario, isReview: false })),
-      ...speakTasks.map((scenario) => ({ mode: 'speak', scenario, isReview: false })),
-    ];
-
+    const freshQueue = composeSession(ledger, profile.current_track, profile.current_stage);
+    if (!freshQueue.length) return;
     setQueue(freshQueue); setQueueIndex(0); setQueueKind('session');
     saveStoredSession({ date: getTodayKey(), queue: freshQueue, index: 0 });
     setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null);
-    setScreen(freshQueue[0].mode);
+    setScreen(freshQueue[0].skill === 'speaking' ? 'speak' : 'write');
   };
 
-  const startSingleReview = (item) => {
-    setOriginTab('home');
-    setQueue([{ mode: item.mode, scenario: item, isReview: true }]);
-    setQueueIndex(0);
-    setQueueKind('review');
+  const startBoss = (skill) => {
+    const boss = stageDef?.scenarios?.boss?.[skill];
+    if (!boss) return;
+    setOriginTab('progress');
+    const bossQueue = [{ kind: 'boss', skill, scenario: boss, restriction: null, reviewItemId: null }];
+    setQueue(bossQueue); setQueueIndex(0); setQueueKind('boss');
     setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null);
-    setScreen(item.mode);
+    setScreen(skill === 'speaking' ? 'speak' : 'write');
   };
 
-  const startFullReview = () => {
-    const due = [...items].filter((it) => !it.mastered && it.due <= Date.now()).sort((a, b) => a.due - b.due);
-    if (!due.length) return;
-    setOriginTab('home');
-    const reviewQueue = due.map((it) => ({ mode: it.mode, scenario: it, isReview: true }));
-    setQueue(reviewQueue); setQueueIndex(0); setQueueKind('review');
+  const openLedgerReview = (item) => {
+    setOriginTab('mapa');
+    const scenario = { id: `review_${item.id}`, label: item.categoria || 'REVISÃO', context: item.formaNatural ? `Você já corrigiu isso antes: "${item.formaNatural}"` : 'Pratique esse padrão de novo.', askPt: 'Escreva/fale uma frase nova aplicando essa correção.' };
+    const singleQueue = [{ kind: 'review', skill: item.skill, scenario, restriction: { patternId: item.id, structureHint: item.dica || item.pattern }, reviewItemId: item.id }];
+    setQueue(singleQueue); setQueueIndex(0); setQueueKind('session');
     setError(''); setDraft(''); setTranscript(''); setSpeakTyped(''); setResult(null);
-    setScreen(reviewQueue[0].mode);
+    setScreen(item.skill === 'speaking' ? 'speak' : 'write');
   };
 
   const toggleRec = () => {
@@ -693,58 +367,49 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
     }
   };
 
-  // reviewItem: linha atualizada/criada em review_items (vinda do backend),
-  // ou null quando não havia nada a agendar (acerto numa tarefa nova).
-  const finalizeResult = (feedback, reviewItem, mode, text, levelUp) => {
-    const passed = feedback.verdict !== 'rework';
-
+  const finalizeResult = (correction, reviewItem, skill, text) => {
     if (reviewItem) {
-      const mapped = mapReviewItem(reviewItem);
-      setItems((prev) => {
+      const mapped = mapLedgerItem(reviewItem);
+      setLedger((prev) => {
         const exists = prev.some((it) => it.id === mapped.id);
         return exists ? prev.map((it) => (it.id === mapped.id ? mapped : it)) : [mapped, ...prev];
       });
     }
 
-    if (levelUp) {
-      setCefrLevels((prev) => ({ ...prev, [levelUp.skill]: levelUp.level }));
-      setLevelUpBanner(levelUp);
-    }
-
     setResult({
-      ...feedback,
+      ...correction,
       original: text,
-      mode,
-      pass: passed,
-      stage: reviewItem ? reviewItem.stage : 0,
+      skill,
+      stage: reviewItem ? reviewItem.stage : null,
       mastered: reviewItem ? reviewItem.mastered : false,
-      isReview: !!activeQueueItem?.isReview,
+      isReview: activeQueueItem?.kind === 'review',
+      restriction: activeQueueItem?.restriction || null,
     });
     setScreen('result');
     setLoading(false);
-
-    // Recarrega streak/gráfico semanal do servidor sem perder o estado da tela atual.
     router.refresh();
   };
 
-  const submitAnswer = async (mode) => {
-    const text = mode === 'speak' ? (transcript || speakTyped).trim() : draft.trim();
+  const submitAnswer = async (skill) => {
+    const text = skill === 'speaking' ? (transcript || speakTyped).trim() : draft.trim();
     if (!text) {
-      setError(mode === 'speak' ? 'Fale ou digite sua resposta primeiro.' : 'Escreva sua resposta primeiro.');
+      setError(skill === 'speaking' ? 'Fale ou digite sua resposta primeiro.' : 'Escreva sua resposta primeiro.');
       return;
     }
+    if (!activeQueueItem) return;
 
     setLoading(true);
     setError('');
 
-    const scenario = mode === 'speak' ? speakScenario : writeScenario;
-    const reviewItemId = activeQueueItem?.isReview ? scenario.id : null;
     const payload = {
-      mode,
+      skill,
+      task: activeQueueItem.scenario,
       userText: text,
-      scenario,
-      reviewItemId,
-      memory: items.slice(0, 3).map((item) => ({ natural: item.natural, why: item.why })),
+      restriction: activeQueueItem.restriction,
+      reviewItemId: activeQueueItem.reviewItemId,
+      isBoss: queueKind === 'boss',
+      track: profile.current_track,
+      stage: profile.current_stage,
     };
 
     try {
@@ -755,34 +420,32 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
       });
       if (!res.ok) throw new Error('submit_failed');
       const data = await res.json();
-      finalizeResult(data.feedback, data.reviewItem, mode, text, data.levelUp);
+      finalizeResult(data.correction, data.reviewItem, skill, text);
     } catch {
-      const fallback = localCorrect(scenario, text);
-      finalizeResult(fallback, null, mode, text, null);
+      finalizeResult(
+        {
+          veredito: 'erro',
+          problemas: [],
+          versao_natural: '',
+          porque: 'Sem conexão com o servidor agora. Tente de novo.',
+          restricao_cumprida: false,
+        },
+        null,
+        skill,
+        text,
+      );
     }
   };
 
-  const advanceQueue = async () => {
-    setLevelUpBanner(null);
-    if (!queue) {
-      const nextMode = result?.mode === 'speak' ? 'speak' : 'write';
-      setTranscript(''); setSpeakTyped(''); setDraft(''); setError(''); setResult(null);
-      setScreen(nextMode);
-      setTaskLoading(true);
-      const scenario = await fetchGeneratedTask(nextMode);
-      if (nextMode === 'speak') setFreeSpeakScenario(scenario);
-      else setFreeWriteScenario(scenario);
-      setTaskLoading(false);
-      return;
-    }
-
+  const advanceQueue = () => {
+    if (!queue) return;
     const nextIndex = queueIndex + 1;
     setDraft(''); setTranscript(''); setSpeakTyped(''); setError(''); setResult(null);
 
     if (nextIndex < queue.length) {
       setQueueIndex(nextIndex);
       if (queueKind === 'session') saveStoredSession({ date: getTodayKey(), queue, index: nextIndex });
-      setScreen(queue[nextIndex].mode);
+      setScreen(queue[nextIndex].skill === 'speaking' ? 'speak' : 'write');
       return;
     }
 
@@ -797,13 +460,13 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
 
   const redoAttempt = () => {
     setError(''); setResult(null);
-    if (result?.mode === 'speak') { setTranscript(''); setSpeakTyped(''); }
+    if (result?.skill === 'speaking') { setTranscript(''); setSpeakTyped(''); }
     else { setDraft(''); }
-    setScreen(result?.mode === 'speak' ? 'speak' : 'write');
+    setScreen(result?.skill === 'speaking' ? 'speak' : 'write');
   };
 
   const speakText = (text) => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
+    if (typeof window !== 'undefined' && window.speechSynthesis && text) {
       try {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
@@ -821,7 +484,16 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
     router.refresh();
   };
 
-  const showTabs = ['home', 'practice', 'progress'].includes(screen);
+  const activeScenario = activeQueueItem?.scenario;
+  const showTabs = ['home', 'mapa', 'progress'].includes(screen);
+
+  const badgeConfig = (correction) => {
+    if (!correction) return { icon: '!', cls: 'warn', label: '' };
+    if (correction.veredito === 'correto') return { icon: '✓', cls: 'ok', label: 'Perfeito — soou natural' };
+    if (correction.veredito === 'nao_natural') return { icon: '~', cls: 'amber', label: 'Entendível, mas soa não natural' };
+    const n = correction.problemas?.length || 0;
+    return { icon: '!', cls: 'warn', label: n ? `Quase lá — ${n} ajuste${n > 1 ? 's' : ''}` : 'Precisa reescrever' };
+  };
 
   return (
     <main className="app-shell">
@@ -835,10 +507,10 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
                   <p className="greeting">{greeting}</p>
                 </div>
                 <div className="topbar-right">
-                  <div className="streak-pill">
+                  <div className="streak-pill" title="semanas em cadência">
                     <span className="dot" />
-                    <strong>{streak}</strong>
-                    <span>dias</span>
+                    <strong>{cadenceStreak}</strong>
+                    <span>sem.</span>
                   </div>
                   <button className="avatar-btn" onClick={signOut} disabled={signingOut} title={user?.email ? `Sair (${user.email})` : 'Sair'}>
                     {user?.user_metadata?.avatar_url ? (
@@ -853,10 +525,10 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
 
               <div className="session-card">
                 <div className="session-top">
-                  <SessionRing completed={displayCompleted} total={displayTotal} />
+                  <SessionRing completed={displayCompleted} total={displayQueue.length} />
                   <div className="session-info">
-                    <span className="session-meta">SESSÃO DE HOJE</span>
-                    <span className="session-title">{sessionMinutes} min · {displayTotal} itens</span>
+                    <span className="session-meta">SESSÃO DE HOJE · {trackLabel(profile.current_track)}</span>
+                    <span className="session-title">{sessionMinutes} min · {displayQueue.length} itens</span>
                   </div>
                 </div>
                 <div className="session-breakdown">
@@ -864,8 +536,8 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
                   <span>{sessionSpeakCount} fala</span>
                   <span>{sessionReviewCount} revisão</span>
                 </div>
-                <button className="session-cta" onClick={startOrContinueSession} disabled={sessionFinishedToday || sessionLoading || displayTotal === 0}>
-                  {sessionFinishedToday ? 'Sessão concluída ✓' : sessionLoading ? 'Preparando sessão…' : sessionActive ? 'Continuar sessão' : 'Começar sessão'}
+                <button className="session-cta" onClick={startOrContinueSession} disabled={sessionFinishedToday || displayQueue.length === 0}>
+                  {sessionFinishedToday ? 'Sessão concluída ✓' : sessionActive ? 'Continuar sessão' : 'Começar sessão'}
                 </button>
               </div>
 
@@ -875,69 +547,73 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
                   <span>repetição espaçada</span>
                 </div>
                 <div className="review-list">
-                  {upcomingReview.length === 0 ? (
-                    <div className="empty-state">Cada correção vira uma frase salva aqui e volta na hora certa.</div>
-                  ) : upcomingReview.map((item) => (
-                    <button key={item.id} className="review-row" onClick={() => startSingleReview(item)}>
+                  {upcomingLedger.length === 0 ? (
+                    <div className="empty-state">Seus erros viram itens aqui e voltam na hora certa.</div>
+                  ) : upcomingLedger.map((item) => (
+                    <button key={item.id} className="review-row" onClick={() => openLedgerReview(item)}>
                       <div>
-                        <strong>{item.natural}</strong>
-                        <span>{item.why}</span>
+                        <strong>{item.pattern}</strong>
+                        <span>{item.dica || item.categoria}</span>
                       </div>
-                      <span className="review-tag">{reviewTag(item, Date.now())}</span>
+                      <span className="review-tag">{dueLabel(item, Date.now())}</span>
                     </button>
                   ))}
                 </div>
-                {dueItems.length > 0 && (
-                  <button className="review-more" onClick={startFullReview}>revisar todas ({dueItems.length})</button>
-                )}
               </div>
             </section>
           )}
 
-          {screen === 'practice' && (
-            <section className="screen practice-screen">
+          {screen === 'mapa' && (
+            <section className="screen home-screen">
               <div className="topbar">
                 <div>
                   <div className="logo">cadence</div>
-                  <p className="greeting">O que vamos praticar?</p>
+                  <p className="greeting">Mapa de Lacunas</p>
                 </div>
               </div>
 
-              <div className="actions">
-                <button className="action-btn primary" onClick={startWrite}>
-                  <span className="action-icon">W</span>
-                  <span>
-                    <strong>Escrever</strong>
-                    <small>Responda um cenário por escrito</small>
-                  </span>
-                </button>
-                <button className="action-btn secondary" onClick={startSpeak}>
-                  <span className="action-icon">S</span>
-                  <span>
-                    <strong>Falar</strong>
-                    <small>Pratique com voz e receba correção</small>
-                  </span>
-                </button>
+              <div className="map-filters">
+                {['all', 'writing', 'speaking'].map((f) => (
+                  <button key={f} className={`map-filter-btn ${mapSkillFilter === f ? 'active' : ''}`} onClick={() => setMapSkillFilter(f)}>
+                    {f === 'all' ? 'Tudo' : f === 'writing' ? 'Escrita' : 'Fala'}
+                  </button>
+                ))}
+                {['all', 'ativo', 'em_revisao', 'dominado'].map((f) => (
+                  <button key={f} className={`map-filter-btn ${mapStatusFilter === f ? 'active' : ''}`} onClick={() => setMapStatusFilter(f)}>
+                    {f === 'all' ? 'Todos' : f === 'ativo' ? 'Ativos' : f === 'em_revisao' ? 'Em revisão' : 'Dominados'}
+                  </button>
+                ))}
               </div>
 
-              <div className="saved-card">
-                <div className="saved-header">
-                  <strong>Suas frases</strong>
-                  <span>{items.length} na memória</span>
-                </div>
-                <div className="saved-list">
-                  {items.length === 0 ? (
-                    <div className="empty-state">Suas frases corrigidas aparecem aqui.</div>
-                  ) : items.slice(0, 8).map((item) => (
-                    <button key={item.id} className="saved-item" onClick={() => speakText(item.natural)}>
-                      <div>
-                        <strong>{item.natural}</strong>
-                        <span>{item.why}</span>
-                      </div>
-                      <span className="pill">{dueLabel(item, Date.now())}</span>
+              {expandedLedgerId && (() => {
+                const item = ledger.find((it) => it.id === expandedLedgerId);
+                if (!item) return null;
+                return (
+                  <div className="ledger-detail">
+                    <button className="ledger-detail-close" onClick={() => setExpandedLedgerId(null)}>fechar ✕</button>
+                    <span className="result-label">{item.categoria} · {item.skill === 'speaking' ? 'fala' : 'escrita'}</span>
+                    <strong>{item.pattern}</strong>
+                    {item.exemplos?.[0] && <p style={{ margin: 0, color: 'var(--error)', textDecoration: 'line-through' }}>{item.exemplos[0]}</p>}
+                    <p style={{ margin: 0, color: 'var(--accent)', fontWeight: 700 }}>{item.formaNatural}</p>
+                    <p style={{ margin: 0, color: '#575b41' }}>{item.porque}</p>
+                    <span className="pill">{ledgerStatus(item)} · {item.timesCorrect}/{item.timesSeen} acertos</span>
+                  </div>
+                );
+              })()}
+
+              <div className="ledger-grid">
+                {filteredLedger.length === 0 ? (
+                  <div className="empty-state" style={{ gridColumn: '1 / -1' }}>Nenhum item aqui ainda — faça uma sessão pra popular seu mapa.</div>
+                ) : filteredLedger.map((item) => {
+                  const status = ledgerStatus(item);
+                  return (
+                    <button key={item.id} className={`ledger-node ${status}`} onClick={() => setExpandedLedgerId(item.id === expandedLedgerId ? null : item.id)}>
+                      <span className="ledger-node-cat">{item.categoria || item.skill}</span>
+                      <span className="ledger-node-pattern">{item.pattern}</span>
+                      <span className="ledger-node-rate">{status === 'dominado' ? 'dominado' : `${Math.round(item.taxaErro * 100)}% erro recente`}</span>
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -950,8 +626,8 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
 
               <div className="stat-row">
                 <div className="stat-card">
-                  <strong>{streak}</strong>
-                  <span>dias seguidos</span>
+                  <strong>{cadenceStreak}</strong>
+                  <span>semanas em cadência</span>
                 </div>
                 <div className="stat-card">
                   <strong>{masteredCount}</strong>
@@ -960,21 +636,46 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
               </div>
 
               <div className="chart-card">
-                <h4>Nível (CEFR)</h4>
+                <h4>Cadência semanal · meta {profile.weekly_cadence_target}/sem</h4>
+                <div className="session-top">
+                  <SessionRing completed={currentWeek.sessions} total={profile.weekly_cadence_target} />
+                  <div className="session-info">
+                    <span className="session-meta">ESSA SEMANA</span>
+                    <span className="session-title">{currentWeek.sessions} de {profile.weekly_cadence_target} sessões</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="chart-card">
+                <h4>Patentes</h4>
                 <div className="level-row">
                   <div className="level-card">
-                    <span className="level-tag">{cefrLevels.writing}</span>
+                    <span className="level-tag">{writingPatent}</span>
                     <span>Escrita</span>
                   </div>
                   <div className="level-card">
-                    <span className="level-tag">{cefrLevels.speaking}</span>
+                    <span className="level-tag">{speakingPatent}</span>
                     <span>Fala</span>
                   </div>
                 </div>
               </div>
 
               <div className="chart-card">
-                <h4>Minutos esta semana</h4>
+                <h4>Trilha atual · {trackLabel(profile.current_track)}, estágio {profile.current_stage}</h4>
+                {bossAvailable.writing && (
+                  <button className="boss-btn" style={{ marginBottom: 8, width: '100%' }} onClick={() => startBoss('writing')} disabled={bossDoneThisStage}>
+                    {bossDoneThisStage ? 'Desafio de escrita vencido ✓' : 'Desafio do estágio — escrita'}
+                  </button>
+                )}
+                {bossAvailable.speaking && (
+                  <button className="boss-btn" style={{ width: '100%' }} onClick={() => startBoss('speaking')} disabled={bossDoneThisStage}>
+                    {bossDoneThisStage ? 'Desafio de fala vencido ✓' : 'Desafio do estágio — fala'}
+                  </button>
+                )}
+              </div>
+
+              <div className="chart-card">
+                <h4>Sessões nos últimos 7 dias</h4>
                 <div className="bar-chart">
                   {weekDays.map((d) => (
                     <div key={d.key} className={`bar-col ${d.isToday ? 'today' : ''}`}>
@@ -1002,40 +703,31 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
             </section>
           )}
 
-          {(screen === 'write' || screen === 'speak') && (
+          {(screen === 'write' || screen === 'speak') && activeScenario && (
             <section className={`screen ${screen === 'speak' ? 'dark-screen' : ''}`}>
               <div className="sub-header">
                 <button className="back-btn" onClick={resetView}>←</button>
-                <span className="sub-label">{screen === 'speak' ? 'FALA' : 'ESCRITA'}</span>
-                {queue && <span className="sub-count">{queueIndex + 1}/{queue.length}</span>}
+                <span className="sub-label">{screen === 'speak' ? 'FALA' : 'ESCRITA'}{queueKind === 'boss' ? ' · DESAFIO' : ''}</span>
+                {queue && queueKind !== 'boss' && <span className="sub-count">{queueIndex + 1}/{queue.length}</span>}
               </div>
-              {queue && (
+              {queue && queueKind !== 'boss' && (
                 <div className="session-progress-track">
                   <div className="session-progress-fill" style={{ width: `${((queueIndex + 1) / queue.length) * 100}%` }} />
                 </div>
               )}
 
-              {taskLoading ? (
-                <div className="scenario-box scenario-loading">
-                  <p>Gerando uma tarefa nova pro seu nível…</p>
-                </div>
-              ) : (
-                <>
-                  <div className="scenario-box">
-                    <h2>{screen === 'write' ? writeScenario.label : speakScenario.label}</h2>
-                    <p>{screen === 'write' ? writeScenario.context : speakScenario.context}</p>
-                    <small>{screen === 'write' ? writeScenario.askPt : speakScenario.askPt}</small>
+              <div className="scenario-box">
+                <h2>{activeScenario.label}</h2>
+                <p>{activeScenario.context}</p>
+                <small>{activeScenario.askPt}</small>
+                {activeQueueItem?.restriction && (
+                  <div className="scenario-meta">
+                    <span className="restriction-chip">use: {activeQueueItem.restriction.structureHint}</span>
                   </div>
-                  {(screen === 'write' ? writeScenario.presentation : speakScenario.presentation) && (
-                    <div className="presentation-box">
-                      <span className="presentation-label">APRENDA ANTES DE TENTAR</span>
-                      <p>{screen === 'write' ? writeScenario.presentation : speakScenario.presentation}</p>
-                    </div>
-                  )}
-                </>
-              )}
+                )}
+              </div>
 
-              {!taskLoading && (screen === 'write' ? (
+              {screen === 'write' ? (
                 <>
                   <div className="input-wrap">
                     <textarea
@@ -1050,7 +742,7 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
                     </div>
                   </div>
                   {error && <div className="error-box">{error}</div>}
-                  <button className={`submit-btn ${draft.trim() ? 'ready' : ''}`} onClick={() => submitAnswer('write')} disabled={loading}>
+                  <button className={`submit-btn ${draft.trim() ? 'ready' : ''}`} onClick={() => submitAnswer('writing')} disabled={loading}>
                     {loading ? 'Corrigindo…' : 'Verificar'}
                   </button>
                 </>
@@ -1076,11 +768,11 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
                     />
                   )}
                   {error && <div className="error-box dark">{error}</div>}
-                  <button className="submit-btn accent" onClick={() => submitAnswer('speak')} disabled={loading || (!transcript && !speakTyped)}>
+                  <button className="submit-btn accent" onClick={() => submitAnswer('speaking')} disabled={loading || (!transcript && !speakTyped)}>
                     {loading ? 'Corrigindo…' : 'Verificar'}
                   </button>
                 </>
-              ))}
+              )}
             </section>
           )}
 
@@ -1088,56 +780,54 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
             <section className="screen result-screen">
               <div className="sub-header">
                 <button className="back-btn" onClick={resetView}>←</button>
-                <span className="sub-label">{result.mode === 'speak' ? 'FALA · CORREÇÃO' : 'ESCRITA · CORREÇÃO'}</span>
+                <span className="sub-label">{result.skill === 'speaking' ? 'FALA · CORREÇÃO' : 'ESCRITA · CORREÇÃO'}</span>
               </div>
 
-              {levelUpBanner && (
-                <div className="level-up-banner">
-                  🎉 Você subiu de nível em {levelUpBanner.skill === 'speaking' ? 'fala' : 'escrita'}: agora é <strong>{levelUpBanner.level}</strong>
-                </div>
-              )}
-
-              <div className="result-badge">
-                <span className={`badge-icon ${result.verdict === 'rework' ? 'warn' : 'ok'}`}>{result.verdict === 'rework' ? '!' : '✓'}</span>
-                <strong>{badgeCopy(result, diffEditCount)}</strong>
-              </div>
+              {(() => {
+                const badge = badgeConfig(result);
+                return (
+                  <div className="result-badge">
+                    <span className={`badge-icon ${badge.cls}`}>{badge.icon}</span>
+                    <strong>{badge.label}</strong>
+                  </div>
+                );
+              })()}
 
               <div className="result-card">
-                <span className="result-label">{result.mode === 'speak' ? 'VOCÊ FALOU' : 'VOCÊ ESCREVEU'}</span>
-                <DiffLine original={result.original} natural={result.natural} />
+                <span className="result-label">{result.skill === 'speaking' ? 'VOCÊ FALOU' : 'VOCÊ ESCREVEU'}</span>
+                <HighlightedAnswer userText={result.original} problemas={result.problemas} veredito={result.veredito} />
               </div>
 
-              <div className="result-card accent">
-                <div className="result-row">
-                  <span className="result-label">{result.mode === 'speak' ? 'COMO UM NATIVO DIRIA' : 'VERSÃO NATURAL'}</span>
-                  <button className="play-btn" onClick={() => speakText(result.natural)}>▷ ouvir</button>
-                </div>
-                <p>{result.natural}</p>
-              </div>
-
-              <div className="insight-box">
-                <strong>Por quê:</strong>
-                <p>{result.why}</p>
-              </div>
-
-              {result.tip && (
-                <div className="insight-box muted">
-                  <strong>Dica:</strong>
-                  <p>{result.tip}</p>
+              {result.versao_natural && (
+                <div className="result-card accent">
+                  <div className="result-row">
+                    <span className="result-label">VERSÃO NATURAL</span>
+                    <button className="play-btn" onClick={() => speakText(result.versao_natural)}>▷ ouvir</button>
+                  </div>
+                  <p>{result.versao_natural}</p>
                 </div>
               )}
 
-              {result.learningPoint && (
-                <div className="insight-box muted">
-                  <strong>Próximo foco:</strong>
-                  <p>{result.learningPoint}</p>
+              {result.porque && (
+                <div className="insight-box">
+                  <strong>Por quê:</strong>
+                  <p>{result.porque}</p>
                 </div>
               )}
 
-              <ReviewPipeline stage={result.stage} mastered={result.mastered} />
+              {result.restriction && !result.restricao_cumprida && (
+                <div className="insight-box muted">
+                  <strong>Quase lá:</strong>
+                  <p>Tenta a mesma ideia usando: {result.restriction.structureHint}</p>
+                </div>
+              )}
+
+              {result.isReview && result.stage !== null && (
+                <ReviewPipeline stage={result.stage} mastered={result.mastered} />
+              )}
 
               <div className="footer-actions">
-                {result.mode === 'speak' && (
+                {result.skill === 'speaking' && (
                   <button className="icon-btn" onClick={redoAttempt} title="Tentar de novo">↺</button>
                 )}
                 <button className="submit-btn ready" style={{ flex: 1 }} onClick={advanceQueue}>{queueButtonLabel}</button>
@@ -1152,9 +842,9 @@ export default function CadenceApp({ user, initialReviewItems, initialStreak, in
               <IconHome />
               <span>Hoje</span>
             </button>
-            <button className={`nav-btn ${screen === 'practice' ? 'active' : ''}`} onClick={() => setScreen('practice')}>
-              <IconPractice />
-              <span>Praticar</span>
+            <button className={`nav-btn ${screen === 'mapa' ? 'active' : ''}`} onClick={() => setScreen('mapa')}>
+              <IconMap />
+              <span>Mapa</span>
             </button>
             <button className={`nav-btn ${screen === 'progress' ? 'active' : ''}`} onClick={() => setScreen('progress')}>
               <IconProgress />

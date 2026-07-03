@@ -1,14 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
-import { gradeAnswer } from '../../../../lib/grade';
+import { correctAnswer } from '../../../../lib/correct';
 import { computeReviewOutcome, nextReviewDate } from '../../../../lib/srs';
-import { nextCefrLevel } from '../../../../lib/cefr';
-
-const SKILL_BY_MODE = { write: 'writing', speak: 'speaking' };
-
-// Avanço de nível: desempenho consistente, não um exercício isolado —
-// exige 5 tentativas seguidas sem "rework" no nível atual.
-const LEVEL_UP_STREAK = 5;
+import { clampAxis } from '../../../../lib/patents';
 
 export async function POST(request) {
   const supabase = createClient();
@@ -27,26 +21,46 @@ export async function POST(request) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  const { mode, userText, scenario, memory, reviewItemId } = body;
-  if (!userText || !scenario) {
+  const { skill, task, userText, restriction, reviewItemId, isBoss, track, stage } = body;
+  if (!userText || !task || (skill !== 'writing' && skill !== 'speaking')) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 });
   }
 
-  const skill = SKILL_BY_MODE[mode] || 'writing';
-  const feedback = await gradeAnswer({ mode, userText, scenario, memory });
-  const correct = feedback.verdict !== 'rework';
+  // Perfil de erros comprimido: só os top-5 itens ativos dessa skill (§6.2).
+  const { data: activeItems } = await supabase
+    .from('review_items')
+    .select('id, pattern, skill, times_seen, times_correct')
+    .eq('user_id', user.id)
+    .eq('skill', skill)
+    .eq('mastered', false)
+    .not('pattern', 'is', null)
+    .order('next_review_at', { ascending: true })
+    .limit(5);
+
+  const errorProfile = (activeItems || []).map((it) => ({
+    id: it.id,
+    pattern: it.pattern,
+    skill: it.skill,
+    taxa_erro_recente: it.times_seen > 0 ? 1 - it.times_correct / it.times_seen : 1,
+  }));
+
+  const mode = isBoss ? 'rubrica' : 'quick';
+  const correction = await correctAnswer({ skill, task, userText, restriction, errorProfile, mode });
+  const correct = correction.veredito === 'correto';
 
   const { data: attempt } = await supabase
     .from('exercise_attempts')
     .insert({
       user_id: user.id,
       skill,
-      task_type: reviewItemId ? 'review' : 'ppp_practice',
-      task: { label: scenario.label, context: scenario.context, askPt: scenario.askPt },
+      task_type: isBoss ? 'boss' : reviewItemId ? 'review' : 'ppp_practice',
+      task: { label: task.label, context: task.context, askPt: task.askPt, restriction: restriction || null },
       user_input: userText,
-      feedback,
-      verdict: feedback.verdict,
+      feedback: correction,
+      verdict: correction.veredito,
       review_item_id: reviewItemId || null,
+      rubrica_delta: correction.rubrica_delta,
+      restricao_cumprida: correction.restricao_cumprida,
     })
     .select('id')
     .single();
@@ -54,7 +68,7 @@ export async function POST(request) {
   let reviewItem = null;
 
   if (reviewItemId) {
-    // Revisão de um item existente: aplica a progressão 0/1/7/30 do SRS.
+    // Revisão de um item existente do ledger: aplica a progressão 0/1/7/30.
     const { data: existing } = await supabase
       .from('review_items')
       .select('*')
@@ -91,31 +105,57 @@ export async function POST(request) {
 
       reviewItem = updated;
     }
-  } else if (!correct) {
-    // Erro novo detectado numa tarefa livre: entra no SRS já no estágio 0.
+  } else if (correction.erro_ledger?.acao === 'atualizar' && correction.erro_ledger.id) {
+    // Erro numa tarefa livre bate com um padrão já existente — reforça o
+    // contador; a revisão espaçada de verdade acontece quando ele reaparece.
+    const { data: existing } = await supabase
+      .from('review_items')
+      .select('*')
+      .eq('id', correction.erro_ledger.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existing) {
+      const { data: updated } = await supabase
+        .from('review_items')
+        .update({
+          times_seen: existing.times_seen + 1,
+          times_correct: existing.times_correct + (correct ? 1 : 0),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      reviewItem = updated;
+    }
+  } else if (correction.erro_ledger?.acao === 'criar' && correction.erro_ledger.pattern) {
+    // Padrão novo — upsert por (user_id, skill, pattern) deduplica automático.
     const { data: created } = await supabase
       .from('review_items')
-      .insert({
-        user_id: user.id,
-        type: 'error',
-        content: {
+      .upsert(
+        {
+          user_id: user.id,
+          type: 'error',
           skill,
-          label: scenario.label,
-          context: scenario.context,
-          askPt: scenario.askPt,
-          target: userText,
-          correction: feedback.natural,
-          note: feedback.why,
+          pattern: correction.erro_ledger.pattern,
+          content: {
+            categoria: correction.erro_ledger.categoria,
+            exemplos_do_usuario: [userText],
+            forma_natural: correction.erro_ledger.forma_natural,
+            porque: correction.erro_ledger.porque_padrao,
+            dica: correction.erro_ledger.dica,
+          },
+          stage: 0,
+          next_review_at: new Date().toISOString(),
         },
-        stage: 0,
-        next_review_at: new Date().toISOString(),
-      })
+        { onConflict: 'user_id,skill,pattern' },
+      )
       .select('*')
       .single();
-
     reviewItem = created;
   }
 
+  // Patentes vêm dos 4 eixos da rubrica acumulados — nunca de volume de exercícios.
   const { data: progressRow } = await supabase
     .from('skill_progress')
     .select('*')
@@ -123,35 +163,38 @@ export async function POST(request) {
     .eq('skill', skill)
     .maybeSingle();
 
-  const currentLevel = progressRow?.cefr_level || 'A1';
-  const streakAfter = correct ? (progressRow?.correct_streak || 0) + 1 : 0;
-
-  let levelAfter = currentLevel;
-  let leveledUp = false;
-  let streakToSave = streakAfter;
-  if (streakAfter >= LEVEL_UP_STREAK) {
-    levelAfter = nextCefrLevel(currentLevel);
-    leveledUp = levelAfter !== currentLevel;
-    streakToSave = 0; // reinicia a contagem no novo nível
-  }
+  const delta = correction.rubrica_delta || { precisao: 0, naturalidade: 0, vocabulario: 0, fluencia: 0 };
 
   await supabase.from('skill_progress').upsert(
     {
       user_id: user.id,
       skill,
-      cefr_level: levelAfter,
+      precisao: clampAxis((progressRow?.precisao || 0) + delta.precisao),
+      naturalidade: clampAxis((progressRow?.naturalidade || 0) + delta.naturalidade),
+      vocabulario: clampAxis((progressRow?.vocabulario || 0) + delta.vocabulario),
+      fluencia: clampAxis((progressRow?.fluencia || 0) + delta.fluencia),
       total_attempts: (progressRow?.total_attempts || 0) + 1,
-      correct_streak: streakToSave,
+      correct_streak: correct ? (progressRow?.correct_streak || 0) + 1 : 0,
       last_attempt_at: new Date().toISOString(),
-      ...(leveledUp ? { leveled_up_at: new Date().toISOString() } : {}),
     },
     { onConflict: 'user_id,skill' },
   );
 
+  let bossPassed = null;
+  if (isBoss && track && typeof stage === 'number') {
+    bossPassed = correction.veredito !== 'erro';
+    if (bossPassed) {
+      await supabase.from('stage_completions').upsert(
+        { user_id: user.id, track, stage },
+        { onConflict: 'user_id,track,stage' },
+      );
+    }
+  }
+
   return NextResponse.json({
-    feedback,
+    correction,
     reviewItem,
     attemptId: attempt?.id || null,
-    levelUp: leveledUp ? { skill, level: levelAfter } : null,
+    bossPassed,
   });
 }
