@@ -76,16 +76,22 @@ export default function Diagnostic() {
 
   const finishSetup = async () => {
     setSaving(true);
+    setError('');
     try {
-      await fetch('/api/onboarding/complete', {
+      const res = await fetch('/api/onboarding/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ weeklyCadence: cadence, track }),
       });
+      // fetch não lança erro em respostas 4xx/5xx — precisa checar res.ok,
+      // senão a gente segue pro refresh achando que salvou e trava aqui
+      // pra sempre esperando o diagnóstico virar "completo".
+      if (!res.ok) throw new Error('setup_failed');
+      router.refresh();
     } catch {
-      // segue mesmo assim — o usuário pode ajustar depois
+      setError('Não consegui salvar agora. Tenta de novo.');
+      setSaving(false);
     }
-    router.refresh();
   };
 
   return (
@@ -209,6 +215,7 @@ export default function Diagnostic() {
                 </div>
               </div>
 
+              {error && <div className="error-box">{error}</div>}
               <button className="submit-btn ready" onClick={finishSetup} disabled={saving}>
                 {saving ? 'Preparando seu cadence…' : 'Começar a praticar'}
               </button>
