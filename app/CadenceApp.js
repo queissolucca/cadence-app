@@ -465,6 +465,12 @@ export default function CadenceApp({
     setScreen(result?.skill === 'speaking' ? 'speak' : 'write');
   };
 
+  const skipSpeaking = () => {
+    if (recording) recognition?.stop();
+    setError(''); setRecording(false);
+    advanceQueue();
+  };
+
   const speakText = (text) => {
     if (typeof window !== 'undefined' && window.speechSynthesis && text) {
       try {
@@ -768,9 +774,14 @@ export default function CadenceApp({
                     />
                   )}
                   {error && <div className="error-box dark">{error}</div>}
-                  <button className="submit-btn accent" onClick={() => submitAnswer('speaking')} disabled={loading || (!transcript && !speakTyped)}>
-                    {loading ? 'Corrigindo…' : 'Verificar'}
-                  </button>
+                  <div className="footer-actions">
+                    <button className="ghost-btn dark" onClick={skipSpeaking} disabled={loading}>
+                      Agora não consigo falar
+                    </button>
+                    <button className="submit-btn accent" style={{ flex: 1 }} onClick={() => submitAnswer('speaking')} disabled={loading || (!transcript && !speakTyped)}>
+                      {loading ? 'Corrigindo…' : 'Verificar'}
+                    </button>
+                  </div>
                 </>
               )}
             </section>

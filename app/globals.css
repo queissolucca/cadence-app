@@ -194,7 +194,8 @@ button { cursor: pointer; font-family: var(--font-ui); }
 .pipeline-step.filled span { color: var(--ink); font-weight: 700; }
 
 .footer-actions { display: flex; gap: 10px; margin-top: auto; }
-.ghost-btn { border: 1px solid #e3e0d7; border-radius: 14px; padding: 14px 16px; background: #fff; }
+.ghost-btn { border: 1px solid #e3e0d7; border-radius: 14px; padding: 14px 16px; background: #fff; font-size: 13px; }
+.ghost-btn.dark { background: transparent; border-color: rgba(255,255,255,0.25); color: #d8d9c9; }
 .icon-btn { border: 1px solid #e3e0d7; border-radius: 14px; padding: 14px 16px; background: #fff; color: #575b41; font-size: 18px; line-height: 1; flex-shrink: 0; }
 
 /* ---------- Progress tab ---------- */
