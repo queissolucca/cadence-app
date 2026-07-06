@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cadence — experimente agora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Hanken+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3EFE4;
+    --bg-card:#EAE3D2;
+    --ink:#15231C;
+    --stone:#6D6858;
+    --green:#1F5A42;
+    --green-deep:#132F23;
+    --green-soft:#DCE7DC;
+    --rust:#B5482F;
+    --line:rgba(21,35,28,0.12);
+    --dark-screen:#101B15;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:'Hanken Grotesk',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none;}
+  h1,h2,h3{font-family:'Bricolage Grotesque',serif;font-weight:700;line-height:1.08;letter-spacing:-0.01em;}
+  :focus-visible{outline:2px solid var(--green);outline-offset:3px;}
+  .eyebrow{font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--green);text-transform:lowercase;}
+
+  /* ---- top bar ---- */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 32px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:rgba(243,239,228,0.94);backdrop-filter:blur(6px);z-index:10;
+  }
+  .logo{font-family:'Bricolage Grotesque',serif;font-weight:800;font-size:19px;display:flex;align-items:center;gap:8px;}
+  .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--green);}
+  .progress-wrap{display:flex;align-items:center;gap:12px;}
+  .progress-label{font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--stone);}
+  .progress-track{width:140px;height:4px;background:var(--line);border-radius:4px;overflow:hidden;}
+  .progress-fill{height:100%;background:var(--green);width:20%;transition:width .35s ease;}
+  .exit{font-size:13px;color:var(--stone);}
+  .exit:hover{color:var(--ink);}
+
+  /* ---- step shell ---- */
+  .stage{max-width:620px;margin:0 auto;padding:64px 28px 90px;}
+  .step{display:none;animation:fade .4s ease;}
+  .step.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+  .card{background:var(--bg-card);border-radius:14px;padding:24px;margin:22px 0;}
+  .btn-primary{
+    background:var(--green-deep);color:#F3EFE4;border:none;cursor:pointer;
+    padding:15px 26px;border-radius:9px;font-weight:600;font-size:15px;width:100%;
+  }
+  .btn-primary:hover{background:var(--green);}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-ghost{
+    display:inline-block;margin-top:14px;font-size:14px;font-weight:600;color:var(--stone);
+    border-bottom:1.5px solid var(--stone);padding-bottom:2px;background:none;border-left:none;border-right:none;border-top:none;cursor:pointer;
+  }
+  .btn-ghost:hover{color:var(--ink);border-color:var(--ink);}
+
+  /* ---- step 1 ---- */
+  .pill{display:inline-block;font-family:'Spline Sans Mono',monospace;font-size:11px;background:var(--green-soft);color:var(--green-deep);padding:4px 10px;border-radius:20px;}
+
+  /* ---- step 2 (exercise) ---- */
+  .scenario-tag{font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--stone);letter-spacing:.04em;}
+  textarea{
+    width:100%;margin-top:16px;border:1px solid var(--line);border-radius:12px;background:#fff;
+    padding:16px;font-size:16px;font-family:'Hanken Grotesk',sans-serif;color:var(--ink);min-height:110px;resize:none;
+  }
+  textarea:focus{border-color:var(--green);}
+  .charcount{font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--stone);text-align:right;margin:8px 0 20px;}
+  .hint{font-size:13px;color:var(--stone);margin-top:6px;}
+
+  /* ---- step 3 (feedback) ---- */
+  .fb-badge{display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px;margin-bottom:16px;}
+  .fb-badge .ic{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:13px;flex-shrink:0;}
+  .ic.good{background:var(--green);}
+  .ic.adjust{background:var(--rust);}
+  .you-label{font-size:10px;color:var(--stone);font-family:'Spline Sans Mono',monospace;display:block;margin-bottom:6px;}
+  .sentence{font-size:16px;line-height:1.5;}
+  .strike{text-decoration:line-through;color:var(--rust);}
+  .ok{color:var(--green);font-weight:600;}
+  .why{font-size:14px;color:var(--stone);border-top:1px dashed var(--line);padding-top:14px;margin-top:16px;line-height:1.6;}
+  .why b{color:var(--ink);}
+  .native-quote{background:var(--dark-screen);color:#EFEAE0;border-radius:12px;padding:14px 16px;margin-top:14px;font-size:15px;}
+  .native-quote span{display:block;font-size:10px;color:#7FB89B;font-family:'Spline Sans Mono',monospace;margin-bottom:5px;}
+  .srs-row{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;}
+  .srs-chip{font-family:'Spline Sans Mono',monospace;font-size:11px;border:1px solid var(--line);border-radius:20px;padding:5px 11px;color:var(--stone);}
+  .srs-chip.active{border-color:var(--green);color:var(--green);}
+
+  /* ---- step 4 (teaser) ---- */
+  .stat-row{display:flex;gap:12px;margin:22px 0;}
+  .stat{flex:1;background:var(--bg-card);border-radius:12px;padding:16px;text-align:center;}
+  .stat b{font-size:22px;font-family:'Bricolage Grotesque',serif;}
+  .stat span{display:block;font-size:11px;color:var(--stone);margin-top:2px;}
+
+  /* ---- step 5 (payment) ---- */
+  .plan-card{border:1.5px solid var(--green);border-radius:14px;padding:22px;margin:20px 0;}
+  .plan-price{font-family:'Bricolage Grotesque',serif;font-size:30px;font-weight:800;}
+  .plan-price span{font-size:14px;font-weight:500;color:var(--stone);font-family:'Hanken Grotesk',sans-serif;}
+  .plan-list{margin-top:12px;font-size:13.5px;color:var(--stone);line-height:1.9;}
+  .tabs{display:flex;gap:8px;margin:24px 0 16px;}
+  .tab{flex:1;text-align:center;padding:11px;border-radius:9px;border:1px solid var(--line);font-size:13.5px;font-weight:600;cursor:pointer;color:var(--stone);}
+  .tab.active{background:var(--green-deep);color:#F3EFE4;border-color:var(--green-deep);}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;}
+  label{font-size:12px;color:var(--stone);display:block;margin-bottom:6px;font-family:'Spline Sans Mono',monospace;}
+  input[type=text]{
+    width:100%;border:1px solid var(--line);border-radius:9px;padding:12px;font-size:14px;font-family:'Hanken Grotesk',sans-serif;background:#fff;color:var(--ink);
+  }
+  input[type=text]:focus{border-color:var(--green);}
+  .pay-panel{display:none;}
+  .pay-panel.active{display:block;}
+  .finePrint{font-size:11.5px;color:var(--stone);margin-top:14px;line-height:1.5;}
+
+  /* ---- step 6 (confirmação) ---- */
+  .success-ic{width:56px;height:56px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;margin-bottom:20px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo"><span class="dot"></span>cadence</div>
+  <div class="progress-wrap">
+    <span class="progress-label" id="progressLabel">passo 1 de 5</span>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+  <a href="index.html" class="exit">sair</a>
+</div>
+
+<div class="stage">
+
+  <!-- STEP 1 -->
+  <section class="step active" data-step="1">
+    <span class="eyebrow">experimente agora</span>
+    <h1 style="font-size:32px;margin:14px 0 14px;">vamos treinar sua primeira frase real</h1>
+    <p style="color:var(--stone);font-size:16px;line-height:1.6;">isso leva menos de 2 minutos, sem cadastro. você vai escrever uma resposta pra um cenário real de trabalho e ver como funciona a correção do cadence — com o porquê, não só certo ou errado.</p>
+    <div class="card">
+      <span class="pill">1 cenário · 1 correção</span>
+      <p style="margin-top:10px;font-size:14px;color:var(--stone);">cenário: e-mail de trabalho</p>
+    </div>
+    <button class="btn-primary" onclick="goTo(2)">começar</button>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="step" data-step="2">
+    <span class="scenario-tag">cenário · e-mail de trabalho</span>
+    <h1 style="font-size:26px;margin:12px 0 8px;">seu gerente pergunta se o relatório fica pronto hoje.</h1>
+    <p class="hint">responda dizendo que você vai enviar amanhã de manhã — em inglês.</p>
+    <textarea id="answerInput" placeholder="escreva sua resposta em inglês..." maxlength="140" oninput="updateCount()"></textarea>
+    <div class="charcount"><span id="charCount">0</span>/140 caracteres</div>
+    <button class="btn-primary" id="checkBtn" onclick="checkAnswer()">verificar</button>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="step" data-step="3">
+    <div id="fbBadge" class="fb-badge"></div>
+    <div class="card">
+      <span class="you-label">você escreveu</span>
+      <p class="sentence" id="fbSentence"></p>
+    </div>
+    <p class="why" id="fbWhy"></p>
+    <div class="native-quote" id="fbNative"></div>
+    <div class="srs-row">
+      <span class="srs-chip active">hoje</span>
+      <span class="srs-chip">amanhã</span>
+      <span class="srs-chip">1 semana</span>
+      <span class="srs-chip">1 mês</span>
+    </div>
+    <button class="btn-primary" style="margin-top:24px;" onclick="goTo(4)">continuar</button>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="step" data-step="4">
+    <span class="eyebrow">isso foi só 1 de 6 itens de uma sessão real</span>
+    <h1 style="font-size:28px;margin:14px 0 10px;">imagina isso todo dia, 10 minutos, até virar automático.</h1>
+    <p style="color:var(--stone);font-size:15px;line-height:1.6;">cada sessão mistura escrita e fala, sempre com correção direta e repetição espaçada — assim é como quem já treina no cadence está evoluindo:</p>
+    <div class="stat-row">
+      <div class="stat"><b>12</b><span>dias seguidos</span></div>
+      <div class="stat"><b>47</b><span>itens dominados</span></div>
+      <div class="stat"><b>10min</b><span>por sessão</span></div>
+    </div>
+    <button class="btn-primary" onclick="goTo(5)">quero continuar treinando</button>
+  </section>
+
+  <!-- STEP 5 -->
+  <section class="step" data-step="5">
+    <span class="eyebrow">última etapa</span>
+    <h1 style="font-size:28px;margin:12px 0 4px;">comece a treinar todos os dias</h1>
+    <div class="plan-card">
+      <div class="plan-price">R$ 29,90<span> /mês</span></div>
+      <div class="plan-list">
+        + sessões diárias de ~10 minutos<br>
+        + correção direta com o porquê<br>
+        + repetição espaçada (hoje → amanhã → 1 sem → 1 mês)<br>
+        + cenários reais ilimitados de escrita e fala
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" id="tabCard" onclick="switchTab('card')">cartão de crédito</div>
+      <div class="tab" id="tabPix" onclick="switchTab('pix')">pix agendado (mensal)</div>
+    </div>
+
+    <div class="pay-panel active" id="panelCard">
+      <label>nome no cartão</label>
+      <input type="text" placeholder="como está impresso no cartão">
+      <div class="field-row">
+        <div>
+          <label>número do cartão</label>
+          <input type="text" placeholder="0000 0000 0000 0000">
+        </div>
+        <div>
+          <label>validade</label>
+          <input type="text" placeholder="MM/AA">
+        </div>
+      </div>
+      <div class="field-row">
+        <div>
+          <label>cvv</label>
+          <input type="text" placeholder="123">
+        </div>
+        <div></div>
+      </div>
+    </div>
+
+    <div class="pay-panel" id="panelPix">
+      <label>cpf</label>
+      <input type="text" placeholder="000.000.000-00">
+      <p class="hint" style="margin-top:12px;">você autoriza um débito pix de R$ 29,90 todo mês, na mesma data. cancele quando quiser, direto pelo app.</p>
+    </div>
+
+    <button class="btn-primary" style="margin-top:22px;" onclick="goTo(6)">confirmar assinatura</button>
+    <p class="finePrint">cobrança recorrente mensal de R$ 29,90. cancele quando quiser, sem multa. pagamento processado com criptografia de ponta a ponta.</p>
+  </section>
+
+  <!-- STEP 6 -->
+  <section class="step" data-step="6">
+    <div class="success-ic">✓</div>
+    <h1 style="font-size:28px;margin-bottom:10px;">tudo certo — sua assinatura está ativa.</h1>
+    <p style="color:var(--stone);font-size:15px;line-height:1.6;">sua sessão de hoje já está pronta: 6 itens, 10 minutos, escrita e fala. bora treinar o que fica travado.</p>
+    <button class="btn-primary" style="margin-top:22px;" onclick="alert('aqui entraria o redirecionamento para o app / dashboard \"Hoje\".')">ir para a sessão de hoje</button>
+  </section>
+
+</div>
+
+<script>
+  const totalSteps = 5; // progress bar considers steps 1-5, step 6 = concluído
+  function goTo(n){
+    document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+    document.querySelector('.step[data-step="'+n+'"]').classList.add('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+    const pct = n>totalSteps ? 100 : (n/totalSteps)*100;
+    document.getElementById('progressFill').style.width = pct+'%';
+    document.getElementById('progressLabel').textContent = n>totalSteps ? 'concluído' : 'passo '+n+' de '+totalSteps;
+  }
+
+  function updateCount(){
+    const val = document.getElementById('answerInput').value;
+    document.getElementById('charCount').textContent = val.length;
+  }
+
+  function checkAnswer(){
+    const raw = document.getElementById('answerInput').value.trim();
+    const lower = raw.toLowerCase();
+    const badge = document.getElementById('fbBadge');
+    const sentenceEl = document.getElementById('fbSentence');
+    const whyEl = document.getElementById('fbWhy');
+    const nativeEl = document.getElementById('fbNative');
+
+    if(!raw){
+      const el = document.getElementById('answerInput');
+      el.style.borderColor = 'var(--rust)';
+      el.placeholder = 'escreva algo antes de verificar :)';
+      return;
+    }
+
+    if(lower.includes('until') && !lower.includes(' by ')){
+      badge.innerHTML = '<span class="ic adjust">!</span> quase lá — 1 ajuste';
+      const highlighted = raw.replace(/until/i, '<span class="strike">until</span> <span class="ok">by</span>');
+      sentenceEl.innerHTML = highlighted;
+      whyEl.innerHTML = '<b>por quê:</b> "by" marca um prazo final ("no mais tardar"). "until" seria uma ação que continua até aquele momento — não é o caso aqui.';
+      nativeEl.innerHTML = '<span>como um nativo diria</span>"I\'ll send the report by tomorrow morning."';
+    } else if(lower.includes(' by ') || lower.startsWith('by ') || lower.includes('by tomorrow')){
+      badge.innerHTML = '<span class="ic good">✓</span> muito bem — está natural!';
+      sentenceEl.textContent = raw;
+      whyEl.innerHTML = '<b>por quê:</b> quando existe um prazo final, "by" é exatamente a escolha certa. é assim que um nativo escreveria.';
+      nativeEl.innerHTML = '<span>reforçando o padrão</span>"I\'ll send the report by tomorrow morning."';
+    } else {
+      badge.innerHTML = '<span class="ic adjust">!</span> bom começo — dá pra ficar mais natural';
+      sentenceEl.textContent = raw;
+      whyEl.innerHTML = '<b>por quê:</b> quando o prazo é um horário-limite, o mais natural em inglês é usar "by", não "until" ou outras construções mais literais do português.';
+      nativeEl.innerHTML = '<span>como um nativo diria</span>"I\'ll send the report by tomorrow morning."';
+    }
+
+    goTo(3);
+  }
+
+  function switchTab(which){
+    document.getElementById('tabCard').classList.toggle('active', which==='card');
+    document.getElementById('tabPix').classList.toggle('active', which==='pix');
+    document.getElementById('panelCard').classList.toggle('active', which==='card');
+    document.getElementById('panelPix').classList.toggle('active', which==='pix');
+  }
+</script>
+
+</body>
+</html>

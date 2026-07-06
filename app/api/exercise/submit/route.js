@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
-import { correctAnswer } from '../../../../lib/correct';
+import { correctAnswer, generateMasteryMessage } from '../../../../lib/correct';
 import { computeReviewOutcome, nextReviewDate } from '../../../../lib/srs';
 import { clampAxis } from '../../../../lib/patents';
 
@@ -46,8 +46,17 @@ export async function POST(request) {
     taxa_erro_recente: it.times_seen > 0 ? 1 - it.times_correct / it.times_seen : 1,
   }));
 
+  // §5: profundidade de correção é preferência do usuário — lida do servidor,
+  // nunca confiada ao payload do cliente.
+  const { data: prefRow } = await supabase
+    .from('profiles')
+    .select('correction_depth')
+    .eq('id', user.id)
+    .maybeSingle();
+  const depth = prefRow?.correction_depth || 'explain_always';
+
   const mode = isBoss ? 'rubrica' : 'quick';
-  const correction = await correctAnswer({ skill, task, userText, restriction, errorProfile, mode });
+  const correction = await correctAnswer({ skill, task, userText, restriction, errorProfile, mode, depth });
   const correct = correction.veredito === 'correto';
 
   const { data: attempt } = await supabase
@@ -68,6 +77,7 @@ export async function POST(request) {
     .single();
 
   let reviewItem = null;
+  let masteryEvent = null;
 
   if (reviewItemId) {
     // Revisão de um item existente do ledger: aplica a progressão 0/1/7/30.
@@ -106,6 +116,52 @@ export async function POST(request) {
       });
 
       reviewItem = updated;
+
+      // Feedback nomeado (§1): só na transição active→mastered, nunca a
+      // cada acerto isolado.
+      if (!existing.mastered && outcome.mastered) {
+        const content = existing.content || {};
+        const message = await generateMasteryMessage({
+          pattern: existing.pattern || content.categoria || 'padrão',
+          categoria: content.categoria || '',
+          formaNatural: content.forma_natural || '',
+          timesSeen: updated.times_seen,
+          timesCorrect: updated.times_correct,
+        });
+
+        const { data: insertedEvent } = await supabase
+          .from('mastery_events')
+          .insert({
+            user_id: user.id,
+            review_item_id: reviewItemId,
+            message: message.mensagem,
+            context: { pattern: existing.pattern, categoria: content.categoria, times_seen: updated.times_seen, times_correct: updated.times_correct },
+          })
+          .select('*')
+          .single();
+
+        masteryEvent = insertedEvent;
+
+        // §8 — recuperação ativa: a cada N (padrão 5) erros dominados no
+        // total, este evento de mastery pede pro aluno tentar explicar a
+        // regra ANTES de ver a explicação real — só nesse a cada N, nunca
+        // sempre (senão vira fricção o tempo todo).
+        const RECALL_EVERY_N_MASTERED = 5;
+        const { count: masteredTotal } = await supabase
+          .from('review_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('mastered', true);
+
+        if (masteryEvent && masteredTotal && masteredTotal % RECALL_EVERY_N_MASTERED === 0) {
+          masteryEvent.recall = {
+            reviewItemId,
+            pattern: existing.pattern || '',
+            porque: content.porque || '',
+            formaNatural: content.forma_natural || '',
+          };
+        }
+      }
     }
   } else if (correction.erro_ledger?.acao === 'atualizar' && correction.erro_ledger.id) {
     // Erro numa tarefa livre bate com um padrão já existente — reforça o
@@ -198,5 +254,6 @@ export async function POST(request) {
     reviewItem,
     attemptId: attempt?.id || null,
     bossPassed,
+    masteryEvent,
   });
 }

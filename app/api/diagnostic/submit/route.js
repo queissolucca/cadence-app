@@ -24,7 +24,10 @@ export async function POST(request) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  const result = await runDiagnostic(body.answers || {});
+  const writingText = (body.writingText || '').trim();
+  const speakingChoice = body.speakingChoice;
+
+  const result = await runDiagnostic({ writingText, speakingChoice });
 
   await Promise.all(
     ['writing', 'speaking'].map((skill) => {
@@ -33,6 +36,7 @@ export async function POST(request) {
         {
           user_id: user.id,
           skill,
+          cefr_level: axes.cefr,
           precisao: clampAxis(axes.precisao),
           naturalidade: clampAxis(axes.naturalidade),
           vocabulario: clampAxis(axes.vocabulario),
@@ -73,6 +77,7 @@ export async function POST(request) {
   return NextResponse.json({
     writing: result.writing,
     speaking: result.speaking,
+    diagnostico: result.diagnostico,
     ledgerItems: createdItems,
   });
 }

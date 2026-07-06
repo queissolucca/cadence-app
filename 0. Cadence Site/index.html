@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cadence — inglês, pouco e sempre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Hanken+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3EFE4;
+    --bg-card:#EAE3D2;
+    --ink:#15231C;
+    --stone:#6D6858;
+    --green:#1F5A42;
+    --green-deep:#132F23;
+    --green-soft:#DCE7DC;
+    --rust:#B5482F;
+    --line:rgba(21,35,28,0.12);
+    --dark-screen:#101B15;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Hanken Grotesk',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  img,svg{display:block;max-width:100%;}
+  a{color:inherit;text-decoration:none;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px;}
+  .eyebrow{
+    font-family:'Spline Sans Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.06em;
+    text-transform:lowercase;
+    color:var(--green);
+  }
+  h1,h2,h3{
+    font-family:'Bricolage Grotesque',serif;
+    font-weight:700;
+    line-height:1.05;
+    letter-spacing:-0.01em;
+  }
+  :focus-visible{outline:2px solid var(--green);outline-offset:3px;}
+
+  /* ---------- NAV ---------- */
+  header{
+    position:sticky;top:0;z-index:50;
+    background:rgba(243,239,228,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  nav{
+    max-width:1180px;margin:0 auto;padding:18px 32px;
+    display:flex;align-items:center;justify-content:space-between;gap:24px;
+  }
+  .logo{
+    font-family:'Bricolage Grotesque',serif;font-weight:800;font-size:21px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--green);}
+  .navlinks{display:flex;gap:30px;font-size:15px;color:var(--stone);}
+  .navlinks a:hover{color:var(--ink);}
+  .navcta{
+    background:var(--green-deep);color:#F3EFE4;
+    padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;
+    white-space:nowrap;
+  }
+  .navcta:hover{background:var(--green);}
+  @media (max-width:820px){ .navlinks{display:none;} }
+
+  /* ---------- HERO ---------- */
+  .hero{padding:76px 0 90px;}
+  .hero-grid{display:grid;grid-template-columns:1.05fr 0.95fr;gap:56px;align-items:center;}
+  .hero h1{font-size:52px;margin:16px 0 22px;}
+  .hero h1 em{font-style:normal;color:var(--green);}
+  .hero p.lead{font-size:18px;line-height:1.55;color:var(--stone);max-width:520px;margin-bottom:30px;}
+  .cta-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+  .btn-primary{
+    background:var(--green-deep);color:#F3EFE4;
+    padding:15px 26px;border-radius:9px;font-weight:600;font-size:15px;
+    border:none;cursor:pointer;
+  }
+  .btn-primary:hover{background:var(--green);}
+  .btn-ghost{font-size:15px;font-weight:600;color:var(--ink);border-bottom:1.5px solid var(--ink);padding-bottom:2px;}
+  .microcopy{font-size:12.5px;color:var(--stone);margin-top:14px;font-family:'Spline Sans Mono',monospace;}
+
+  /* ---------- PHONE MOCKUP (signature element) ---------- */
+  .phone{
+    width:270px;border-radius:30px;background:#fff;
+    border:1px solid var(--line);
+    box-shadow:0 26px 60px -18px rgba(21,35,28,0.28);
+    overflow:hidden;flex-shrink:0;
+  }
+  .phone.dark{background:var(--dark-screen);}
+  .phone-bar{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 18px 8px;font-family:'Spline Sans Mono',monospace;font-size:11px;
+    color:var(--ink);
+  }
+  .phone.dark .phone-bar{color:#EFEAE0;}
+  .phone-step{
+    font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:.04em;
+    color:var(--green);padding:2px 18px 0;text-transform:lowercase;
+  }
+  .phone.dark .phone-step{color:#7FB89B;}
+  .phone-body{padding:10px 18px 22px;}
+  .phone-title{font-family:'Bricolage Grotesque',serif;font-weight:700;font-size:19px;margin:6px 0 10px;}
+  .phone.dark .phone-title{color:#F3EFE4;}
+  .phone-card{background:var(--bg-card);border-radius:12px;padding:14px;font-size:13px;color:var(--stone);margin-bottom:10px;}
+  .phone-pill{
+    display:inline-block;font-family:'Spline Sans Mono',monospace;font-size:10.5px;
+    background:var(--green-soft);color:var(--green-deep);padding:3px 9px;border-radius:20px;margin-bottom:8px;
+  }
+  .phone-input{
+    border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px;color:var(--ink);min-height:56px;background:#fff;margin-bottom:10px;
+  }
+  .strike{text-decoration:line-through;color:var(--rust);}
+  .ok{color:var(--green);font-weight:600;}
+  .phone-btn{background:var(--green-deep);color:#F3EFE4;text-align:center;padding:11px;border-radius:9px;font-size:13px;font-weight:600;}
+  .phone-why{font-size:12px;color:var(--stone);border-top:1px dashed var(--line);padding-top:8px;margin-top:4px;}
+  .phone-why b{color:var(--ink);}
+  .mic{
+    width:52px;height:52px;border-radius:50%;background:var(--green);margin:26px auto 8px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .mic-bars{display:flex;gap:2px;align-items:center;}
+  .mic-bars span{width:3px;background:#F3EFE4;border-radius:2px;}
+  .caption-dark{color:#B9C7BE;font-size:11px;text-align:center;font-family:'Spline Sans Mono',monospace;}
+  .transcript{color:#EFEAE0;font-size:13px;text-align:center;padding:14px 4px;}
+  .quote-you{color:#EFEAE0;background:#1B2921;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:8px;}
+  .quote-you span{color:#7FB89B;font-size:10px;font-family:'Spline Sans Mono',monospace;display:block;margin-bottom:3px;}
+
+  @media (max-width:900px){
+    .hero-grid{grid-template-columns:1fr;}
+    .hero h1{font-size:38px;}
+    .hero-visual{justify-content:center;display:flex;}
+  }
+
+  /* ---------- PROBLEM ---------- */
+  .problem{background:#EFEAdd;padding:96px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .problem h2{font-size:36px;max-width:720px;margin:14px 0 18px;}
+  .problem .lead{color:var(--stone);max-width:640px;font-size:16.5px;line-height:1.6;margin-bottom:48px;}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  .card{
+    background:var(--bg-card);border-top:3px solid var(--green);
+    border-radius:10px;padding:26px 24px;
+  }
+  .card h3{font-size:19px;margin-bottom:12px;}
+  .card p{font-size:14.5px;line-height:1.6;color:var(--stone);}
+  .closer{
+    margin-top:44px;font-size:18px;font-family:'Bricolage Grotesque',serif;font-weight:700;
+    max-width:680px;
+  }
+  @media (max-width:900px){.cards{grid-template-columns:1fr;}}
+
+  /* ---------- SOLUTION ---------- */
+  .solution{padding:100px 0;}
+  .solution-head{max-width:680px;margin-bottom:20px;}
+  .solution h2{font-size:36px;margin:14px 0 16px;}
+  .solution .lead{color:var(--stone);font-size:16.5px;line-height:1.6;margin-bottom:20px;}
+  .chip-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:64px;}
+  .chip{
+    font-family:'Spline Sans Mono',monospace;font-size:12px;
+    border:1px solid var(--line);border-radius:20px;padding:7px 14px;color:var(--ink);
+  }
+  .phones-grid{
+    display:flex;gap:26px;overflow-x:auto;padding-bottom:14px;margin-bottom:56px;
+    scrollbar-width:thin;
+  }
+  .phones-grid::-webkit-scrollbar{height:6px;}
+  .phones-grid::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
+  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;}
+  .feat h4{font-size:17px;margin-bottom:8px;font-family:'Bricolage Grotesque',serif;}
+  .feat p{font-size:14px;color:var(--stone);line-height:1.6;}
+  .feat .num{font-family:'Spline Sans Mono',monospace;font-size:12px;color:var(--green);display:block;margin-bottom:10px;}
+  @media (max-width:900px){.feat-grid{grid-template-columns:1fr;}}
+
+  /* ---------- FAQ ---------- */
+  .faq{background:#EFEAdd;padding:100px 0;border-top:1px solid var(--line);}
+  .faq h2{font-size:36px;margin:14px 0 40px;}
+  .faq-list{max-width:760px;}
+  details{
+    border-bottom:1px solid var(--line);padding:20px 0;
+  }
+  summary{
+    cursor:pointer;font-weight:600;font-size:16px;list-style:none;
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+  }
+  summary::-webkit-details-marker{display:none;}
+  summary::after{
+    content:'+';font-family:'Spline Sans Mono',monospace;font-size:20px;color:var(--green);flex-shrink:0;
+  }
+  details[open] summary::after{content:'–';}
+  details p{margin-top:12px;color:var(--stone);font-size:14.5px;line-height:1.6;max-width:640px;}
+
+  /* ---------- FOOTER ---------- */
+  footer{background:var(--green-deep);color:#F3EFE4;padding:64px 0 32px;}
+  .foot-top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:40px;}
+  .foot-logo{font-family:'Bricolage Grotesque',serif;font-weight:800;font-size:24px;}
+  .foot-tag{font-family:'Spline Sans Mono',monospace;font-size:12px;color:#9FB6A9;margin-top:6px;}
+  .foot-cta .btn-primary{background:#F3EFE4;color:var(--green-deep);}
+  .foot-cta .btn-primary:hover{background:#fff;}
+  .foot-bottom{
+    border-top:1px solid rgba(255,255,255,0.12);padding-top:20px;
+    display:flex;justify-content:space-between;color:#8FA79A;font-size:12.5px;flex-wrap:wrap;gap:10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <div class="logo"><span class="dot"></span>cadence</div>
+    <div class="navlinks">
+      <a href="#problema">o problema</a>
+      <a href="#metodo">o método</a>
+      <a href="#faq">perguntas</a>
+    </div>
+    <a href="onboarding.html" class="navcta">quero destravar meu inglês</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">inglês — pouco e sempre</span>
+      <h1>você entende quase tudo em inglês. <em>então por que ainda trava</em> na hora de escrever ou falar?</h1>
+      <p class="lead">cadence é feito pra quem já passou do básico — nível intermediário pra cima — e quer treinar exatamente o que falta: escrever com naturalidade e falar com confiança em situações reais. sem lição de gramática do zero.</p>
+      <div class="cta-row">
+        <a href="onboarding.html" class="btn-primary">quero destravar meu inglês</a>
+        <a href="#metodo" class="btn-ghost">ver como funciona</a>
+      </div>
+      <p class="microcopy">acesso antecipado · sessões de ~10 min · sem cartão de crédito</p>
+    </div>
+    <div class="hero-visual">
+      <div class="phone">
+        <div class="phone-bar"><span>9:41</span><span>●●●</span></div>
+        <span class="phone-step">01 · hoje · início da sessão</span>
+        <div class="phone-body">
+          <p style="font-size:13px;color:var(--stone);margin-bottom:2px;">bom dia, rafa</p>
+          <div class="phone-title">Hoje</div>
+          <div class="phone-card">
+            <span class="phone-pill">10 min · 6 itens</span><br>
+            2 escrita · 2 fala · 2 revisão
+          </div>
+          <div class="phone-btn">continuar sessão</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="problem" id="problema">
+  <div class="wrap">
+    <span class="eyebrow">// o problema real</span>
+    <h2>você não é iniciante. então por que ainda trava?</h2>
+    <p class="lead">anos de inglês, série sem legenda, e-mail lido sem esforço — mas na hora de escrever algo importante ou entrar numa call em inglês, o cérebro trava. isso não é falta de nível. é falta de prática no que realmente importa.</p>
+    <div class="cards">
+      <div class="card">
+        <h3>o platô do intermediário</h3>
+        <p>você passou dos exercícios básicos há anos, mas continua com os mesmos deslizes: preposição errada, tempo verbal torto, aquela pausa antes de falar porque não sabe se soa natural.</p>
+      </div>
+      <div class="card">
+        <h3>tempo, você não tem</h3>
+        <p>entre trabalho e o resto da vida, sobra pouco. curso inteiro, aula de 40 minutos, lição de casa — não cabe. o que cabe são os 10 minutos entre uma reunião e outra.</p>
+      </div>
+      <div class="card">
+        <h3>os apps tratam você como principiante</h3>
+        <p>"the cat is on the table" não é o seu problema. você já lê, já assiste, já entende. falta treinar escrita e fala em situações reais — com correção que explica o porquê, não só pontuação por acerto.</p>
+      </div>
+    </div>
+    <p class="closer">resultado: você entende quase tudo — mas ainda reescreve um e-mail cinco vezes ou trava numa apresentação. familiar?</p>
+  </div>
+</section>
+
+<section class="solution" id="metodo">
+  <div class="wrap">
+    <div class="solution-head">
+      <span class="eyebrow">// como o cadence funciona</span>
+      <h2>duas dores, um método: escrever e falar, todo dia, um pouco.</h2>
+      <p class="lead">cada sessão dura o tempo de um café — cerca de 10 minutos, sempre misturando escrita e fala em cenários reais, nunca frases soltas de manual.</p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">cenários reais, não frases soltas</span>
+      <span class="chip">correção direta + o porquê</span>
+      <span class="chip">SRS: hoje → amanhã → 1 sem → 1 mês</span>
+    </div>
+
+    <div class="phones-grid">
+      <div class="phone">
+        <div class="phone-bar"><span>9:41</span><span>●●●</span></div>
+        <span class="phone-step">02 · escrita · cenário real</span>
+        <div class="phone-body">
+          <p style="font-size:11px;color:var(--stone);margin-bottom:6px;">CENÁRIO · E-MAIL DE TRABALHO</p>
+          <div class="phone-title" style="font-size:16px;">seu gerente pergunta se o relatório fica pronto hoje.</div>
+          <div class="phone-input">I will send the report until tomorrow morning.</div>
+          <div class="phone-btn">verificar</div>
+        </div>
+      </div>
+
+      <div class="phone">
+        <div class="phone-bar"><span>9:41</span><span>●●●</span></div>
+        <span class="phone-step">03 · escrita · correção direta</span>
+        <div class="phone-body">
+          <p style="font-size:13px;font-weight:600;margin-bottom:8px;">✓ quase lá — 1 ajuste</p>
+          <div class="phone-card">
+            <span style="font-size:10px;color:var(--stone);">VOCÊ ESCREVEU</span><br>
+            I will send the report <span class="strike">until</span> <span class="ok">by</span> tomorrow morning.
+          </div>
+          <div class="phone-why"><b>por quê:</b> "by" marca um prazo final. "until" seria uma ação que continua até aquele momento.</div>
+        </div>
+      </div>
+
+      <div class="phone dark">
+        <div class="phone-bar"><span>9:41</span><span>●●●</span></div>
+        <span class="phone-step">04 · fala · gravando</span>
+        <div class="phone-body">
+          <p style="font-size:11px;color:#9FB6A9;margin-top:6px;">CENÁRIO · RESTAURANTE</p>
+          <div class="transcript">você terminou de comer.<br>peça a conta com educação.</div>
+          <div class="mic">
+            <div class="mic-bars">
+              <span style="height:10px;"></span><span style="height:18px;"></span><span style="height:8px;"></span><span style="height:14px;"></span>
+            </div>
+          </div>
+          <p class="caption-dark">toque para parar</p>
+        </div>
+      </div>
+
+      <div class="phone dark">
+        <div class="phone-bar"><span>9:41</span><span>●●●</span></div>
+        <span class="phone-step">05 · fala · correção + porquê</span>
+        <div class="phone-body">
+          <p style="font-size:11px;color:#e2a583;margin-top:6px;">entendível, mas soa rude</p>
+          <div class="quote-you"><span>você falou</span>"I want the bill."</div>
+          <div class="quote-you"><span>como um nativo diria</span>"Could we get the bill, please?"</div>
+        </div>
+      </div>
+
+      <div class="phone">
+        <div class="phone-bar"><span>9:41</span><span>●●●</span></div>
+        <span class="phone-step">06 · progresso · pipeline SRS</span>
+        <div class="phone-body">
+          <div class="phone-title" style="font-size:16px;">progresso</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div class="phone-card" style="flex:1;text-align:center;padding:10px;">
+              <b style="font-size:18px;">12</b><br><span style="font-size:11px;">dias seguidos</span>
+            </div>
+            <div class="phone-card" style="flex:1;text-align:center;padding:10px;">
+              <b style="font-size:18px;">47</b><br><span style="font-size:11px;">itens dominados</span>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--stone);">memória espaçada: hoje · amanhã · 1 sem · 1 mês</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="feat-grid">
+      <div class="feat">
+        <span class="num">escrita</span>
+        <h4>situações reais, não gramática solta</h4>
+        <p>você escreve dentro de um cenário — um e-mail, uma mensagem, um pedido — porque é assim que o inglês te trava na vida real.</p>
+      </div>
+      <div class="feat">
+        <span class="num">fala</span>
+        <h4>correção com o porquê, em uma linha</h4>
+        <p>nada de "errado, tente de novo". cada correção explica por que a frase soa mais natural — e volta pra revisão depois.</p>
+      </div>
+      <div class="feat">
+        <span class="num">memória</span>
+        <h4>repetição espaçada, sem enrolação</h4>
+        <p>o que você errou volta hoje, amanhã, em uma semana e em um mês — só o suficiente pra ficar de verdade, sem repetir o que você já domina.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="faq" id="faq">
+  <div class="wrap">
+    <span class="eyebrow">// perguntas</span>
+    <h2>perguntas antes de começar</h2>
+    <div class="faq-list">
+      <details>
+        <summary>preciso ser avançado pra usar o cadence?</summary>
+        <p>se você já entende conversas no geral, lê sem ficar traduzindo tudo mentalmente e consegue entender algumas músicas em inglês, é pra você.</p>
+      </details>
+      <details>
+        <summary>quanto tempo eu preciso dedicar por dia?</summary>
+        <p>em torno de 10 minutos. as sessões são curtas de propósito, pra caber entre uma reunião e outra — não pedem hora marcada.</p>
+      </details>
+      <details>
+        <summary>o cadence ensina gramática do zero?</summary>
+        <p>não. não tem lição de "verb to be" ou vocabulário básico. o foco é no que trava quem já tem base: escrever com naturalidade e falar com confiança em situações reais.</p>
+      </details>
+      <details>
+        <summary>como funciona a correção?</summary>
+        <p>cada erro vem com o porquê em uma linha — não só o certo e o errado. e o que você errou volta pra revisão em hoje, amanhã, uma semana e um mês, seguindo repetição espaçada.</p>
+      </details>
+      <details>
+        <summary>por que eu pagaria para treinar só 10 minutos por dia?</summary>
+        <p>relembre os momentos que você ficou insegura(o) pra escrever uma mensagem ou email em inglês e teve que pesquisar cada frase antes de enviar. relembre as vezes que precisou falar e travou, ficou calado ou disparou a frase rápido demais só pra sair da situação. relembre aquela oportunidade de trabalho ou de vida que talvez tivesse sido diferente se o seu inglês não tivesse travado. 10 minutos por dia, todo dia, é o que resolve isso — porque é treino real, não mais uma lição que você vai esquecer. e o custo de continuar assim é maior que r$29,90 por mês. pagar esse valor também é o que garante que você vai abrir o app hoje, amanhã e o resto da semana — de graça é fácil abandonar, você já viveu isso outras vezes.</p>
+      </details>
+      <details>
+        <summary>preciso falar em voz alta, mesmo em lugar público?</summary>
+        <p>dá pra treinar por texto ou por áudio — você escolhe o formato e o ritmo de cada sessão, dependendo de onde e quando estiver praticando.</p>
+      </details>
+      <details>
+        <summary>quando eu posso começar a usar?</summary>
+        <p>estamos em fase inicial, com acesso antecipado por lista de espera. entre na lista abaixo e avisamos por e-mail assim que abrir sua vaga.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer id="cta">
+  <div class="wrap">
+    <div class="foot-top">
+      <div>
+        <div class="foot-logo">cadence</div>
+        <div class="foot-tag">inglês — pouco e sempre</div>
+      </div>
+      <div class="foot-cta">
+        <a href="onboarding.html" class="btn-primary">quero destravar meu inglês</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 cadence. feito pra quem já sabe inglês o bastante pra querer mais.</span>
+      <span>contato · privacidade</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
