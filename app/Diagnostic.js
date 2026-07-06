@@ -92,6 +92,15 @@ export default function Diagnostic() {
         throw new Error(body.error || 'setup_failed');
       }
       router.refresh();
+      // router.refresh() não devolve uma promise que resolve quando a troca
+      // de tela acontece — se por qualquer motivo o servidor não confirmar
+      // diagnostic_completed=true (hiccup de rede, replicação atrasada),
+      // essa tela ficaria presa em "Preparando seu cadence…" pra sempre. Se
+      // ainda estivermos montados depois de alguns segundos, destrava e avisa.
+      setTimeout(() => {
+        setSaving(false);
+        setError('Isso está demorando mais que o esperado. Tenta de novo.');
+      }, 6000);
     } catch (err) {
       setError(`Não consegui salvar agora (${err.message}). Tenta de novo.`);
       setSaving(false);

@@ -14,11 +14,20 @@ export default async function Page() {
     return <LoginScreen />;
   }
 
-  const { data: profile } = await supabase
+  // select('*') em vez de listar colunas: se uma migration nova (ex: as
+  // colunas correction_timing/correction_depth) ainda não rodou no banco,
+  // pedir colunas explícitas que não existem falha a query inteira e derruba
+  // profile pra null — o que reabre o onboarding do zero mesmo pra quem já
+  // completou, travando o fluxo. select('*') nunca quebra por causa disso.
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('weekly_cadence_target, current_track, current_stage, diagnostic_completed, correction_timing, correction_depth')
+    .select('*')
     .eq('id', user.id)
     .single();
+
+  if (profileError) {
+    console.error('Failed to load profile:', profileError);
+  }
 
   if (!profile?.diagnostic_completed) {
     return <Diagnostic />;
