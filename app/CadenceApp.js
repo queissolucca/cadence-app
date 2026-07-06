@@ -224,6 +224,7 @@ export default function CadenceApp({
   const [drillAnswers, setDrillAnswers] = useState({});
   const [drillResults, setDrillResults] = useState({});
   const [drillChecking, setDrillChecking] = useState(null);
+  const [drillsDismissed, setDrillsDismissed] = useState(false);
   // §6 — roleplay curto por tema (TBLT): correção só no final da troca
   // inteira, nunca interrompendo o fluxo da simulação.
   const [roleplayTranscript, setRoleplayTranscript] = useState([]);
@@ -568,7 +569,7 @@ export default function CadenceApp({
   // §4 — dispara ao mostrar um resultado com padrão novo/reforçado (criar ou
   // atualizar), nunca a cada acerto isolado nem quando veredito="correto".
   useEffect(() => {
-    setDrills(null); setDrillAnswers({}); setDrillResults({}); setDrillChecking(null);
+    setDrills(null); setDrillAnswers({}); setDrillResults({}); setDrillChecking(null); setDrillsDismissed(false);
     if (!result || result.veredito === 'correto' || !result.reinforcePattern) return;
 
     let cancelled = false;
@@ -1520,9 +1521,12 @@ export default function CadenceApp({
                 <p style={{ fontSize: 12.5, color: '#a3a68f' }}>Preparando mais um pouco desse padrão…</p>
               )}
 
-              {rewriteResult && drills && drills.length > 0 && (
+              {rewriteResult && drills && drills.length > 0 && !drillsDismissed && (
                 <div className="result-card">
-                  <span className="result-label">MAIS UM POUCO DESSE PADRÃO</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="result-label">MAIS UM POUCO DESSE PADRÃO (OPCIONAL)</span>
+                    <button className="ghost-btn" style={{ fontSize: 12 }} onClick={() => setDrillsDismissed(true)}>pular</button>
+                  </div>
                   {drills.map((drill, idx) => (
                     <div key={idx} style={{ marginTop: idx === 0 ? 10 : 18 }}>
                       <p style={{ fontSize: 14, marginBottom: 6 }}>{drill.prompt}</p>
