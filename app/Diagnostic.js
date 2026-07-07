@@ -115,7 +115,7 @@ export default function Diagnostic() {
             <>
               <div>
                 <div className="logo">cadence</div>
-                <p className="subtitle">você já sabe inglês, hora de aprender de vez.</p>
+                <p className="subtitle">Você já sabe inglês. É hora de aprender de vez.</p>
               </div>
               <div className="login-hero">
                 <h1>Antes de começar, um norte rápido.</h1>
