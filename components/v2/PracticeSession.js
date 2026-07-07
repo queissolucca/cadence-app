@@ -6,12 +6,13 @@ import { useSpeechRecognition } from '../../lib/useSpeechRecognition';
 import { speak } from '../../lib/tts';
 import { BackHeader } from './BackHeader';
 
-// Compartilhado por /praticar/writing e /praticar/speaking — só muda a
-// entrada (texto vs voz). Fila = revisões due primeiro, depois exercícios
-// novos do daily_content (montada no server, ver app/v2/praticar/*/page.js).
-export function PracticeSession({ mode, initialQueue, profile, otherModeHref, otherModeLabel }) {
+// Compartilhado por /praticar/writing, /praticar/speaking e /pontos-fracos
+// (Etapa 9) — só muda a entrada (texto vs voz) e, no treino direcionado,
+// cada item da fila pode trazer seu próprio "mode" (fila mesclada). Fila =
+// revisões due primeiro, depois exercícios novos (montada no server, ver
+// app/v2/praticar/*/page.js e app/v2/pontos-fracos/page.js).
+export function PracticeSession({ mode, initialQueue, profile, otherModeHref, otherModeLabel, headerTitle, headerExtra, sessionKind = 'daily' }) {
   const router = useRouter();
-  const isSpeaking = mode === 'speaking';
   const accent = profile?.voice_accent || 'us';
   const rate = profile?.audio_speed || 1.0;
   const lang = accent === 'uk' ? 'en-GB' : 'en-US';
@@ -37,6 +38,9 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
   const activeItem = deferredIndex !== null ? null : queue[queueIndex];
   const timingEnd = profile?.correction_timing === 'end_of_exercise' || profile?.correction_timing === 'end';
 
+  const itemMode = activeItem?.mode || mode;
+  const isSpeaking = itemMode === 'speaking';
+
   const answerText = isSpeaking ? speech.transcript || draft : draft;
 
   const resetInputs = () => {
@@ -54,7 +58,7 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
       const res = await fetch('/api/session/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'daily', mode, duration_seconds: durationSeconds, items_total: stats.total, items_correct: stats.correct }),
+        body: JSON.stringify({ kind: sessionKind, mode, duration_seconds: durationSeconds, items_total: stats.total, items_correct: stats.correct }),
       });
       const data = await res.json();
       setSessionSummary({ ...data, correct: stats.correct, total: stats.total, newPhrases: stats.newPhrases });
@@ -114,7 +118,7 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
     setError('');
 
     const payload = {
-      mode,
+      mode: itemMode,
       prompt_pt: activeItem.promptPt,
       expected_focus: activeItem.expectedFocus,
       user_answer: text,
@@ -134,7 +138,7 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
       const stats = statsRef.current;
       stats.total += 1;
       if (data.evaluation.result === 'correct') stats.correct += 1;
-      if (activeItem.kind === 'new' && data.reviewItem) {
+      if ((activeItem.kind === 'new' || activeItem.kind === 'weak') && data.reviewItem) {
         stats.newPhrases.push(data.reviewItem.content?.forma_natural || data.reviewItem.pattern);
       }
 
@@ -185,9 +189,10 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
     <div className="v2-bg" style={{ minHeight: '100dvh', padding: '20px 20px 40px', fontFamily: 'var(--font-ui-v2)' }}>
       <div style={{ maxWidth: 420, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <BackHeader title={isSpeaking ? 'Speaking' : 'Writing'} />
+          <BackHeader title={headerTitle || (isSpeaking ? 'Speaking' : 'Writing')} />
           <span style={{ fontFamily: 'var(--font-mono-v2)', fontSize: 12, color: 'var(--ink-soft)' }}>{progressCurrent}/{progressTotal}</span>
         </div>
+        {headerExtra}
         <div style={{ height: 4, borderRadius: 999, background: 'var(--line)', overflow: 'hidden', marginBottom: 20 }}>
           <div style={{ height: '100%', background: 'var(--green)', width: `${(progressCurrent / Math.max(1, progressTotal)) * 100}%`, transition: 'width .25s ease' }} />
         </div>
@@ -202,8 +207,13 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
               </div>
             ) : (
               <div className="v2-card" style={{ marginBottom: 16 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>cenário</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  {item.kind === 'weak' ? `foco · ${item.categoria}` : 'cenário'}
+                </span>
                 <p style={{ margin: '8px 0 0', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{item.promptPt}</p>
+                {item.personalHintPt && (
+                  <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--ink-soft)', fontStyle: 'italic' }}>{item.personalHintPt}</p>
+                )}
               </div>
             )}
 
