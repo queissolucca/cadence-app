@@ -2,13 +2,20 @@
 
 import { Pill } from './Pill';
 
-export function AppHeader({ streak, avatarUrl, avatarInitial, onAvatarClick, className = '', ...props }) {
+export function AppHeader({ streak, streakShields = 0, avatarUrl, avatarInitial, onAvatarClick, className = '', ...props }) {
   return (
     <header className={`v2-app-header ${className}`} {...props}>
       <span className="v2-logo">cadence</span>
       <div className="v2-header-right">
         {typeof streak === 'number' && (
-          <Pill dot dotColor="var(--green)">{streak} sem.</Pill>
+          <Pill dot dotColor="var(--green)">
+            {streak} {streak === 1 ? 'dia' : 'dias'}
+            {streakShields > 0 && (
+              <span title="1 falta por semana não zera sua sequência" style={{ marginLeft: 4 }} aria-label={`${streakShields} escudo(s) de proteção`}>
+                🛡
+              </span>
+            )}
+          </Pill>
         )}
         <button type="button" className="v2-avatar" onClick={onAvatarClick} aria-label="Perfil">
           {avatarUrl ? (

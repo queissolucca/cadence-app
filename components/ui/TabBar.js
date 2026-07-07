@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 function IconHome() {
   return (
@@ -42,21 +43,30 @@ function IconGear() {
 }
 
 const TABS = [
-  { key: 'hoje', href: '/', label: 'Hoje', Icon: IconHome },
+  { key: 'hoje', href: '', label: 'Hoje', Icon: IconHome },
   { key: 'mapa', href: '/mapa', label: 'Mapa', Icon: IconGrid },
   { key: 'progresso', href: '/progresso', label: 'Progresso', Icon: IconBars },
   { key: 'ajustes', href: '/ajustes', label: 'Ajustes', Icon: IconGear },
 ];
 
-export function TabBar({ active }) {
+// basePath: raiz onde o shell vive hoje ("/v2" enquanto roda em paralelo ao
+// app atual — ver histórico da conversa). Some pra "" quando isso um dia
+// virar a rota raiz de verdade, sem precisar tocar em nada além disso.
+export function TabBar({ active, basePath = '' }) {
+  const pathname = usePathname();
+
   return (
     <nav className="v2-tabbar">
-      {TABS.map(({ key, href, label, Icon }) => (
-        <Link key={key} href={href} className={`v2-tab-btn ${active === key ? 'v2-tab-active' : ''}`}>
-          <Icon />
-          <span>{label}</span>
-        </Link>
-      ))}
+      {TABS.map(({ key, href, label, Icon }) => {
+        const fullHref = `${basePath}${href}` || '/';
+        const isActive = active ? active === key : pathname === fullHref;
+        return (
+          <Link key={key} href={fullHref} className={`v2-tab-btn ${isActive ? 'v2-tab-active' : ''}`}>
+            <Icon />
+            <span>{label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }
