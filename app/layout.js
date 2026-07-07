@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'cadence — inglês, pouco e sempre',
+  title: 'cadence — você já sabe inglês, hora de aprender de vez.',
   description: 'Seu treino de inglês com correção inteligente, revisão espaçada e memória de aprendizado.',
 };
 

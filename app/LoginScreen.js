@@ -26,7 +26,7 @@ export default function LoginScreen() {
       <div className="app-card">
         <div className="login-screen">
           <div className="logo">cadence</div>
-          <p className="subtitle">inglês, pouco e sempre</p>
+          <p className="subtitle">você já sabe inglês, hora de aprender de vez.</p>
           <div className="login-hero">
             <h1>Treino diário de inglês com correção inteligente e memória de longo prazo.</h1>
             <p>Entre com sua conta Google para salvar seu progresso e sincronizar entre dispositivos.</p>
