@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
+import { invalidateTodayContent } from '../../../../lib/dailyContent';
 
 const MAX_EXTRA_THEMES = 2;
 
@@ -34,6 +35,11 @@ export async function POST(request) {
       return NextResponse.json({ error: 'update_failed' }, { status: 500 });
     }
   }
+
+  // Mudar o tema extra afeta o que /api/daily gera de conteúdo "novo" —
+  // invalida o cache de hoje pra próxima chamada regenerar já considerando
+  // a seleção nova.
+  await invalidateTodayContent(supabase, user.id);
 
   return NextResponse.json({ ok: true, themeIds });
 }
