@@ -21,6 +21,7 @@ const linkBtnStyle = {
 export default function LoginPageV2() {
   const router = useRouter();
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'magic'
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,10 +43,17 @@ export default function LoginPageV2() {
         if (err) throw err;
         setMagicSent(true);
       } else if (mode === 'signup') {
+        // full_name via options.data — o trigger handle_new_user (migration
+        // 0001) já lê raw_user_meta_data.full_name pra popular o profile,
+        // igual já faz hoje com o Google OAuth. Não duplica com um update
+        // manual depois.
         const { error: err } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/v2` },
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=/v2`,
+            data: { full_name: name.trim() },
+          },
         });
         if (err) throw err;
         router.push('/v2');
@@ -75,6 +83,12 @@ export default function LoginPageV2() {
             </p>
           ) : (
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {mode === 'signup' && (
+                <label style={{ fontSize: 12, color: 'var(--ink-soft)' }}>
+                  Nome
+                  <input type="text" required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
+                </label>
+              )}
               <label style={{ fontSize: 12, color: 'var(--ink-soft)' }}>
                 E-mail
                 <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />

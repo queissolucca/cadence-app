@@ -94,7 +94,7 @@ export async function POST(request) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('correction_depth, active_scenario_id')
+    .select('correction_depth, active_scenario_id, pronunciation_strictness')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -105,8 +105,19 @@ export async function POST(request) {
     ? '"explain_pt" deve ter só 1 linha curta, direto ao ponto — nada de parágrafo.'
     : '"explain_pt" pode ter até 2-3 linhas explicando a regra com clareza.';
 
+  // A transcrição de fala vem do reconhecimento do navegador — nunca
+  // perfeita. pronunciation_strictness ajusta o quanto isso é levado em
+  // conta como "erro" real vs ruído da transcrição.
+  const strictnessInstruction = mode === 'speaking'
+    ? {
+        low: 'A resposta veio de transcrição de voz automática, que erra grafia/pequenos detalhes sem relação com a fala real. Seja BEM tolerante — só marque "wrong" se o problema for claramente gramatical/de escolha de palavra, nunca por causa de erro óbvio de transcrição.',
+        medium: 'A resposta veio de transcrição de voz automática. Considere que pequenos deslizes podem ser da transcrição, não da fala — mas ainda marque erros gramaticais/de naturalidade reais.',
+        high: 'Avalie a resposta com o mesmo rigor de uma resposta escrita, mesmo sendo transcrição de voz.',
+      }[profile?.pronunciation_strictness || 'medium']
+    : '';
+
   const skillLabel = mode === 'speaking' ? 'fala' : 'escrita';
-  const system = `Você é um professor de inglês para brasileiros de nível intermediário. Avalia a resposta do aluno a um cenário real de ${skillLabel} — sempre direto, sem jargão gramatical.`;
+  const system = `Você é um professor de inglês para brasileiros de nível intermediário. Avalia a resposta do aluno a um cenário real de ${skillLabel} — sempre direto, sem jargão gramatical.${strictnessInstruction ? ` ${strictnessInstruction}` : ''}`;
   const userPrompt = `Cenário (em PT, pedindo resposta em inglês): ${prompt_pt}
 Foco esperado: ${expected_focus}
 Resposta do aluno: ${user_answer}
