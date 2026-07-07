@@ -3,6 +3,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { weekStartSP, weekEndSP, addDays } from '../../../../lib/dates';
 import { bucketReviewItems } from '../../../../lib/srs';
 import { computePatentByCount } from '../../../../lib/patents';
+import { getBeforeAfterAvailability } from '../../../../lib/beforeAfter';
 import { SectionHead } from '../../../../components/ui';
 
 function formatShortDate(date) {
@@ -56,7 +57,7 @@ export default async function ProgressoPageV2() {
     { count: masteredSpeakingCount },
     { data: activeReviewItems },
     { data: recentErrors },
-    { data: snapshots },
+    beforeAfter,
   ] = await Promise.all([
     supabase.from('exercise_attempts').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', weekStart.toISOString()).lte('created_at', weekEnd.toISOString()),
     supabase.from('exercise_attempts').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', lastWeekStart.toISOString()).lte('created_at', lastWeekEnd.toISOString()),
@@ -70,7 +71,7 @@ export default async function ProgressoPageV2() {
     supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('mastered', true).eq('skill', 'speaking'),
     supabase.from('review_items').select('stage, next_review_at, mastered').eq('user_id', user.id).eq('mastered', false),
     supabase.from('error_events').select('category, category_label_pt, detail_pt').eq('user_id', user.id).gte('occurred_at', new Date(Date.now() - 7 * 86400000).toISOString()),
-    supabase.from('progress_snapshots').select('created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1),
+    getBeforeAfterAvailability(supabase, user),
   ]);
 
   // Stat 2 — % de acerto na revisão
@@ -105,11 +106,10 @@ export default async function ProgressoPageV2() {
   });
   const topErrors = Object.values(categoryAgg).sort((a, b) => b.count - a.count).slice(0, 3);
 
-  // Antes e depois
-  const latestSnapshot = snapshots?.[0];
-  const daysSinceSnapshot = latestSnapshot ? (Date.now() - new Date(latestSnapshot.created_at).getTime()) / 86400000 : Infinity;
-  const nextComparisonDue = daysSinceSnapshot < 28;
-  const nextComparisonDate = latestSnapshot ? formatShortDate(new Date(new Date(latestSnapshot.created_at).getTime() + 28 * 86400000)) : null;
+  // Antes e depois — Etapa 10, agora contra before_after_checks (não mais
+  // progress_snapshots, que é do fluxo antigo, ver migration 0009).
+  const nextComparisonDue = !beforeAfter.available;
+  const nextComparisonDate = beforeAfter.nextDate ? formatShortDate(new Date(beforeAfter.nextDate)) : null;
 
   return (
     <>
