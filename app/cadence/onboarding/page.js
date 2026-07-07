@@ -235,7 +235,7 @@ export default function OnboardingPage() {
           <button
             className={styles.btnPrimary}
             style={{ marginTop: '22px' }}
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/v2')}
           >
             ir para a sessão de hoje
           </button>
