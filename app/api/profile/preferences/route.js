@@ -1,8 +1,22 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
 
-const VALID_TIMING = ['inline', 'end_of_exercise'];
-const VALID_DEPTH = ['explain_always', 'flag_only'];
+// Um único endpoint pra toda preferência de profiles — a aba Ajustes (v2)
+// reusa este em vez de criar uma rota por campo.
+const FIELDS = {
+  correctionTiming: { column: 'correction_timing', valid: ['inline', 'end_of_exercise'] },
+  correctionDepth: { column: 'correction_depth', valid: ['explain_always', 'flag_only'] },
+  weeklyCadence: { column: 'weekly_cadence_target', valid: [3, 4, 5, 6, 7] },
+  sessionDuration: { column: 'session_duration', valid: [5, 8, 12] },
+  voiceAccent: { column: 'voice_accent', valid: ['us', 'uk'] },
+  audioSpeed: { column: 'audio_speed', valid: [0.75, 1.0] },
+  pronunciationStrictness: { column: 'pronunciation_strictness', valid: ['low', 'medium', 'high'] },
+  theme: { column: 'theme', valid: ['light', 'dark', 'auto'] },
+  reminderEnabled: { column: 'reminder_enabled', valid: [true, false] },
+  reminderTime: { column: 'reminder_time', valid: null }, // validado por regex abaixo
+};
+
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export async function POST(request) {
   const supabase = createClient();
@@ -22,17 +36,16 @@ export async function POST(request) {
   }
 
   const update = {};
-  if (body.correctionTiming) {
-    if (!VALID_TIMING.includes(body.correctionTiming)) {
-      return NextResponse.json({ error: 'invalid_correction_timing' }, { status: 400 });
+  for (const [key, def] of Object.entries(FIELDS)) {
+    if (body[key] === undefined) continue;
+    if (key === 'reminderTime') {
+      if (!TIME_RE.test(body[key])) {
+        return NextResponse.json({ error: 'invalid_reminder_time' }, { status: 400 });
+      }
+    } else if (!def.valid.includes(body[key])) {
+      return NextResponse.json({ error: `invalid_${key}` }, { status: 400 });
     }
-    update.correction_timing = body.correctionTiming;
-  }
-  if (body.correctionDepth) {
-    if (!VALID_DEPTH.includes(body.correctionDepth)) {
-      return NextResponse.json({ error: 'invalid_correction_depth' }, { status: 400 });
-    }
-    update.correction_depth = body.correctionDepth;
+    update[def.column] = body[key];
   }
 
   if (Object.keys(update).length === 0) {
@@ -41,7 +54,7 @@ export async function POST(request) {
 
   const { error } = await supabase.from('profiles').update(update).eq('id', user.id);
   if (error) {
-    return NextResponse.json({ error: 'update_failed' }, { status: 500 });
+    return NextResponse.json({ error: 'update_failed', details: error.message }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

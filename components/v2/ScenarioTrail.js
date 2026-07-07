@@ -80,11 +80,11 @@ export function ScenarioTrail({ scenarios, recommendedId }) {
           role="dialog"
           aria-modal="true"
           onClick={() => setOpenId(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(20,20,18,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 50 }}
+          style={{ position: 'fixed', inset: 0, background: 'var(--v2-overlay)', display: 'flex', alignItems: 'flex-end', zIndex: 50 }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: '22px 22px 0 0', width: '100%', maxWidth: 420, margin: '0 auto', padding: 20 }}
+            style={{ background: 'var(--v2-card-bg)', borderRadius: '22px 22px 0 0', width: '100%', maxWidth: 420, margin: '0 auto', padding: 20 }}
           >
             <strong style={{ display: 'block', fontSize: 17 }}>{open.title}</strong>
             <p style={{ margin: '4px 0 14px', fontSize: 13, color: 'var(--ink-soft)' }}>{open.subtitle}</p>

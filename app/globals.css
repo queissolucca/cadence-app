@@ -31,6 +31,46 @@
   --radius-card-sm: 18px;
   --font-ui-v2: system-ui, -apple-system, 'Inter', 'Segoe UI', sans-serif;
   --font-mono-v2: ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+
+  /* Tokens semânticos v2 — light por padrão, sobrescritos em :root.dark
+     abaixo. Toda tela nova em /v2 deve usar estes em vez de hex solto. */
+  --v2-card-bg: #fff;
+  --v2-card-fg: var(--ink);
+  --v2-badge-neutral-bg: #f1f1e9;
+  --v2-badge-neutral-fg: var(--ink-soft);
+  --v2-badge-rev-bg: #eef1fb;
+  --v2-badge-rev-fg: #3a4a9e;
+  --v2-badge-due-bg: #f7e9e6;
+  --v2-badge-due-fg: var(--red);
+  --v2-overlay: rgba(20, 20, 18, 0.4);
+  --v2-brand: #141412; /* constante — nunca inverte com o tema (avatar, chips de marca) */
+  --v2-card-dark-bg: #141412; /* CardDark — igual ao brand no light, mais claro no dark pra não sumir no fundo */
+  --v2-scrim: rgba(248, 248, 241, 0.96); /* header/tabbar translúcido */
+}
+
+/* ---------------------------------------------------------------------
+ * Dark mode v2 (next-themes, classe "dark" no <html>) — só afeta telas em
+ * /v2, que consomem exclusivamente os tokens v2 (--v2-..., --bg, --ink etc). As
+ * telas antigas nunca leem a classe "dark" (seu CSS não referencia isso),
+ * então ficam inertes a ela, sem risco de regressão visual.
+ * --------------------------------------------------------------------- */
+:root.dark {
+  --bg: #141412;
+  --ink: #f2f2ea;
+  --ink-soft: #9a9a90;
+  --green-soft: #1f3a2a;
+  --line: #2c2c28;
+  --v2-card-bg: #1e1e1b;
+  --v2-card-fg: #f2f2ea;
+  --v2-badge-neutral-bg: #2c2c28;
+  --v2-badge-neutral-fg: #9a9a90;
+  --v2-badge-rev-bg: #212a42;
+  --v2-badge-rev-fg: #8fa0e8;
+  --v2-badge-due-bg: #3a2422;
+  --v2-badge-due-fg: #e08c7d;
+  --v2-overlay: rgba(0, 0, 0, 0.6);
+  --v2-scrim: rgba(20, 20, 18, 0.9);
+  --v2-card-dark-bg: #2c2c28;
 }
 
 * { box-sizing: border-box; }
@@ -315,12 +355,12 @@ button { cursor: pointer; font-family: var(--font-ui); }
 .v2-font-mono { font-family: var(--font-mono-v2); }
 
 /* ---- Card / CardDark / CardGreen ---- */
-.v2-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-card); padding: 18px; font-family: var(--font-ui-v2); color: var(--ink); }
-.v2-card-dark { background: var(--ink); color: #fff; border-radius: var(--radius-card); padding: 18px; font-family: var(--font-ui-v2); }
+.v2-card { background: var(--v2-card-bg); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 18px; font-family: var(--font-ui-v2); color: var(--v2-card-fg); }
+.v2-card-dark { background: var(--v2-card-dark-bg); color: #fff; border-radius: var(--radius-card); padding: 18px; font-family: var(--font-ui-v2); }
 .v2-card-green { background: var(--green); color: #fff; border-radius: var(--radius-card); padding: 18px; font-family: var(--font-ui-v2); }
 
 /* ---- Pill ---- */
-.v2-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-family: var(--font-mono-v2); font-size: 12.5px; color: var(--ink); }
+.v2-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--v2-card-bg); font-family: var(--font-mono-v2); font-size: 12.5px; color: var(--v2-card-fg); }
 .v2-pill-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
 
 /* ---- Badge (variantes new/rev/neutral/due) ---- */
@@ -328,12 +368,12 @@ button { cursor: pointer; font-family: var(--font-ui); }
 .v2-badge-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 .v2-badge-new { background: var(--green-soft); color: var(--green-dark); }
 .v2-badge-new .v2-badge-dot { background: var(--green); }
-.v2-badge-rev { background: #eef1fb; color: #3a4a9e; }
-.v2-badge-rev .v2-badge-dot { background: #5568c9; }
-.v2-badge-neutral { background: #f1f1e9; color: var(--ink-soft); }
-.v2-badge-neutral .v2-badge-dot { background: #a6a69b; }
-.v2-badge-due { background: #f7e9e6; color: var(--red); }
-.v2-badge-due .v2-badge-dot { background: var(--red); }
+.v2-badge-rev { background: var(--v2-badge-rev-bg); color: var(--v2-badge-rev-fg); }
+.v2-badge-rev .v2-badge-dot { background: var(--v2-badge-rev-fg); }
+.v2-badge-neutral { background: var(--v2-badge-neutral-bg); color: var(--v2-badge-neutral-fg); }
+.v2-badge-neutral .v2-badge-dot { background: var(--v2-badge-neutral-fg); }
+.v2-badge-due { background: var(--v2-badge-due-bg); color: var(--v2-badge-due-fg); }
+.v2-badge-due .v2-badge-dot { background: var(--v2-badge-due-fg); }
 
 /* ---- SectionHead ---- */
 .v2-section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
@@ -341,11 +381,11 @@ button { cursor: pointer; font-family: var(--font-ui); }
 .v2-section-head .v2-section-right { font-family: var(--font-mono-v2); font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
 
 /* ---- ProgressBar ---- */
-.v2-progress-track { height: 5px; border-radius: 999px; background: #efefe6; overflow: hidden; }
+.v2-progress-track { height: 5px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .v2-progress-fill { height: 100%; border-radius: 999px; background: var(--green); transition: width 0.25s ease; }
 
 /* ---- TabBar ---- */
-.v2-tabbar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; border-top: 1px solid var(--line); background: rgba(248,248,241,.96); backdrop-filter: blur(8px); z-index: 40; }
+.v2-tabbar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; border-top: 1px solid var(--line); background: var(--v2-scrim); backdrop-filter: blur(8px); z-index: 40; }
 .v2-tab-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px 12px; border: none; background: transparent; color: var(--ink-soft); font-family: var(--font-ui-v2); }
 .v2-tab-btn svg { width: 22px; height: 22px; }
 .v2-tab-btn span { font-size: 11px; font-weight: 500; }
@@ -356,5 +396,5 @@ button { cursor: pointer; font-family: var(--font-ui); }
 .v2-app-header { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-ui-v2); }
 .v2-app-header .v2-logo { font-size: 25px; font-weight: 800; letter-spacing: -0.5px; color: var(--ink); }
 .v2-app-header .v2-header-right { display: flex; align-items: center; gap: 10px; }
-.v2-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.v2-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: var(--v2-brand); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
 .v2-avatar img { width: 100%; height: 100%; object-fit: cover; }

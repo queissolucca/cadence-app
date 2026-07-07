@@ -49,11 +49,11 @@ export function ScenarioSwitcher({ scenarios, activeScenarioId, extraTopics }) {
           role="dialog"
           aria-modal="true"
           onClick={() => setOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(20,20,18,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 50 }}
+          style={{ position: 'fixed', inset: 0, background: 'var(--v2-overlay)', display: 'flex', alignItems: 'flex-end', zIndex: 50 }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: '22px 22px 0 0', width: '100%', maxWidth: 420, margin: '0 auto', padding: 20, maxHeight: '70vh', overflowY: 'auto' }}
+            style={{ background: 'var(--v2-card-bg)', borderRadius: '22px 22px 0 0', width: '100%', maxWidth: 420, margin: '0 auto', padding: 20, maxHeight: '70vh', overflowY: 'auto' }}
           >
             <p style={{ margin: '0 0 14px', fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               escolher cenário de hoje
