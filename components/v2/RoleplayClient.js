@@ -78,7 +78,11 @@ export function RoleplayClient({ scenarioTitle, accent }) {
         setSummaryFixes(data.accumulated_fixes || []);
       }
     } catch {
-      setThread((prev) => [...prev, { role: 'ai', text: '(sem conexão — tenta de novo)' }]);
+      // Mantém a resposta digitada de volta no campo (não perde o que o
+      // aluno escreveu) e mostra um aviso neutro, não uma fala do
+      // personagem — evitar fingir que ele "respondeu" com um erro.
+      setInput(text);
+      setThread((prev) => [...prev, { role: 'system', text: 'Não consegui enviar agora — sua resposta não foi perdida, tente de novo.' }]);
     }
     setSending(false);
   };
@@ -187,6 +191,13 @@ export function RoleplayClient({ scenarioTitle, accent }) {
 
         <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 14 }}>
           {thread.map((m, i) => {
+            if (m.role === 'system') {
+              return (
+                <div key={i} style={{ alignSelf: 'center', maxWidth: '90%', fontSize: 12.5, color: 'var(--ink-soft)', textAlign: 'center', padding: '6px 12px' }}>
+                  {m.text}
+                </div>
+              );
+            }
             if (m.role === 'fix') {
               return (
                 <div

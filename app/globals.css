@@ -392,6 +392,25 @@ button { cursor: pointer; font-family: var(--font-ui); }
 .v2-tab-btn.v2-tab-active { color: var(--green); font-weight: 600; }
 .v2-tab-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 8px; }
 
+/* Rede de segurança de foco pra qualquer botão/link/input em /v2 que não
+   define seu próprio :focus-visible (a maioria usa style inline) — nunca
+   remove o outline padrão, só garante uma cor de marca consistente. */
+.v2-bg button:focus-visible,
+.v2-bg a:focus-visible,
+.v2-bg input:focus-visible,
+.v2-bg textarea:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ---- Skeleton (loading.js das rotas /v2) ---- */
+@keyframes v2-skeleton-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.v2-skeleton { background: var(--v2-badge-neutral-bg); border-radius: var(--radius-card-sm); animation: v2-skeleton-pulse 1.4s ease-in-out infinite; }
+
 /* ---- AppHeader ---- */
 .v2-app-header { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-ui-v2); }
 .v2-app-header .v2-logo { font-size: 25px; font-weight: 800; letter-spacing: -0.5px; color: var(--ink); }

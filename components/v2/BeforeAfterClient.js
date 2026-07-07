@@ -17,9 +17,9 @@ function AnnotatedText({ segments, mode }) {
       {(segments || []).map((s, i) => {
         if (!s.flag) return <span key={i}>{s.text}</span>;
         if (mode === 'then') {
-          return <span key={i} style={{ color: '#c0392b', textDecoration: 'line-through' }}>{s.text}</span>;
+          return <span key={i} style={{ color: 'var(--red)', textDecoration: 'line-through' }}>{s.text}</span>;
         }
-        return <span key={i} style={{ color: '#8fd9ab', fontWeight: 700 }}>{s.text}</span>;
+        return <span key={i} style={{ color: 'var(--green)', fontWeight: 700 }}>{s.text}</span>;
       })}
     </p>
   );
@@ -28,6 +28,7 @@ function AnnotatedText({ segments, mode }) {
 function ResultView({ check, thenDate, locked, nextDateLabel, onRespondAgain }) {
   const router = useRouter();
   const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState('');
   const shareRef = useRef(null);
 
   const { analysis } = check;
@@ -35,8 +36,11 @@ function ResultView({ check, thenDate, locked, nextDateLabel, onRespondAgain }) 
   const share = async () => {
     if (!shareRef.current) return;
     setSharing(true);
+    setShareError('');
     try {
       const { toPng } = await import('html-to-image');
+      // Fundo fixo (= --bg claro) de propósito: a imagem compartilhada deve
+      // ter a mesma cara sempre, independente do tema atual de quem gerou.
       const dataUrl = await toPng(shareRef.current, { backgroundColor: '#F8F8F1', pixelRatio: 2 });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], 'cadence-evolucao.png', { type: 'image/png' });
@@ -50,7 +54,10 @@ function ResultView({ check, thenDate, locked, nextDateLabel, onRespondAgain }) 
         link.click();
       }
     } catch (err) {
-      console.error('share image failed:', err);
+      if (err?.name !== 'AbortError') {
+        console.error('share image failed:', err);
+        setShareError('Não consegui gerar a imagem agora. Tenta de novo.');
+      }
     }
     setSharing(false);
   };
@@ -105,6 +112,7 @@ function ResultView({ check, thenDate, locked, nextDateLabel, onRespondAgain }) 
       <button type="button" onClick={share} disabled={sharing} className="v2-card-dark" style={{ border: 'none', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
         {sharing ? 'Gerando imagem…' : 'Compartilhar minha evolução'}
       </button>
+      {shareError && <p style={{ margin: 0, color: 'var(--red)', fontSize: 13, textAlign: 'center' }}>{shareError}</p>}
 
       {locked ? (
         <p style={{ margin: 0, textAlign: 'center', fontSize: 13, color: 'var(--ink-soft)' }}>Próxima comparação em {nextDateLabel}</p>

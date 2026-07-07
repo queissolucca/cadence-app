@@ -48,7 +48,7 @@ export function ExtraThemesPicker({ themes, initialSelection }) {
             disabled={saving || (!selected && selection.length >= MAX_EXTRA_THEMES)}
             style={{
               border: '1px solid var(--line)', borderRadius: 999, padding: '8px 14px', fontSize: 13, cursor: 'pointer',
-              background: selected ? 'var(--green-soft)' : '#fff',
+              background: selected ? 'var(--green-soft)' : 'var(--v2-card-bg)',
               color: selected ? 'var(--green-dark)' : 'var(--ink)',
               fontWeight: selected ? 700 : 500,
             }}

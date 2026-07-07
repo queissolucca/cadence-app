@@ -2,24 +2,26 @@
 
 Aplicativo de inglês para treino diário com correção inteligente, revisão espaçada e memória de aprendizado.
 
-## Como rodar localmente
+## Setup
 
 1. Instale as dependências:
    `npm install`
-2. Inicie o app:
+2. Copie `.env.example` para `.env.local` e preencha:
+   - `ANTHROPIC_API_KEY` — API da Anthropic (correção, geração de conteúdo, roleplay).
+   - `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` — do seu projeto Supabase (Settings > API).
+3. Rode as migrations (SQL Editor do Supabase), na ordem, de `supabase/migrations/0001_init.sql` até a mais recente em `supabase/migrations/`. Cada arquivo é aditivo e roda uma única vez — não repita um que já rodou com sucesso.
+4. Inicie o app:
    `npm run dev`
-3. Acesse:
+5. Acesse:
    `http://localhost:3000`
 
 ## Deploy no Vercel
 
-1. Crie um projeto no Vercel.
-2. Conecte este repositório.
-3. Adicione a variável de ambiente:
-   `ANTHROPIC_API_KEY`
-4. Faça o deploy.
+1. Crie um projeto no Vercel e conecte este repositório.
+2. Adicione as 3 variáveis de ambiente do passo 2 do Setup (Project Settings > Environment Variables).
+3. Rode as migrations pendentes no Supabase de produção antes de considerar o deploy testado — o código assume que as tabelas/colunas já existem.
+4. Push em `main` faz deploy automático (integração Vercel + GitHub).
 
-## Uso no celular
+## Uso no celular (rede local)
 
-Na mesma rede Wi-Fi, abra:
-`http://192.168.15.184:3000`
+Na mesma rede Wi-Fi, rode `npm run dev` e acesse `http://<seu-ip-local>:3000` (veja seu IP com `ipconfig getifaddr en0` no macOS).

@@ -87,13 +87,15 @@ export default async function HojePageV2() {
   });
   const weeklyGoal = profile?.weekly_cadence_target || 5;
 
-  // 7. Sua última correção (erro mais recente)
-  const { data: lastWrongAttempt } = await supabase
-    .from('exercise_attempts')
-    .select('feedback, created_at')
+  // 7. Sua última correção (erro mais recente) — lê de error_events, não
+  // de exercise_attempts, porque error_events é o único log alimentado por
+  // TODAS as fontes de erro (sessão diária, pontos fracos E roleplay);
+  // exercise_attempts só existe pra writing/speaking via /api/evaluate.
+  const { data: lastError } = await supabase
+    .from('error_events')
+    .select('wrong_text, right_text, detail_pt, occurred_at')
     .eq('user_id', user.id)
-    .eq('verdict', 'erro')
-    .order('created_at', { ascending: false })
+    .order('occurred_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -237,18 +239,18 @@ export default async function HojePageV2() {
       </div>
 
       {/* 7. Sua última correção */}
-      {lastWrongAttempt?.feedback && (lastWrongAttempt.feedback.wrong_excerpt || lastWrongAttempt.feedback.right_excerpt) && (
+      {lastError && (lastError.wrong_text || lastError.right_text) && (
         <div className="v2-card" style={{ borderLeft: '4px solid var(--green)' }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
             Sua última correção
           </span>
           <p style={{ margin: 0, fontSize: 15 }}>
-            <span style={{ color: 'var(--red)', textDecoration: 'line-through' }}>{lastWrongAttempt.feedback.wrong_excerpt}</span>
+            <span style={{ color: 'var(--red)', textDecoration: 'line-through' }}>{lastError.wrong_text}</span>
             {' → '}
-            <strong style={{ color: 'var(--green-dark)' }}>{lastWrongAttempt.feedback.right_excerpt}</strong>
+            <strong style={{ color: 'var(--green-dark)' }}>{lastError.right_text}</strong>
           </p>
-          {lastWrongAttempt.feedback.explain_pt && (
-            <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>{lastWrongAttempt.feedback.explain_pt}</p>
+          {lastError.detail_pt && (
+            <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>{lastError.detail_pt}</p>
           )}
         </div>
       )}
@@ -272,17 +274,19 @@ export default async function HojePageV2() {
           <span className="v2-section-right">{duePhrases?.length || 0} para hoje</span>
         </div>
 
-        <div style={{ background: 'var(--green-soft)', borderRadius: 16, padding: 14, marginBottom: 12 }}>
-          {topErrorBanner ? (
-            <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink)' }}>
-              Você errou <strong style={{ color: 'var(--green-dark)' }}>{topErrorBanner.label}</strong> {topErrorBanner.count}x nos últimos 3 dias — as frases abaixo treinam exatamente isso.
-            </p>
-          ) : (
-            <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink)' }}>
-              Nenhum erro nos últimos 3 dias — você está indo muito bem! Revise as frases abaixo para fixar de vez.
-            </p>
-          )}
-        </div>
+        {(topErrorBanner || duePhrases?.length > 0) && (
+          <div style={{ background: 'var(--green-soft)', borderRadius: 16, padding: 14, marginBottom: 12 }}>
+            {topErrorBanner ? (
+              <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink)' }}>
+                Você errou <strong style={{ color: 'var(--green-dark)' }}>{topErrorBanner.label}</strong> {topErrorBanner.count}x nos últimos 3 dias — as frases abaixo treinam exatamente isso.
+              </p>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink)' }}>
+                Nenhum erro nos últimos 3 dias — você está indo muito bem! Revise as frases abaixo para fixar de vez.
+              </p>
+            )}
+          </div>
+        )}
 
         {duePhrases?.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

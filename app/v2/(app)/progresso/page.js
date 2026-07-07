@@ -13,7 +13,7 @@ function formatShortDate(date) {
 // Verde quando "melhor" (mais é melhor pra todo stat aqui), vermelho
 // quando pior, cinza quando não há dado da semana passada pra comparar.
 function DeltaPill({ hasPrevious, improved, children }) {
-  const bg = !hasPrevious ? '#f1f1e9' : improved ? 'var(--green-soft)' : '#f7e9e6';
+  const bg = !hasPrevious ? 'var(--v2-badge-neutral-bg)' : improved ? 'var(--green-soft)' : 'var(--v2-badge-due-bg)';
   const color = !hasPrevious ? 'var(--ink-soft)' : improved ? 'var(--green-dark)' : 'var(--red)';
   return (
     <span style={{ fontFamily: 'var(--font-mono-v2)', fontSize: 11, borderRadius: 999, padding: '3px 9px', background: bg, color, whiteSpace: 'nowrap' }}>
@@ -189,7 +189,7 @@ export default async function ProgressoPageV2() {
           {[{ label: 'hoje', count: buckets.hoje }, { label: 'amanhã', count: buckets.amanha }, { label: '1 sem', count: buckets.semana }, { label: '1 mês', count: buckets.mes }].map((row) => (
             <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 48, flexShrink: 0, fontSize: 12.5, color: 'var(--ink)' }}>{row.label}</span>
-              <div style={{ flex: 1, height: 10, borderRadius: 999, background: '#f0ede3', overflow: 'hidden' }}>
+              <div style={{ flex: 1, height: 10, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
                 <div style={{ height: '100%', borderRadius: 999, background: 'var(--green)', width: `${(row.count / maxBucket) * 100}%` }} />
               </div>
               <span style={{ width: 22, textAlign: 'right', fontFamily: 'var(--font-mono-v2)', fontSize: 12, flexShrink: 0 }}>{row.count}</span>

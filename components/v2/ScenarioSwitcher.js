@@ -71,7 +71,7 @@ export function ScenarioSwitcher({ scenarios, activeScenarioId, extraTopics }) {
                       textAlign: 'left', cursor: 'pointer',
                       border: isActive ? '1.5px solid var(--green)' : '1px solid var(--line)',
                       borderRadius: 14, padding: 12,
-                      background: isActive ? 'var(--green-soft)' : '#fff',
+                      background: isActive ? 'var(--green-soft)' : 'var(--v2-card-bg)',
                     }}
                   >
                     <strong style={{ display: 'block', fontSize: 14, color: 'var(--ink)' }}>{s.title}</strong>

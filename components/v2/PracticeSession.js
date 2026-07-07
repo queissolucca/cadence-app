@@ -151,7 +151,7 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
         setResult(resultPayload);
       }
     } catch {
-      setError('Sem conexão com o servidor agora. Tente de novo.');
+      setError('Não consegui corrigir agora — sua resposta não foi perdida, tente de novo.');
     }
     setLoading(false);
   };

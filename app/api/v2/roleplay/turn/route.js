@@ -41,7 +41,7 @@ export async function POST(request) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('correction_timing')
+    .select('correction_timing, correction_depth, pronunciation_strictness')
     .eq('id', user.id)
     .maybeSingle();
   const timingEnd = profile?.correction_timing === 'end_of_exercise' || profile?.correction_timing === 'end';
@@ -57,6 +57,8 @@ export async function POST(request) {
     messages: session.messages,
     turnsDone: session.turns_done,
     turnsTarget: session.turns_target,
+    correctionDepth: profile?.correction_depth,
+    pronunciationStrictness: profile?.pronunciation_strictness,
   });
 
   const missionComplete = turn.mission_complete || session.turns_done + 1 >= session.turns_target;
