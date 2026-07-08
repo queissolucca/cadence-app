@@ -3,77 +3,88 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export function ScenarioTrail({ scenarios, recommendedId }) {
+// Seleção livre entre os cenários desbloqueados (não é mais uma trilha
+// sequencial obrigatória) — qualquer um com status !== 'locked' abre o
+// detalhe e pode virar o cenário ativo do dia, independente de ordem ou de
+// já estar "dominado". Bloqueados continuam só visuais, sem interação.
+export function ScenarioTrail({ scenarios, activeScenarioId, recommendedId }) {
   const router = useRouter();
   const [openId, setOpenId] = useState(null);
+  const [switching, setSwitching] = useState(false);
   const open = scenarios.find((s) => s.id === openId);
 
-  return (
-    <div style={{ position: 'relative', paddingLeft: 22 }}>
-      <div style={{ position: 'absolute', left: 6, top: 8, bottom: 8, width: 3, background: 'var(--line)', borderRadius: 2 }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {scenarios.map((s) => {
-          const isDone = s.status === 'done';
-          const isCurrent = s.status === 'current';
-          const isLocked = s.status === 'locked';
-          const ratioPct = Math.min(100, Math.round((s.ratio || 0) * 100));
+  const selectAndPractice = async () => {
+    if (!open) return;
+    setSwitching(true);
+    try {
+      if (open.id !== activeScenarioId) {
+        await fetch('/api/scenario/active', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenario_id: open.id }),
+        });
+      }
+      router.push('/v2/praticar/writing');
+    } catch {
+      setSwitching(false);
+    }
+  };
 
-          return (
-            <div key={s.id} style={{ position: 'relative' }}>
-              <span
-                style={{
-                  position: 'absolute', left: -22, top: 6, width: 14, height: 14, borderRadius: '50%',
-                  background: isDone ? 'var(--green)' : 'transparent',
-                  border: isDone ? 'none' : `2px solid ${isCurrent ? 'var(--ink)' : 'var(--line)'}`,
-                }}
-              />
-              {isCurrent ? (
-                <button
-                  type="button"
-                  onClick={() => setOpenId(s.id)}
-                  className="v2-card-dark"
-                  style={{ width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer' }}
-                >
-                  <strong style={{ display: 'block', fontSize: 15 }}>{s.title}</strong>
-                  <p style={{ margin: '2px 0 10px', fontSize: 13, opacity: 0.75 }}>{s.subtitle}</p>
-                  <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${ratioPct}%`, background: 'var(--green)' }} />
-                  </div>
-                  <span style={{ display: 'block', marginTop: 6, fontFamily: 'var(--font-mono-v2)', fontSize: 11, opacity: 0.7 }}>
-                    {s.masteredCount}/{s.target_phrases} frases
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {scenarios.map((s) => {
+        const isDone = s.status === 'done';
+        const isLocked = s.status === 'locked';
+        const isActive = s.id === activeScenarioId;
+        const ratioPct = Math.min(100, Math.round((s.ratio || 0) * 100));
+
+        return (
+          <button
+            key={s.id}
+            type="button"
+            disabled={isLocked}
+            onClick={() => !isLocked && setOpenId(s.id)}
+            className={isActive ? 'v2-card-dark' : 'v2-card'}
+            style={{
+              textAlign: 'left', border: isActive ? 'none' : '1px solid var(--line)',
+              cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.55 : 1,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <strong style={{ display: 'block', fontSize: 15 }}>{s.title}</strong>
+                <p style={{ margin: '2px 0 0', fontSize: 13, color: isActive ? 'rgba(255,255,255,0.75)' : 'var(--ink-soft)' }}>{s.subtitle}</p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                {isActive && (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--green)' }}>ativo agora</span>
+                )}
+                {!isActive && s.id === recommendedId && (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: 'var(--green)', borderRadius: 999, padding: '3px 8px' }}>
+                    recomendado
                   </span>
-                </button>
-              ) : (
-                <div className="v2-card" style={{ opacity: isLocked ? 0.55 : 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                    <div>
-                      <strong style={{ display: 'block', fontSize: 15 }}>{s.title}</strong>
-                      <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>{s.subtitle}</p>
-                    </div>
-                    {s.id === recommendedId && (
-                      <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: '#fff', background: 'var(--green)', borderRadius: 999, padding: '3px 8px' }}>
-                        recomendado
-                      </span>
-                    )}
-                  </div>
-                  {isDone ? (
-                    <>
-                      <div style={{ height: 6, borderRadius: 999, background: 'var(--line)', overflow: 'hidden', marginTop: 10 }}>
-                        <div style={{ height: '100%', width: '100%', background: 'var(--green)' }} />
-                      </div>
-                      <span style={{ display: 'block', marginTop: 6, fontFamily: 'var(--font-mono-v2)', fontSize: 11, color: 'var(--green-dark)' }}>dominado</span>
-                    </>
-                  ) : (
-                    <span style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-mono-v2)', fontSize: 11, color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: 999, padding: '3px 9px' }}>
-                      {s.id === recommendedId ? 'libera com 70% do atual' : 'bloqueado'}
-                    </span>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          );
-        })}
-      </div>
+
+            {!isLocked && (
+              <>
+                <div style={{ height: 6, borderRadius: 999, background: isActive ? 'rgba(255,255,255,0.15)' : 'var(--line)', overflow: 'hidden', marginTop: 10 }}>
+                  <div style={{ height: '100%', width: `${ratioPct}%`, background: 'var(--green)' }} />
+                </div>
+                <span style={{ display: 'block', marginTop: 6, fontFamily: 'var(--font-mono-v2)', fontSize: 11, opacity: isActive ? 0.75 : 1, color: isActive ? undefined : 'var(--ink-soft)' }}>
+                  {isDone ? 'dominado · ' : ''}{s.masteredCount}/{s.target_phrases} frases
+                </span>
+              </>
+            )}
+            {isLocked && (
+              <span style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-mono-v2)', fontSize: 11, color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: 999, padding: '3px 9px' }}>
+                bloqueado
+              </span>
+            )}
+          </button>
+        );
+      })}
 
       {open && (
         <div
@@ -84,7 +95,7 @@ export function ScenarioTrail({ scenarios, recommendedId }) {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: 'var(--v2-card-bg)', borderRadius: '22px 22px 0 0', width: '100%', maxWidth: 420, margin: '0 auto', padding: 20 }}
+            style={{ background: 'var(--v2-card-bg)', color: 'var(--v2-card-fg)', borderRadius: '22px 22px 0 0', width: '100%', maxWidth: 420, margin: '0 auto', padding: 20 }}
           >
             <strong style={{ display: 'block', fontSize: 17 }}>{open.title}</strong>
             <p style={{ margin: '4px 0 14px', fontSize: 13, color: 'var(--ink-soft)' }}>{open.subtitle}</p>
@@ -100,11 +111,12 @@ export function ScenarioTrail({ scenarios, recommendedId }) {
             </div>
             <button
               type="button"
-              onClick={() => router.push('/v2/praticar/writing')}
+              onClick={selectAndPractice}
+              disabled={switching}
               className="v2-card-dark"
               style={{ width: '100%', border: 'none', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
             >
-              Praticar agora
+              {switching ? 'Um momento…' : open.id === activeScenarioId ? 'Praticar agora' : 'Usar este cenário e praticar'}
             </button>
           </div>
         </div>

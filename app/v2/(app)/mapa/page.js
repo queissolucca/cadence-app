@@ -35,8 +35,9 @@ export default async function MapaPageV2() {
     status: computedStatuses[s.id]?.status || 'locked',
   }));
 
-  // Recomendado: cenário locked cujas skill_tags mais aparecem nas
-  // categorias de erro dos últimos 14 dias.
+  // Recomendado: entre os DESBLOQUEADOS (seleção agora é livre, não faz
+  // sentido recomendar algo bloqueado sem caminho pra desbloquear), o que
+  // não é o ativo agora e cujas skill_tags mais aparecem nos erros recentes.
   const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
   const { data: recentErrors } = await supabase
     .from('error_events')
@@ -50,7 +51,7 @@ export default async function MapaPageV2() {
 
   let recommendedId = null;
   let bestScore = 0;
-  scenariosWithStatus.filter((s) => s.status === 'locked').forEach((s) => {
+  scenariosWithStatus.filter((s) => s.status !== 'locked' && s.id !== profile?.active_scenario_id).forEach((s) => {
     const score = (s.skill_tags || []).reduce((sum, tag) => sum + (categoryCounts[tag] || 0), 0);
     if (score > bestScore) {
       bestScore = score;
@@ -65,12 +66,15 @@ export default async function MapaPageV2() {
     <>
       <div>
         <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Sua trilha · Inglês para trabalho
+          Inglês para trabalho
         </p>
         <h1 style={{ margin: 0, fontSize: 27, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--ink)' }}>Mapa de cenários</h1>
+        <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>
+          Escolha livremente o que praticar entre os cenários liberados.
+        </p>
       </div>
 
-      <ScenarioTrail scenarios={scenariosWithStatus} recommendedId={recommendedId} />
+      <ScenarioTrail scenarios={scenariosWithStatus} activeScenarioId={profile?.active_scenario_id} recommendedId={recommendedId} />
 
       <div className="v2-card">
         <SectionHead title="Temas extras" />

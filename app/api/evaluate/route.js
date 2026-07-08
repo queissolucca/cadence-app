@@ -229,11 +229,15 @@ Avalie e retorne o JSON do contrato:
           pattern,
           scenario_id: profile?.active_scenario_id || null,
           content: {
-            categoria: evaluation.error_category_label_pt || expected_focus,
+            // Quando result="correct", tip_pt/error_category_label_pt vêm
+            // vazios de propósito (não houve erro pra apontar) — sem
+            // fallback aqui, a revisão dessa frase mais tarde (ver
+            // lib/reviewPrompt.js) ficava sem nenhum enunciado de verdade.
+            categoria: evaluation.error_category_label_pt || expected_focus || 'inglês geral',
             exemplos_do_usuario: [user_answer],
             forma_natural: evaluation.natural_phrase_en,
             porque: evaluation.explain_pt,
-            dica: evaluation.tip_pt,
+            dica: evaluation.tip_pt || (evaluation.natural_phrase_en && `use algo como: "${evaluation.natural_phrase_en}"`) || expected_focus || '',
             skill_tags: skill_tags || [],
           },
           stage: 0,

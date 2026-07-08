@@ -92,11 +92,11 @@ export async function POST(request) {
         pattern,
         scenario_id: session.scenario_id,
         content: {
-          categoria: turn.error_category_label_pt || turn.error_category,
+          categoria: turn.error_category_label_pt || turn.error_category || 'roleplay',
           exemplos_do_usuario: [user_text],
           forma_natural: turn.natural_phrase_en,
           porque: turn.explain_pt,
-          dica: turn.tip_pt,
+          dica: turn.tip_pt || (turn.natural_phrase_en && `use algo como: "${turn.natural_phrase_en}"`) || '',
         },
         stage: 0,
         next_review_at: new Date(Date.now() + 86400000).toISOString(),
