@@ -49,6 +49,8 @@ export default async function PraticarSpeakingPage() {
       promptPt: ex.prompt_pt,
       expectedFocus: ex.expected_focus,
       skillTags: ex.skill_tags || [],
+      personalHintPt: ex.hint_pt || '',
+      formaNatural: ex.example_en || '',
     })),
   ];
 

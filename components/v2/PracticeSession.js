@@ -24,6 +24,7 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [showModel, setShowModel] = useState(false);
+  const [showHint, setShowHint] = useState(false);
 
   const [finished, setFinished] = useState(false);
   const [sessionSummary, setSessionSummary] = useState(null);
@@ -49,6 +50,7 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
     setError('');
     setResult(null);
     setShowModel(false);
+    setShowHint(false);
   };
 
   const finishSession = async (extraDurationSeconds = 0) => {
@@ -157,15 +159,16 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
   };
 
   const useModelPhrase = async () => {
-    if (activeItem?.kind !== 'review') return;
-    try {
-      await fetch('/api/review/defer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phrase_id: activeItem.phraseId }),
-      });
-    } catch {
-      // segue mesmo se falhar — não é uma tentativa real, não crítico
+    if (activeItem?.kind === 'review') {
+      try {
+        await fetch('/api/review/defer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phrase_id: activeItem.phraseId }),
+        });
+      } catch {
+        // segue mesmo se falhar — não é uma tentativa real, não crítico
+      }
     }
     advance();
   };
@@ -212,7 +215,17 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
                 </span>
                 <p style={{ margin: '8px 0 0', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{item.promptPt}</p>
                 {item.personalHintPt && (
-                  <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--ink-soft)', fontStyle: 'italic' }}>{item.personalHintPt}</p>
+                  showHint ? (
+                    <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>Dica: {item.personalHintPt}</p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowHint(true)}
+                      style={{ marginTop: 10, fontSize: 12.5, color: 'var(--green-dark)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      💡 ver dica
+                    </button>
+                  )
                 )}
               </div>
             )}
@@ -295,7 +308,7 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
               {loading ? 'Avaliando…' : 'Enviar resposta'}
             </button>
 
-            {item.kind === 'review' && (
+            {item.formaNatural && (
               <div style={{ textAlign: 'center', marginTop: 14 }}>
                 {!showModel ? (
                   <button type="button" onClick={() => setShowModel(true)} style={{ fontSize: 12.5, color: 'var(--green-dark)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -304,7 +317,9 @@ export function PracticeSession({ mode, initialQueue, profile, otherModeHref, ot
                 ) : (
                   <div className="v2-card" style={{ textAlign: 'left', marginTop: 10 }}>
                     <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600 }}>{item.formaNatural}</p>
-                    <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--ink-soft)' }}>(conta como revisão, não como acerto)</p>
+                    <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--ink-soft)' }}>
+                      {item.kind === 'review' ? '(conta como revisão, não como acerto)' : '(não conta como acerto — pula para a próxima)'}
+                    </p>
                     <button type="button" onClick={useModelPhrase} style={{ fontSize: 13, fontWeight: 700, color: 'var(--green-dark)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                       continuar →
                     </button>

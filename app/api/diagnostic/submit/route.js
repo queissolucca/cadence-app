@@ -65,7 +65,11 @@ export async function POST(request) {
             dica: item.dica,
           },
           stage: 0,
-          next_review_at: new Date().toISOString(),
+          // devido só amanhã (mesmo padrão de app/api/evaluate/route.js) —
+          // se ficasse devido na hora, a primeira sessão de prática do
+          // aluno recém-chegado já abriria com um card de revisão, mesmo
+          // sem ele ter feito nenhum exercício de prática ainda.
+          next_review_at: new Date(Date.now() + 86400000).toISOString(),
         },
         { onConflict: 'user_id,skill,pattern' },
       )
