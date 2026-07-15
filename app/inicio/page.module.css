@@ -54,6 +54,9 @@
 .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
 .navlinks { display: flex; gap: 30px; font-size: 15px; color: var(--stone); }
 .navlinks a:hover { color: var(--ink); }
+.navActions { display: flex; align-items: center; gap: 18px; }
+.navLogin { font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.navLogin:hover { color: var(--green); }
 .page .navcta {
   background: var(--green); color: #fff;
   padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600;

@@ -17,7 +17,10 @@ export default function CadenceLandingPage() {
             <a href="#metodo">o método</a>
             <a href="#faq">perguntas</a>
           </div>
-          <Link href="/inicio/onboarding" className={styles.navcta}>quero destravar meu inglês agora</Link>
+          <div className={styles.navActions}>
+            <Link href="/login" className={styles.navLogin}>entrar</Link>
+            <Link href="/inicio/onboarding" className={styles.navcta}>quero destravar meu inglês agora</Link>
+          </div>
         </nav>
       </header>
 

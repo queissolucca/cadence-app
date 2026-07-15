@@ -42,13 +42,19 @@ export default async function PagamentoPage() {
             )}
 
             <div style={{ background: 'var(--v2-card-bg)', border: '1px solid var(--line)', borderRadius: 12, padding: 16, marginBottom: 18 }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>R$ 29,90<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-soft)' }}> /mês</span></div>
+              <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', background: 'var(--green)', borderRadius: 6, padding: '3px 8px', marginBottom: 10 }}>
+                acesso vitalício · lançamento
+              </span>
+              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>R$ 89,90<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-soft)' }}> pagamento único · vitalício</span></div>
               <div style={{ marginTop: 8, fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.7 }}>
                 + sessões diárias de ~10 minutos<br />
                 + correção direta com o porquê<br />
                 + repetição espaçada (hoje → amanhã → 1 sem → 1 mês)<br />
                 + cenários reais ilimitados de escrita e fala
               </div>
+              <p style={{ margin: '12px 0 0', fontSize: 12.5, color: 'var(--ink-soft)', lineHeight: 1.6 }}>
+                estamos lançando o cadence agora e só as primeiras pessoas que entrarem com a gente nessa fase têm o privilégio de pagar uma vez e ter acesso vitalício. depois do lançamento, a cobrança passa a ser mensal.
+              </p>
             </div>
 
             {paymentLinkUrl && (
