@@ -96,7 +96,7 @@ export function AjustesClient({ profile, email }) {
     setSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push('/v2/login');
+    router.push('/login');
     router.refresh();
   };
 
