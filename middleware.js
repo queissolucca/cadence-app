@@ -16,10 +16,13 @@ const LEGACY_REDIRECTS = {
 
 // Área /v2 (shell novo, construído em paralelo ao app atual — ver histórico
 // da conversa) tem proteção de rota real: sem sessão → /login; com sessão
-// mas sem baseline_question ainda → /v2/onboarding. /login é top-level (fora
-// de /v2) pra virar a URL pública oficial (cadenceenglish.app/login). Fora
-// de /v2 e /login, o comportamento é EXATAMENTE o de antes (só refresh de
-// sessão) — nenhuma rota existente ganha redirect novo.
+// mas email fora de paid_emails → /pagamento; com sessão paga mas sem
+// baseline_question ainda → /v2/onboarding. /login e /pagamento são
+// top-level (fora de /v2) pra virar URLs públicas oficiais. Fora de /v2,
+// /login e /pagamento, o comportamento é EXATAMENTE o de antes (só refresh
+// de sessão) — nenhuma rota existente ganha redirect novo.
+const PROTECTED_PREFIXES = ['/v2', '/pagamento'];
+
 export async function middleware(request) {
   const { response, user, supabase } = await updateSession(request);
   const { pathname } = request.nextUrl;
@@ -35,12 +38,26 @@ export async function middleware(request) {
     return response;
   }
 
-  if (!pathname.startsWith('/v2')) {
+  if (!PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return response;
   }
 
   if (!user) {
     return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  const { data: paidRow } = await supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle();
+  const isPaid = !!paidRow;
+
+  if (!isPaid) {
+    if (pathname === '/pagamento') {
+      return response;
+    }
+    return NextResponse.redirect(new URL('/pagamento', request.url));
+  }
+
+  if (pathname === '/pagamento') {
+    return NextResponse.redirect(new URL('/v2', request.url));
   }
 
   if (pathname !== '/v2/onboarding') {

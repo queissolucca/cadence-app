@@ -17,7 +17,7 @@ export default function CadenceLandingPage() {
             <a href="#metodo">o método</a>
             <a href="#faq">perguntas</a>
           </div>
-          <Link href="/login" className={styles.navcta}>ir para a sessão de hoje</Link>
+          <Link href="/inicio/onboarding" className={styles.navcta}>quero destravar meu inglês agora</Link>
         </nav>
       </header>
 
@@ -28,7 +28,7 @@ export default function CadenceLandingPage() {
             <h1>você entende quase tudo em inglês. <em>então por que ainda trava</em> na hora de escrever ou falar?</h1>
             <p className={styles.leadHero}>cadence é feito pra quem já passou do básico — nível intermediário pra cima — e quer treinar exatamente o que falta: escrever com naturalidade e falar com confiança em situações reais. sem lição de gramática do zero.</p>
             <div className={styles.ctaRow}>
-              <Link href="/login" className={styles.btnPrimary}>ir para a sessão de hoje</Link>
+              <Link href="/inicio/onboarding" className={styles.btnPrimary}>quero destravar meu inglês agora</Link>
               <a href="#metodo" className={styles.btnGhost}>ver como funciona</a>
             </div>
             <p className={styles.microcopy}>acesso antecipado · sessões de ~10 min · sem cartão de crédito</p>
@@ -220,7 +220,7 @@ export default function CadenceLandingPage() {
               <div className={styles.footTag}>você já sabe inglês. hora de aprender de vez</div>
             </div>
             <div className={styles.footCta}>
-              <Link href="/login" className={styles.btnPrimary}>ir para a sessão de hoje</Link>
+              <Link href="/inicio/onboarding" className={styles.btnPrimary}>quero destravar meu inglês agora</Link>
             </div>
           </div>
           <div className={styles.footBottom}>
