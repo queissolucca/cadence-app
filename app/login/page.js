@@ -108,7 +108,7 @@ export default function LoginPage() {
           <Card>
             {magicSent ? (
               <p style={{ margin: 0, fontSize: 14, color: 'var(--ink)' }}>
-                Te enviamos um link mágico pro seu e-mail — clica nele pra entrar.
+                Te enviamos um link de acesso pro seu e-mail — clica nele pra entrar.
               </p>
             ) : confirmSent ? (
               <p style={{ margin: 0, fontSize: 14, color: 'var(--ink)' }}>
