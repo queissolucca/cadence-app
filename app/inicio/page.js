@@ -18,8 +18,8 @@ export default function CadenceLandingPage() {
             <a href="#faq">perguntas</a>
           </div>
           <div className={styles.navActions}>
-            <Link href="/login" className={styles.navLogin}>entrar</Link>
-            <Link href="/inicio/onboarding" className={styles.navcta}>quero destravar meu inglês agora</Link>
+            <Link href="/login" className={styles.navLogin}>já tenho conta criada</Link>
+            <Link href="/inicio/onboarding" className={styles.navcta}>criar conta nova</Link>
           </div>
         </nav>
       </header>
@@ -185,7 +185,7 @@ export default function CadenceLandingPage() {
           <div className={styles.faqList}>
             <details>
               <summary>preciso ser avançado pra usar o cadence?</summary>
-              <p>se você já entende conversas no geral, lê sem ficar traduzindo tudo mentalmente e consegue entender algumas músicas em inglês, é pra você.</p>
+              <p>não, o cadence serve para todas as pessoas que têm inglês intermediário. se você já entende conversas no geral, lê sem ficar traduzindo tudo mentalmente e consegue entender alguns trechos de músicas em inglês, é exatamente pra você.</p>
             </details>
             <details>
               <summary>quanto tempo eu preciso dedicar por dia?</summary>
@@ -201,7 +201,7 @@ export default function CadenceLandingPage() {
             </details>
             <details>
               <summary>por que eu pagaria para treinar só 10 minutos por dia?</summary>
-              <p>relembre os momentos que você ficou insegura(o) pra escrever uma mensagem ou email em inglês e teve que pesquisar cada frase antes de enviar. relembre as vezes que precisou falar e travou, ficou calado ou disparou a frase rápido demais só pra sair da situação. relembre aquela oportunidade de trabalho ou de vida que talvez tivesse sido diferente se o seu inglês não tivesse travado. 10 minutos por dia, todo dia, é o que resolve isso — porque é treino real, não mais uma lição que você vai esquecer. e o custo de continuar assim é maior que r$29,90 por mês. pagar esse valor também é o que garante que você vai abrir o app hoje, amanhã e o resto da semana — de graça é fácil abandonar, você já viveu isso outras vezes.</p>
+              <p>relembre os momentos que você ficou insegura(o) pra escrever uma mensagem ou email em inglês e teve que pesquisar cada frase antes de enviar. relembre as vezes que precisou falar e travou, ficou calado ou disparou a frase rápido demais só pra sair da situação. relembre aquela oportunidade de trabalho ou de vida que talvez tivesse sido diferente se o seu inglês não tivesse travado. 10 minutos por dia, todo dia, é o que resolve isso — porque é treino real, não mais uma lição que você vai esquecer. e o custo de continuar assim é maior que r$89,90 — pagos uma única vez, com acesso vitalício (até o lançamento oficial). pagar esse valor também é o que garante que você vai abrir o app hoje, amanhã e o resto da semana — de graça é fácil abandonar, você já viveu isso outras vezes.</p>
             </details>
             <details>
               <summary>preciso falar em voz alta, mesmo em lugar público?</summary>
@@ -209,7 +209,7 @@ export default function CadenceLandingPage() {
             </details>
             <details>
               <summary>quando eu posso começar a usar?</summary>
-              <p>estamos em fase inicial, com acesso antecipado por lista de espera. entre na lista abaixo e avisamos por e-mail assim que abrir sua vaga.</p>
+              <p>você já pode começar a usar — estamos em fase inicial, então no momento estamos testando com os usuários. e a grande vantagem de começar a usar agora é ter o acesso vitalício: ele vai ser só para as pessoas que adquirirem nessa fase de pré-lançamento e quiserem ajudar a gente a melhorar o inglês de mais gente.</p>
             </details>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { createClient } from '../../lib/supabase/server';
 import { Card } from '../../components/ui';
 import { ThemeProviderV2 } from '../../components/v2/ThemeProviderV2';
+import { TrocarLoginButton } from './TrocarLoginButton';
 
 const btnStyle = {
   border: 'none', borderRadius: 12, padding: '13px 16px', fontWeight: 700,
@@ -67,6 +68,7 @@ export default async function PagamentoPage() {
             <p style={{ margin: '14px 0 0', fontSize: 11.5, color: 'var(--ink-soft)', textAlign: 'center' }}>
               já pagou com outro email? entre com o mesmo email usado na compra.
             </p>
+            <TrocarLoginButton />
           </Card>
         </div>
       </div>
