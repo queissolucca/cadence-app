@@ -103,6 +103,7 @@ export default function LoginPage() {
         <div style={{ width: '100%', maxWidth: 380 }}>
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
             <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--ink)' }}>cadence</span>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>você já sabe inglês. hora de aprender de vez</p>
           </div>
           <Card>
             {magicSent ? (
@@ -178,7 +179,7 @@ export default function LoginPage() {
                 )}
                 {error && <p style={{ color: 'var(--red)', fontSize: 13, margin: 0 }}>{error}</p>}
                 <button type="submit" disabled={loading} style={btnStyle}>
-                  {loading ? 'Um momento…' : mode === 'signup' ? 'Criar conta' : mode === 'magic' ? 'Enviar link mágico' : 'Entrar'}
+                  {loading ? 'Um momento…' : mode === 'signup' ? 'Criar conta' : mode === 'magic' ? 'Enviar link de acesso' : 'Entrar'}
                 </button>
               </form>
             )}
@@ -188,7 +189,7 @@ export default function LoginPage() {
                   {mode === 'signup' ? 'já tenho conta' : 'criar conta'}
                 </button>
                 <button type="button" onClick={() => { setMode(mode === 'magic' ? 'signin' : 'magic'); setError(''); }} style={linkBtnStyle}>
-                  {mode === 'magic' ? 'usar senha' : 'entrar com link mágico'}
+                  {mode === 'magic' ? 'usar senha' : 'entrar direto pelo e-mail'}
                 </button>
               </div>
             )}
