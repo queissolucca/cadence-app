@@ -16,11 +16,18 @@ export default async function MapaPageV2() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: scenarios }, { data: stateRows }, { data: themeRows }] = await Promise.all([
+  // Recomendado: entre os DESBLOQUEADOS (seleção agora é livre, não faz
+  // sentido recomendar algo bloqueado sem caminho pra desbloquear), o que
+  // não é o ativo agora e cujas skill_tags mais aparecem nos erros recentes.
+  // recentErrors não depende de nada das outras 4 consultas — junto no
+  // mesmo Promise.all em vez de esperar elas terminarem primeiro.
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
+  const [{ data: profile }, { data: scenarios }, { data: stateRows }, { data: themeRows }, { data: recentErrors }] = await Promise.all([
     supabase.from('profiles').select('active_scenario_id').eq('id', user.id).single(),
     supabase.from('scenarios').select('*').order('stage', { ascending: true }),
     supabase.from('user_scenario_state').select('scenario_id, mastered_count, status').eq('user_id', user.id),
     supabase.from('user_theme_selection').select('track_id').eq('user_id', user.id),
+    supabase.from('error_events').select('category').eq('user_id', user.id).gte('occurred_at', fourteenDaysAgo),
   ]);
 
   const stateByScenarioId = {};
@@ -35,15 +42,6 @@ export default async function MapaPageV2() {
     status: computedStatuses[s.id]?.status || 'locked',
   }));
 
-  // Recomendado: entre os DESBLOQUEADOS (seleção agora é livre, não faz
-  // sentido recomendar algo bloqueado sem caminho pra desbloquear), o que
-  // não é o ativo agora e cujas skill_tags mais aparecem nos erros recentes.
-  const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
-  const { data: recentErrors } = await supabase
-    .from('error_events')
-    .select('category')
-    .eq('user_id', user.id)
-    .gte('occurred_at', fourteenDaysAgo);
   const categoryCounts = {};
   (recentErrors || []).forEach((e) => {
     categoryCounts[e.category] = (categoryCounts[e.category] || 0) + 1;
@@ -76,25 +74,27 @@ export default async function MapaPageV2() {
 
       <ScenarioTrail scenarios={scenariosWithStatus} activeScenarioId={profile?.active_scenario_id} recommendedId={recommendedId} />
 
-      <div className="v2-card">
-        <SectionHead title="Temas extras" />
-        <p style={{ margin: '8px 0 12px', fontSize: 13, color: 'var(--ink-soft)' }}>
-          Ampliam de onde vem o conteúdo novo, sem afetar seu estágio atual.
-        </p>
-        <ExtraThemesPicker themes={EXTRA_THEME_OPTIONS} initialSelection={extraTopicsSelection} />
-      </div>
-
-      <a href="/v2/roleplay" style={{ textDecoration: 'none' }}>
-        <div className="v2-card-dark">
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Roleplay · {activeScenario?.title || 'seu cenário atual'}
-          </span>
-          <p style={{ margin: '8px 0 14px', fontSize: 13.5, opacity: 0.8 }}>
-            Uma conversa curta dentro do cenário atual. Complementa a sessão do dia, não substitui.
+      <div className="web-grid-2">
+        <div className="v2-card">
+          <SectionHead title="Temas extras" />
+          <p style={{ margin: '8px 0 12px', fontSize: 13, color: 'var(--ink-soft)' }}>
+            Ampliam de onde vem o conteúdo novo, sem afetar seu estágio atual.
           </p>
-          <span style={{ display: 'inline-block', fontWeight: 700, fontSize: 14 }}>Praticar roleplay →</span>
+          <ExtraThemesPicker themes={EXTRA_THEME_OPTIONS} initialSelection={extraTopicsSelection} />
         </div>
-      </a>
+
+        <a href="/v2/roleplay" style={{ textDecoration: 'none' }}>
+          <div className="v2-card-dark" style={{ height: '100%' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Roleplay · {activeScenario?.title || 'seu cenário atual'}
+            </span>
+            <p style={{ margin: '8px 0 14px', fontSize: 13.5, opacity: 0.8 }}>
+              Uma conversa curta dentro do cenário atual. Complementa a sessão do dia, não substitui.
+            </p>
+            <span style={{ display: 'inline-block', fontWeight: 700, fontSize: 14 }}>Praticar roleplay →</span>
+          </div>
+        </a>
+      </div>
     </>
   );
 }

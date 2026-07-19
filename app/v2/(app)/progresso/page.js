@@ -120,8 +120,8 @@ export default async function ProgressoPageV2() {
         <h1 style={{ margin: 0, fontSize: 27, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--ink)' }}>Progresso</h1>
       </div>
 
-      {/* Grid 2x2 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      {/* 2 colunas em telas estreitas, 4 em telas largas */}
+      <div className="web-grid-4">
         <StatCard
           label="Frases praticadas"
           value={attemptsThisWeek || 0}
@@ -179,73 +179,77 @@ export default async function ProgressoPageV2() {
         </div>
       </div>
 
-      {/* Memória espaçada */}
-      <div className="v2-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Memória espaçada</span>
-          <span style={{ fontFamily: 'var(--font-mono-v2)', fontSize: 12, color: 'var(--ink-soft)' }}>{activeTotal} frases ativas</span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[{ label: 'hoje', count: buckets.hoje }, { label: 'amanhã', count: buckets.amanha }, { label: '1 sem', count: buckets.semana }, { label: '1 mês', count: buckets.mes }].map((row) => (
-            <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 48, flexShrink: 0, fontSize: 12.5, color: 'var(--ink)' }}>{row.label}</span>
-              <div style={{ flex: 1, height: 10, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 999, background: 'var(--green)', width: `${(row.count / maxBucket) * 100}%` }} />
-              </div>
-              <span style={{ width: 22, textAlign: 'right', fontFamily: 'var(--font-mono-v2)', fontSize: 12, flexShrink: 0 }}>{row.count}</span>
+      <div className="web-cols">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Memória espaçada */}
+          <div className="v2-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Memória espaçada</span>
+              <span style={{ fontFamily: 'var(--font-mono-v2)', fontSize: 12, color: 'var(--ink-soft)' }}>{activeTotal} frases ativas</span>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Onde você mais errou */}
-      <div>
-        <SectionHead title="Onde você mais errou" right="últimos 7 dias" />
-        {topErrors.length > 0 ? (
-          <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10, marginBottom: 12 }}>
-              {topErrors.map((err, idx) => (
-                <div key={err.label} className="v2-card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--ink)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{idx + 1}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <strong style={{ display: 'block', fontSize: 14 }}>{err.label}</strong>
-                    {err.detail && <span style={{ display: 'block', fontSize: 12, color: 'var(--ink-soft)' }}>{err.detail}</span>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[{ label: 'hoje', count: buckets.hoje }, { label: 'amanhã', count: buckets.amanha }, { label: '1 sem', count: buckets.semana }, { label: '1 mês', count: buckets.mes }].map((row) => (
+                <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ width: 48, flexShrink: 0, fontSize: 12.5, color: 'var(--ink)' }}>{row.label}</span>
+                  <div style={{ flex: 1, height: 10, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 999, background: 'var(--green)', width: `${(row.count / maxBucket) * 100}%` }} />
                   </div>
-                  <span style={{ fontFamily: 'var(--font-mono-v2)', fontSize: 12, color: 'var(--ink-soft)', flexShrink: 0 }}>{err.count}x</span>
+                  <span style={{ width: 22, textAlign: 'right', fontFamily: 'var(--font-mono-v2)', fontSize: 12, flexShrink: 0 }}>{row.count}</span>
                 </div>
               ))}
             </div>
-            <Link href="/v2/pontos-fracos" className="v2-card-dark" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', fontWeight: 700, fontSize: 14 }}>
-              Treinar meus pontos fracos →
-            </Link>
-          </>
-        ) : (
-          <div className="v2-card-dark" style={{ opacity: 0.6, textAlign: 'center', fontWeight: 700, fontSize: 14, marginTop: 10 }}>
-            Sem erros recentes — nada a treinar por aqui
           </div>
-        )}
-      </div>
 
-      {/* Antes e depois */}
-      <div style={{ background: 'var(--green-soft)', borderRadius: 'var(--radius-card)', padding: 16 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green-dark)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Antes e depois</span>
-        <p style={{ margin: '8px 0 14px', fontSize: 13.5, color: 'var(--ink)' }}>
-          Responda a mesma pergunta do seu 1º dia e compare com a resposta original.
-        </p>
-        {nextComparisonDue ? (
-          <>
-            <button type="button" disabled className="v2-card-dark" style={{ width: '100%', border: 'none', fontWeight: 700, fontSize: 14, opacity: 0.5, cursor: 'not-allowed' }}>
-              Próxima comparação em {nextComparisonDate}
-            </button>
-            <Link href="/v2/antes-e-depois" style={{ display: 'block', textAlign: 'center', marginTop: 10, fontSize: 12.5, color: 'var(--green-dark)', textDecoration: 'underline' }}>
-              ver minha última comparação
+          {/* Onde você mais errou */}
+          <div>
+            <SectionHead title="Onde você mais errou" right="últimos 7 dias" />
+            {topErrors.length > 0 ? (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10, marginBottom: 12 }}>
+                  {topErrors.map((err, idx) => (
+                    <div key={err.label} className="v2-card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--ink)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{idx + 1}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <strong style={{ display: 'block', fontSize: 14 }}>{err.label}</strong>
+                        {err.detail && <span style={{ display: 'block', fontSize: 12, color: 'var(--ink-soft)' }}>{err.detail}</span>}
+                      </div>
+                      <span style={{ fontFamily: 'var(--font-mono-v2)', fontSize: 12, color: 'var(--ink-soft)', flexShrink: 0 }}>{err.count}x</span>
+                    </div>
+                  ))}
+                </div>
+                <Link href="/v2/pontos-fracos" className="v2-card-dark" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', fontWeight: 700, fontSize: 14 }}>
+                  Treinar meus pontos fracos →
+                </Link>
+              </>
+            ) : (
+              <div className="v2-card-dark" style={{ opacity: 0.6, textAlign: 'center', fontWeight: 700, fontSize: 14, marginTop: 10 }}>
+                Sem erros recentes — nada a treinar por aqui
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Antes e depois */}
+        <div className="web-sticky" style={{ background: 'var(--green-soft)', borderRadius: 'var(--radius-card)', padding: 16 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green-dark)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Antes e depois</span>
+          <p style={{ margin: '8px 0 14px', fontSize: 13.5, color: 'var(--ink)' }}>
+            Responda a mesma pergunta do seu 1º dia e compare com a resposta original.
+          </p>
+          {nextComparisonDue ? (
+            <>
+              <button type="button" disabled className="v2-card-dark" style={{ width: '100%', border: 'none', fontWeight: 700, fontSize: 14, opacity: 0.5, cursor: 'not-allowed' }}>
+                Próxima comparação em {nextComparisonDate}
+              </button>
+              <Link href="/v2/antes-e-depois" style={{ display: 'block', textAlign: 'center', marginTop: 10, fontSize: 12.5, color: 'var(--green-dark)', textDecoration: 'underline' }}>
+                ver minha última comparação
+              </Link>
+            </>
+          ) : (
+            <Link href="/v2/antes-e-depois" className="v2-card-dark" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', fontWeight: 700, fontSize: 14 }}>
+              Responder agora
             </Link>
-          </>
-        ) : (
-          <Link href="/v2/antes-e-depois" className="v2-card-dark" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', fontWeight: 700, fontSize: 14 }}>
-            Responder agora
-          </Link>
-        )}
+          )}
+        </div>
       </div>
     </>
   );

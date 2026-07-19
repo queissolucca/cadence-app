@@ -15,9 +15,9 @@ export default async function AjustesPageV2() {
     .single();
 
   return (
-    <>
+    <div className="web-narrow" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <SectionHead title="Ajustes" />
       <AjustesClient profile={profile} email={user.email} />
-    </>
+    </div>
   );
 }

@@ -7,6 +7,10 @@ import { useRouter } from 'next/navigation';
 // sequencial obrigatória) — qualquer um com status !== 'locked' abre o
 // detalhe e pode virar o cenário ativo do dia, independente de ordem ou de
 // já estar "dominado". Bloqueados continuam só visuais, sem interação.
+//
+// Lista em CSS grid (.web-scenario-grid) — 1 coluna em telas estreitas,
+// várias em telas largas — e diálogo centralizado nos dois casos, em vez de
+// duas versões (lista+bottom-sheet no mobile, grid+diálogo no desktop).
 export function ScenarioTrail({ scenarios, activeScenarioId, recommendedId }) {
   const router = useRouter();
   const [openId, setOpenId] = useState(null);
@@ -31,7 +35,7 @@ export function ScenarioTrail({ scenarios, activeScenarioId, recommendedId }) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div className="web-scenario-grid">
       {scenarios.map((s) => {
         const isDone = s.status === 'done';
         const isLocked = s.status === 'locked';
@@ -48,6 +52,7 @@ export function ScenarioTrail({ scenarios, activeScenarioId, recommendedId }) {
             style={{
               textAlign: 'left', border: isActive ? 'none' : '1px solid var(--line)',
               cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.55 : 1,
+              display: 'flex', flexDirection: 'column',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
@@ -56,9 +61,7 @@ export function ScenarioTrail({ scenarios, activeScenarioId, recommendedId }) {
                 <p style={{ margin: '2px 0 0', fontSize: 13, color: isActive ? 'rgba(255,255,255,0.75)' : 'var(--ink-soft)' }}>{s.subtitle}</p>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                {isActive && (
-                  <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--green)' }}>ativo agora</span>
-                )}
+                {isActive && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--green)' }}>ativo agora</span>}
                 {!isActive && s.id === recommendedId && (
                   <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: 'var(--green)', borderRadius: 999, padding: '3px 8px' }}>
                     recomendado
@@ -67,7 +70,7 @@ export function ScenarioTrail({ scenarios, activeScenarioId, recommendedId }) {
               </div>
             </div>
 
-            {!isLocked && (
+            {!isLocked ? (
               <>
                 <div style={{ height: 6, borderRadius: 999, background: isActive ? 'rgba(255,255,255,0.15)' : 'var(--line)', overflow: 'hidden', marginTop: 10 }}>
                   <div style={{ height: '100%', width: `${ratioPct}%`, background: 'var(--green)' }} />
@@ -76,8 +79,7 @@ export function ScenarioTrail({ scenarios, activeScenarioId, recommendedId }) {
                   {isDone ? 'dominado · ' : ''}{s.masteredCount}/{s.target_phrases} frases
                 </span>
               </>
-            )}
-            {isLocked && (
+            ) : (
               <span style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-mono-v2)', fontSize: 11, color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: 999, padding: '3px 9px' }}>
                 bloqueado
               </span>
@@ -91,11 +93,11 @@ export function ScenarioTrail({ scenarios, activeScenarioId, recommendedId }) {
           role="dialog"
           aria-modal="true"
           onClick={() => setOpenId(null)}
-          style={{ position: 'fixed', inset: 0, background: 'var(--v2-overlay)', display: 'flex', alignItems: 'flex-end', zIndex: 50 }}
+          style={{ position: 'fixed', inset: 0, background: 'var(--v2-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20 }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: 'var(--v2-card-bg)', color: 'var(--v2-card-fg)', borderRadius: '22px 22px 0 0', width: '100%', maxWidth: 420, margin: '0 auto', padding: 20 }}
+            style={{ background: 'var(--v2-card-bg)', color: 'var(--v2-card-fg)', borderRadius: 22, width: '100%', maxWidth: 440, padding: 22, maxHeight: '80vh', overflowY: 'auto' }}
           >
             <strong style={{ display: 'block', fontSize: 17 }}>{open.title}</strong>
             <p style={{ margin: '4px 0 14px', fontSize: 13, color: 'var(--ink-soft)' }}>{open.subtitle}</p>
@@ -109,15 +111,20 @@ export function ScenarioTrail({ scenarios, activeScenarioId, recommendedId }) {
                 </span>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={selectAndPractice}
-              disabled={switching}
-              className="v2-card-dark"
-              style={{ width: '100%', border: 'none', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
-            >
-              {switching ? 'Um momento…' : open.id === activeScenarioId ? 'Praticar agora' : 'Usar este cenário e praticar'}
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" onClick={() => setOpenId(null)} className="v2-card" style={{ border: '1px solid var(--line)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={selectAndPractice}
+                disabled={switching}
+                className="v2-card-dark"
+                style={{ flex: 1, border: 'none', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+              >
+                {switching ? 'Um momento…' : open.id === activeScenarioId ? 'Praticar agora' : 'Usar este cenário e praticar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

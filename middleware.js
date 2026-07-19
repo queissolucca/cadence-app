@@ -46,7 +46,19 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  const { data: paidRow } = await supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle();
+  // paid_emails e profiles são independentes entre si — disparar em paralelo
+  // em vez de sequencial economiza um round-trip inteiro pro Supabase em
+  // toda navegação dentro de /v2 (que é a maior parte do tráfego autenticado).
+  // Pra quem já não é pago, a consulta de profile sai "de graça" (resultado
+  // descartado), mas ela é minúscula — sai mais barato que pagar a latência
+  // sequencial no caso comum (usuário pago, que é a maioria).
+  const needsBaselineCheck = pathname !== '/v2/onboarding';
+  const [{ data: paidRow }, profileResult] = await Promise.all([
+    supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle(),
+    needsBaselineCheck
+      ? supabase.from('profiles').select('baseline_question').eq('id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
   const isPaid = !!paidRow;
 
   if (!isPaid) {
@@ -60,11 +72,8 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL('/v2', request.url));
   }
 
-  if (pathname !== '/v2/onboarding') {
-    const { data: profile } = await supabase.from('profiles').select('baseline_question').eq('id', user.id).maybeSingle();
-    if (!profile?.baseline_question) {
-      return NextResponse.redirect(new URL('/v2/onboarding', request.url));
-    }
+  if (needsBaselineCheck && !profileResult.data?.baseline_question) {
+    return NextResponse.redirect(new URL('/v2/onboarding', request.url));
   }
 
   return response;
