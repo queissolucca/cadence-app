@@ -4,7 +4,6 @@ import { getOrCreateDailyContent } from '../../../lib/dailyContent';
 import { dayKeySP, weekStartSP, weekEndSP, addDays, todayKeySP } from '../../../lib/dates';
 import { computeScenarioStatuses } from '../../../lib/scenarioProgress';
 import { AppHeader } from '../../../components/ui';
-import { PlayButton } from '../../../components/v2/PlayButton';
 import { ScenarioSwitcher } from '../../../components/v2/ScenarioSwitcher';
 
 const WEEKDAY_LABELS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']; // segunda -> domingo
@@ -34,7 +33,6 @@ export default async function HojePageV2() {
   const now = new Date();
   const nowIso = now.toISOString();
   const weekStart = weekStartSP(now);
-  const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString();
 
   const [
     profileRes,
@@ -44,9 +42,6 @@ export default async function HojePageV2() {
     content,
     dueForBadgesRes,
     weekSessionsRes,
-    lastErrorRes,
-    recentErrorsRes,
-    duePhrasesRes,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -59,16 +54,6 @@ export default async function HojePageV2() {
     getOrCreateDailyContent(supabase, user).catch(() => ({ phrase_of_day: null, exercises: { writing: [], speaking: [] } })),
     supabase.from('review_items').select('id, skill').eq('user_id', user.id).eq('mastered', false).lte('next_review_at', nowIso),
     supabase.from('sessions').select('started_at').eq('user_id', user.id).gte('started_at', weekStart.toISOString()).lte('started_at', weekEndSP(now).toISOString()),
-    // 7. Sua última correção (erro mais recente) — lê de error_events, não
-    // de exercise_attempts, porque error_events é o único log alimentado por
-    // TODAS as fontes de erro (sessão diária, pontos fracos E roleplay);
-    // exercise_attempts só existe pra writing/speaking via /api/evaluate.
-    supabase.from('error_events').select('wrong_text, right_text, detail_pt, occurred_at').eq('user_id', user.id).order('occurred_at', { ascending: false }).limit(1).maybeSingle(),
-    // 9. Banner "por que revisar hoje" — erros dos últimos 3 dias
-    supabase.from('error_events').select('category_label_pt').eq('user_id', user.id).gte('occurred_at', threeDaysAgo),
-    // Frases due hoje (máx 8 — telas largas mostram 2 por linha, então cabe
-    // mais sem custo de rolagem extra; mobile continua vendo 1 por linha)
-    supabase.from('review_items').select('id, pattern, content, next_review_at').eq('user_id', user.id).eq('mastered', false).lte('next_review_at', nowIso).order('next_review_at', { ascending: true }).limit(8),
   ]);
 
   const profile = profileRes.data;
@@ -77,9 +62,6 @@ export default async function HojePageV2() {
   const themeRows = themeRowsRes.data;
   const dueForBadges = dueForBadgesRes.data;
   const weekSessions = weekSessionsRes.data;
-  const lastError = lastErrorRes.data;
-  const recentErrors = recentErrorsRes.data;
-  const duePhrases = duePhrasesRes.data;
 
   const stateByScenarioId = {};
   (stateRows || []).forEach((row) => {
@@ -105,31 +87,6 @@ export default async function HojePageV2() {
     return { key, label: WEEKDAY_LABELS[i], done: daysWithSession.has(key), isToday: key === todayKey };
   });
   const weeklyGoal = profile?.weekly_cadence_target || 5;
-
-  let topErrorBanner = null;
-  if (recentErrors?.length) {
-    const counts = {};
-    recentErrors.forEach((e) => { counts[e.category_label_pt] = (counts[e.category_label_pt] || 0) + 1; });
-    const [label, count] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    topErrorBanner = { label, count };
-  }
-
-  let nextReviewDate = null;
-  if (!duePhrases?.length) {
-    const { data: nextItem } = await supabase
-      .from('review_items')
-      .select('next_review_at')
-      .eq('user_id', user.id)
-      .eq('mastered', false)
-      .gt('next_review_at', nowIso)
-      .order('next_review_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    nextReviewDate = nextItem?.next_review_at ? new Date(nextItem.next_review_at).toLocaleDateString('pt-BR') : null;
-  }
-
-  const accent = profile?.voice_accent || 'us';
-  const rate = profile?.audio_speed || 1.0;
 
   return (
     <>
@@ -237,92 +194,6 @@ export default async function HojePageV2() {
             <span style={{ fontSize: 20, opacity: 0.85, flexShrink: 0 }}>→</span>
           </div>
         </Link>
-      </div>
-
-      {/* 7 + 8/9 — frases pra revisar numa coluna, frase do dia/última
-          correção fixas do lado (desktop); mobile empilha tudo (padrão do
-          web-cols abaixo de 900px) */}
-      <div className="web-cols">
-        <div>
-          <div className="v2-section-head" style={{ marginBottom: 12 }}>
-            <h2>Suas frases</h2>
-            <span className="v2-section-right">{duePhrases?.length || 0} para hoje</span>
-          </div>
-
-          {(topErrorBanner || duePhrases?.length > 0) && (
-            <div style={{ background: 'var(--green-soft)', borderRadius: 16, padding: 14, marginBottom: 12 }}>
-              {topErrorBanner ? (
-                <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink)' }}>
-                  Você errou <strong style={{ color: 'var(--green-dark)' }}>{topErrorBanner.label}</strong> {topErrorBanner.count}x nos últimos 3 dias — as frases abaixo treinam exatamente isso.
-                </p>
-              ) : (
-                <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink)' }}>
-                  Nenhum erro nos últimos 3 dias — você está indo muito bem! Revise as frases abaixo para fixar de vez.
-                </p>
-              )}
-            </div>
-          )}
-
-          {duePhrases?.length ? (
-            <div className="web-grid-2">
-              {duePhrases.map((item) => (
-                <div key={item.id} className="v2-card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <strong style={{ display: 'block', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {item.content?.forma_natural || item.pattern}
-                    </strong>
-                    <span style={{ display: 'block', fontSize: 12, color: 'var(--ink-soft)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {item.content?.dica || item.content?.categoria || ''}
-                    </span>
-                  </div>
-                  <span style={{ fontFamily: 'var(--font-mono-v2)', fontSize: 10.5, background: 'var(--green-soft)', color: 'var(--green-dark)', borderRadius: 999, padding: '3px 8px', flexShrink: 0 }}>hoje</span>
-                  <PlayButton
-                    text={item.content?.forma_natural || item.pattern}
-                    accent={accent}
-                    rate={rate}
-                    label="▶"
-                    style={{ background: 'var(--green-soft)', color: 'var(--green-dark)' }}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="v2-card" style={{ textAlign: 'center' }}>
-              <p style={{ margin: 0, fontSize: 14, color: 'var(--ink-soft)' }}>
-                Tudo em dia{nextReviewDate ? ` — próxima revisão ${nextReviewDate}` : ''}.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="web-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {content.phrase_of_day && (
-            <div className="v2-card-dark">
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
-                Frase do dia · {content.phrase_of_day.context_label}
-              </span>
-              <p style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700 }}>{content.phrase_of_day.en}</p>
-              <p style={{ margin: '0 0 12px', fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>{content.phrase_of_day.explain_pt}</p>
-              <PlayButton text={content.phrase_of_day.en} accent={accent} rate={rate} />
-            </div>
-          )}
-
-          {lastError && (lastError.wrong_text || lastError.right_text) && (
-            <div className="v2-card" style={{ borderLeft: '4px solid var(--green)' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
-                Sua última correção
-              </span>
-              <p style={{ margin: 0, fontSize: 15 }}>
-                <span style={{ color: 'var(--red)', textDecoration: 'line-through' }}>{lastError.wrong_text}</span>
-                {' → '}
-                <strong style={{ color: 'var(--green-dark)' }}>{lastError.right_text}</strong>
-              </p>
-              {lastError.detail_pt && (
-                <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>{lastError.detail_pt}</p>
-              )}
-            </div>
-          )}
-        </div>
       </div>
     </>
   );
