@@ -53,6 +53,10 @@
   background: var(--green-deep); color: #F3EFE4; border: none; cursor: pointer;
   padding: 15px 26px; border-radius: 9px; font-weight: 600; font-size: 15px; width: 100%;
 }
+/* `.page a { color: inherit }` acima tem especificidade maior que `.btnPrimary`
+   sozinho (0,1,1 vs 0,1,0) e vencia quando o botão é um <a> — por isso o texto
+   saía escuro em vez de creme mesmo com o fundo verde correto. */
+a.btnPrimary { color: #F3EFE4; }
 .btnPrimary:hover { background: var(--green); }
 .btnPrimary:disabled { opacity: .5; cursor: not-allowed; }
 .btnGhost {

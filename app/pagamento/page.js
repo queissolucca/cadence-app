@@ -8,12 +8,12 @@ const btnStyle = {
   background: 'var(--green)', color: '#fff', fontSize: 15, width: '100%', cursor: 'pointer', textAlign: 'center', textDecoration: 'none', display: 'block', boxSizing: 'border-box',
 };
 
-// Rota top-level protegida (ver middleware.js) — logado mas com email fora
-// de paid_emails cai aqui antes de qualquer coisa em /v2. O webhook do
-// Kiwify (app/api/webhooks/kiwify) é o único jeito de um email entrar em
-// paid_emails agora, então chegar aqui quer dizer "ainda não achamos um
-// pagamento aprovado pra esse email" — o mais comum é ter pago com um email
-// diferente do que usou pra logar.
+// Rota pública (ver middleware.js) — destino do CTA final do onboarding
+// (/inicio/onboarding), então precisa funcionar sem sessão. Quem chega aqui
+// logado mas com email fora de paid_emails (fluxo antigo: caiu em /v2 sem ter
+// pago) vê uma variação da mesma tela. O webhook do Kiwify
+// (app/api/webhooks/kiwify) é o único jeito de um email entrar em
+// paid_emails.
 export default async function PagamentoPage() {
   const supabase = createClient();
   const {
@@ -31,10 +31,12 @@ export default async function PagamentoPage() {
           </div>
           <Card>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              acesso pendente
+              {user ? 'acesso pendente' : 'último passo'}
             </span>
             <p style={{ margin: '10px 0 4px', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
-              ainda não encontramos um pagamento aprovado pra este email
+              {user
+                ? 'ainda não encontramos um pagamento aprovado pra este email'
+                : 'desbloqueie o cadence com acesso vitalício'}
             </p>
             {user?.email && (
               <p style={{ margin: '0 0 16px', fontSize: 13.5, color: 'var(--ink-soft)' }}>
@@ -59,16 +61,26 @@ export default async function PagamentoPage() {
             </div>
 
             {paymentLinkUrl && (
-              <a href={paymentLinkUrl} style={btnStyle}>ainda não paguei — ir para o pagamento</a>
+              <a href={paymentLinkUrl} style={btnStyle}>
+                {user ? 'ainda não paguei — ir para o pagamento' : 'ir para o pagamento'}
+              </a>
             )}
-            <a href="/pagamento" style={{ ...btnStyle, background: 'none', border: '1px solid var(--line)', color: 'var(--ink)', marginTop: 10 }}>
-              já paguei — verificar de novo
-            </a>
 
-            <p style={{ margin: '14px 0 0', fontSize: 11.5, color: 'var(--ink-soft)', textAlign: 'center' }}>
-              já pagou com outro email? entre com o mesmo email usado na compra.
-            </p>
-            <TrocarLoginButton />
+            {user ? (
+              <>
+                <a href="/pagamento" style={{ ...btnStyle, background: 'none', border: '1px solid var(--line)', color: 'var(--ink)', marginTop: 10 }}>
+                  já paguei — verificar de novo
+                </a>
+                <p style={{ margin: '14px 0 0', fontSize: 11.5, color: 'var(--ink-soft)', textAlign: 'center' }}>
+                  já pagou com outro email? entre com o mesmo email usado na compra.
+                </p>
+                <TrocarLoginButton />
+              </>
+            ) : (
+              <p style={{ margin: '14px 0 0', fontSize: 11.5, color: 'var(--ink-soft)', textAlign: 'center' }}>
+                depois do pagamento, é só criar sua conta com o mesmo email pra acessar.
+              </p>
+            )}
           </Card>
         </div>
       </div>

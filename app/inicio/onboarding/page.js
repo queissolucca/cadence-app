@@ -174,7 +174,7 @@ export default function OnboardingPage() {
           </div>
           <a
             className={styles.btnPrimary}
-            href={process.env.NEXT_PUBLIC_PAYMENT_LINK_URL || '/login'}
+            href="/pagamento"
             style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}
           >
             quero destravar meu inglês agora
