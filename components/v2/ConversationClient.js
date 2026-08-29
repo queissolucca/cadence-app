@@ -62,6 +62,15 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           .then(() => onSaved && onSaved())
           .catch(() => {});
       }
+
+      // Progresso da trilha: a lição conta como feita se rodou de verdade (>=30s).
+      if (unit?.id && seconds >= 30) {
+        fetch('/api/track/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ unit_id: unit.id }),
+        }).catch(() => {});
+      }
     },
     onMessage: (msg) => {
       const text = msg?.message ?? msg?.text;
