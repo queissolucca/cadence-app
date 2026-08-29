@@ -96,11 +96,18 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       }
       if (!res.ok) throw new Error('signed_url');
       const { signedUrl } = await res.json();
-      // dynamicVariables: o agente usa {{user_name}} e {{agent_name}} na 1ª
-      // mensagem e no prompt (ex: "Hi Lucca! I'm Cadi!").
+      const name = firstName || 'there';
+      // 1ª fala da Cadi: no modo lição ela já abre no exercício; senão, saudação
+      // normal. Vai pra {{opening_line}} na First message do agente.
+      const openingLine = unit
+        ? `Alright ${name}! Let's train "${unit.title}" — ${unit.focus}. I'll give you one quick example, then it's your turn. Here we go!`
+        : resumeContext
+          ? `Hey ${name}! Let's pick up right where we left off.`
+          : `Hi ${name}! I'm Cadi, your English teacher. So — how's your day going so far?`;
       await conversation.startSession({
         signedUrl,
         dynamicVariables: {
+          opening_line: openingLine,
           ...(firstName ? { user_name: firstName } : {}),
           ...(agent?.name ? { agent_name: agent.name } : {}),
           ...(resumeContext ? { prior_context: resumeContext } : {}),
