@@ -176,8 +176,8 @@ export function ConversarView({ firstName }) {
           .conv-live {
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            min-height: 58vh;
+            align-items: center;
+            padding-top: 20px;
           }
         }
         @media (max-width: 860px) {

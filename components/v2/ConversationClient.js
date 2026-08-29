@@ -143,7 +143,7 @@ function ConversationInner({ firstName, onSaved, agent }) {
   else if (active) statusLabel = 'Pode falar — estou ouvindo';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, paddingTop: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: 18, paddingTop: 8 }}>
       {agent && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ width: 30, height: 30, borderRadius: 9, background: agent.accent, color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 }}>
@@ -160,7 +160,7 @@ function ConversationInner({ firstName, onSaved, agent }) {
         disabled={connecting}
         aria-label={active ? 'Encerrar conversa' : 'Começar conversa'}
         style={{
-          width: 128, height: 128, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
+          width: 100, height: 100, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
           display: 'grid', placeItems: 'center', position: 'relative',
           // Verde sólido nos dois modos (ícone branco sempre legível, tanto no
           // fundo claro quanto no escuro).
@@ -171,11 +171,11 @@ function ConversationInner({ firstName, onSaved, agent }) {
         }}
       >
         {active ? (
-          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="6" y="6" width="12" height="12" rx="2.5" />
           </svg>
         ) : (
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
             <rect x="9" y="3" width="6" height="11" rx="3" />
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
           </svg>

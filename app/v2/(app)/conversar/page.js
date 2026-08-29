@@ -23,7 +23,7 @@ export default async function ConversarPage() {
       <div>
         <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0, color: 'var(--ink)' }}>Conversar</h1>
         <p style={{ margin: '6px 0 18px', fontSize: 14, color: 'var(--ink-soft)' }}>
-          Fale em inglês do jeito que der — o coach entende, responde e corrige na hora.
+          Bora destravar seu inglês agora! Comece aos poucos, mas tenha cadência de continuar aprendendo! <strong style={{ color: 'var(--ink)' }}>Não pense muito, apenas clique e comece agora!</strong>
         </p>
       </div>
       <ConversarView firstName={firstName} />
