@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { createClient } from '../../../lib/supabase/server';
-import { dayKeySP, weekStartSP, weekEndSP, addDays, todayKeySP } from '../../../lib/dates';
+import { dayKeySP, weekStartSP, addDays, todayKeySP } from '../../../lib/dates';
 import { AppHeader } from '../../../components/ui';
+import { StreakCard } from '../../../components/v2/StreakCard';
 
 const WEEKDAY_LABELS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']; // segunda -> domingo
 
@@ -9,10 +10,8 @@ function getGreeting() {
   return 'Bora conversar?';
 }
 
-// Home enxuta: só a sequência da semana + o atalho pra conversa. Sem geração
-// de conteúdo do dia (a chamada síncrona à Claude API era o maior gargalo de
-// carga) — agora são 2 queries baratas ao Supabase e nada mais, então a tela
-// pinta na hora. Todo o "aprender" aconteceu na aba Conversar.
+// Home enxuta: streak da semana/mês + o atalho pra conversa. Duas queries
+// baratas ao Supabase, nada de IA no load — pinta na hora.
 export default async function HojePageV2() {
   const supabase = createClient();
   const {
@@ -20,34 +19,66 @@ export default async function HojePageV2() {
   } = await supabase.auth.getUser();
 
   const now = new Date();
-  const weekStart = weekStartSP(now);
+  const todayKey = todayKeySP();
 
-  const [profileRes, weekSessionsRes] = await Promise.all([
+  // Mês atual em America/Sao_Paulo.
+  const spYM = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(now);
+  const [my, mm] = spYM.split('-').map(Number);
+  const monthPrefix = `${my}-${String(mm).padStart(2, '0')}`;
+  const firstOfMonth = new Date(my, mm - 1, 1, 12); // meio-dia evita virada de fuso
+  const monthLabel = firstOfMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' });
+  const mondayIndex = (firstOfMonth.getDay() + 6) % 7; // segunda = 0
+  const daysInMonth = new Date(my, mm, 0).getDate();
+  const totalCells = Math.ceil((mondayIndex + daysInMonth) / 7) * 7;
+  const gridStart = addDays(firstOfMonth, -mondayIndex);
+
+  const weekStart = weekStartSP(now);
+  const rangeStart = addDays(gridStart, -1);
+  const rangeEnd = addDays(gridStart, totalCells + 1);
+
+  const [profileRes, sessionsRes] = await Promise.all([
     supabase
       .from('profiles')
-      .select('full_name, avatar_url, streak_count, streak_shields, weekly_cadence_target')
+      .select('full_name, avatar_url, streak_count, weekly_cadence_target')
       .eq('id', user.id)
       .single(),
     supabase
       .from('sessions')
       .select('started_at')
       .eq('user_id', user.id)
-      .gte('started_at', weekStart.toISOString())
-      .lte('started_at', weekEndSP(now).toISOString()),
+      .gte('started_at', rangeStart.toISOString())
+      .lte('started_at', rangeEnd.toISOString()),
   ]);
 
   const profile = profileRes.data;
-  const weekSessions = weekSessionsRes.data;
+  const doneDays = new Set((sessionsRes.data || []).map((s) => dayKeySP(new Date(s.started_at))));
 
-  const daysWithSession = new Set((weekSessions || []).map((s) => dayKeySP(new Date(s.started_at))));
-  const todayKey = todayKeySP();
   const weekDots = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStart, i);
     const key = dayKeySP(date);
-    return { key, label: WEEKDAY_LABELS[i], done: daysWithSession.has(key), isToday: key === todayKey };
+    return { key, label: WEEKDAY_LABELS[i], done: doneDays.has(key), isToday: key === todayKey };
   });
+  const weekDoneCount = weekDots.filter((d) => d.done).length;
+
+  const monthGrid = Array.from({ length: totalCells }, (_, i) => {
+    const date = addDays(gridStart, i);
+    const key = dayKeySP(date);
+    return { key, day: Number(key.slice(8, 10)), inMonth: key.slice(0, 7) === monthPrefix, done: doneDays.has(key), isToday: key === todayKey };
+  });
+  const monthDoneCount = monthGrid.filter((c) => c.inMonth && c.done).length;
+
   const weeklyGoal = profile?.weekly_cadence_target || 5;
   const streakCount = profile?.streak_count || 0;
+
+  // Recorde de streak — best-effort: a coluna streak_max pode ainda não existir
+  // (migration 0013). Se não existir, cai pro streak atual sem quebrar a página.
+  let streakMax = streakCount;
+  const { data: maxRow } = await supabase.from('profiles').select('streak_max').eq('id', user.id).maybeSingle();
+  if (maxRow && typeof maxRow.streak_max === 'number') streakMax = Math.max(streakMax, maxRow.streak_max);
+
+  const memberSince = user.created_at
+    ? new Date(user.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })
+    : null;
 
   return (
     <>
@@ -56,6 +87,7 @@ export default async function HojePageV2() {
           streak={streakCount}
           avatarUrl={profile?.avatar_url}
           avatarInitial={profile?.full_name || user.email}
+          profile={{ fullName: profile?.full_name || '', email: user.email, memberSince, streakMax }}
         />
         <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>{getGreeting()}</p>
       </div>
@@ -66,33 +98,16 @@ export default async function HojePageV2() {
         </p>
       </div>
 
-      {/* Sequência da semana — 7 bolinhas segunda->domingo */}
-      <div className="v2-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Sua semana</span>
-          <span style={{ fontFamily: 'var(--font-mono-v2)', fontSize: 12.5, color: 'var(--ink)' }}>
-            {daysWithSession.size}/{weeklyGoal} dias
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {weekDots.map((d) => (
-            <div
-              key={d.key}
-              title={d.key}
-              style={{
-                flex: 1, height: 38, borderRadius: 10, display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700,
-                background: d.done ? 'var(--green)' : 'transparent',
-                color: d.done ? '#fff' : 'var(--ink)',
-                border: d.done ? 'none' : `1.5px solid ${d.isToday ? 'var(--ink)' : 'var(--line)'}`,
-              }}
-            >
-              {d.label}
-            </div>
-          ))}
-        </div>
-      </div>
+      <StreakCard
+        weekDots={weekDots}
+        weekdayLabels={WEEKDAY_LABELS}
+        weekDoneCount={weekDoneCount}
+        weeklyGoal={weeklyGoal}
+        monthGrid={monthGrid}
+        monthLabel={monthLabel}
+        monthDoneCount={monthDoneCount}
+      />
 
-      {/* CTA principal — conversar */}
       <Link href="/v2/conversar" style={{ textDecoration: 'none' }}>
         <div className="v2-card-green" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ width: 56, height: 56, borderRadius: 18, background: 'var(--ink)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>

@@ -131,8 +131,7 @@ export function AjustesClient({ profile, email }) {
         type="button"
         onClick={handleSignOut}
         disabled={signingOut}
-        className="v2-card"
-        style={{ border: '1px solid var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--red)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+        style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--ink-soft)', opacity: 0.6, fontWeight: 500, fontSize: 13.5, cursor: 'pointer', padding: '12px', width: '100%' }}
       >
         <LogOut size={16} />
         {signingOut ? 'Saindo…' : 'Sair da conta'}

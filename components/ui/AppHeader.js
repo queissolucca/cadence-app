@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Pill } from './Pill';
+import { ProfileDialog } from '../v2/ProfileDialog';
 
-export function AppHeader({ streak, streakShields = 0, avatarUrl, avatarInitial, onAvatarClick, className = '', ...props }) {
+export function AppHeader({ streak, streakShields = 0, avatarUrl, avatarInitial, profile, className = '', ...props }) {
   const [showStreak, setShowStreak] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const hasStreak = typeof streak === 'number';
 
   return (
@@ -28,7 +31,7 @@ export function AppHeader({ streak, streakShields = 0, avatarUrl, avatarInitial,
             </Pill>
           </button>
         )}
-        <button type="button" className="v2-avatar" onClick={onAvatarClick} aria-label="Perfil">
+        <button type="button" className="v2-avatar" onClick={() => setShowProfile(true)} aria-label="Perfil">
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={avatarUrl} alt="" />
@@ -52,16 +55,29 @@ export function AppHeader({ streak, streakShields = 0, avatarUrl, avatarInitial,
             <p style={{ margin: 0, fontSize: 16, color: 'var(--v2-card-fg, var(--ink))', lineHeight: 1.55 }}>
               Você está a {streak} {streak === 1 ? 'dia' : 'dias'} aprendendo inglês! <strong>Isso sim é cadência de aprendizagem!</strong>
             </p>
-            <button
-              type="button"
+            <Link
+              href="/v2/conversar"
               onClick={() => setShowStreak(false)}
               className="v2-card-dark"
-              style={{ border: 'none', padding: '10px 22px', borderRadius: 999, fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 2 }}
+              style={{ textDecoration: 'none', border: 'none', padding: '10px 22px', borderRadius: 999, fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 2 }}
             >
-              Bora continuar!
-            </button>
+              bora continuar!
+            </Link>
           </div>
         </div>
+      )}
+
+      {profile && (
+        <ProfileDialog
+          open={showProfile}
+          onClose={() => setShowProfile(false)}
+          fullName={profile.fullName}
+          email={profile.email}
+          memberSince={profile.memberSince}
+          streakMax={profile.streakMax}
+          avatarUrl={avatarUrl}
+          avatarInitial={avatarInitial}
+        />
       )}
     </header>
   );
