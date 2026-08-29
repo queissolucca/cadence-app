@@ -10,7 +10,7 @@ export default async function AjustesPageV2() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, weekly_cadence_target, session_duration, correction_timing, correction_depth, voice_accent, audio_speed, pronunciation_strictness, theme, reminder_enabled, reminder_time')
+    .select('full_name, weekly_cadence_target, theme')
     .eq('id', user.id)
     .single();
 
