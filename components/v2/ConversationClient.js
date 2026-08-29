@@ -1,13 +1,18 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import { useConversation } from '@elevenlabs/react';
+import { ConversationProvider, useConversation } from '@elevenlabs/react';
 
 // Agente de voz em tempo real (ElevenLabs Conversational AI). Foco 100% em
 // falar: um botão de microfone grande, status ao vivo, e o texto fica "em
 // segundo plano" (colapsado por padrão). Ao encerrar, registra uma sessão
 // (kind 'roleplay') pra acender a sequência da semana — sem migration nova.
-export function ConversationClient() {
+//
+// IMPORTANTE: no @elevenlabs/react v1.x o useConversation SÓ funciona dentro
+// de um <ConversationProvider> (senão joga erro no mount). Por isso o
+// componente exportado só envolve o provider e o miolo real vive em
+// ConversationInner.
+function ConversationInner() {
   const [starting, setStarting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [notConfigured, setNotConfigured] = useState(false);
@@ -171,5 +176,13 @@ export function ConversationClient() {
         </div>
       )}
     </div>
+  );
+}
+
+export function ConversationClient() {
+  return (
+    <ConversationProvider>
+      <ConversationInner />
+    </ConversationProvider>
   );
 }
