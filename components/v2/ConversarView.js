@@ -11,6 +11,15 @@ function fullDateTime(iso) {
   });
 }
 
+// Contexto de retomada pro agente — só o trecho recente (custo controlado),
+// não a conversa inteira.
+function buildResumeContext(messages, topic) {
+  const recent = (messages || []).slice(-16);
+  const lines = recent.map((m) => `${m.role === 'you' ? 'Student' : 'Coach'}: ${m.text}`).join('\n');
+  const ctx = `You and the student were already talking${topic ? ` about "${topic}"` : ''}. Here's the recent part of that conversation:\n${lines}\n\nContinue naturally from here — don't restart or make them repeat what they already said.`;
+  return ctx.length > 1600 ? `${ctx.slice(0, 1600)}…` : ctx;
+}
+
 // Aba Conversar com histórico ao lado (estilo LLM). Painel esquerdo = galeria
 // de agentes + lista de conversas salvas; painel direito = a conversa ao vivo,
 // ou o transcript de uma conversa passada quando o usuário revisita um tema.
@@ -22,6 +31,7 @@ export function ConversarView({ firstName }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
   const [activeAgent, setActiveAgent] = useState(DEFAULT_AGENT);
+  const [resume, setResume] = useState(null);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -62,8 +72,18 @@ export function ConversarView({ firstName }) {
   const startNew = useCallback(() => {
     setSelected(null);
     setDetail(null);
+    setResume(null);
     setRailOpen(false);
   }, []);
+
+  const resumeConversation = useCallback(() => {
+    if (!detail) return;
+    const topic = detail.title || selected?.title || 'nossa conversa';
+    setResume({ context: buildResumeContext(detail.messages, topic), topic });
+    setSelected(null);
+    setDetail(null);
+    setRailOpen(false);
+  }, [detail, selected]);
 
   const selectAgent = useCallback((agent) => {
     setActiveAgent(agent);
@@ -116,9 +136,19 @@ export function ConversarView({ firstName }) {
             <h2 style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.3px', margin: 0, color: 'var(--ink)' }}>
               {selected.title || 'Conversa'}
             </h2>
-            <p style={{ margin: '4px 0 16px', fontSize: 12.5, color: 'var(--ink-soft)', fontFamily: 'var(--font-mono-v2, monospace)' }}>
+            <p style={{ margin: '4px 0 12px', fontSize: 12.5, color: 'var(--ink-soft)', fontFamily: 'var(--font-mono-v2, monospace)' }}>
               {fullDateTime(selected.started_at)}
             </p>
+            <button
+              onClick={resumeConversation}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 18, padding: '9px 16px', borderRadius: 999, border: 'none', background: 'var(--green)', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="3" width="6" height="11" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+              </svg>
+              Falar sobre isso
+            </button>
             {detailLoading && <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>Carregando conversa…</p>}
             {detail && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -145,7 +175,13 @@ export function ConversarView({ firstName }) {
           </div>
         ) : (
           <div className="conv-live">
-            <ConversationClient firstName={firstName} onSaved={fetchHistory} agent={activeAgent} />
+            <ConversationClient
+              firstName={firstName}
+              onSaved={() => { fetchHistory(); setResume(null); }}
+              agent={activeAgent}
+              resumeContext={resume?.context}
+              resumeTopic={resume?.topic}
+            />
           </div>
         )}
       </div>
@@ -184,6 +220,7 @@ export function ConversarView({ firstName }) {
           .conv-shell {
             flex-direction: column;
             gap: 14px;
+            align-items: stretch;
           }
           .conv-rail {
             width: 100%;

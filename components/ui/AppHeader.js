@@ -8,8 +8,8 @@ export function AppHeader({ streak, streakShields = 0, avatarUrl, avatarInitial,
       <span className="v2-logo">cadence</span>
       <div className="v2-header-right">
         {typeof streak === 'number' && (
-          <Pill dot dotColor="var(--green)">
-            {streak} {streak === 1 ? 'dia' : 'dias'}
+          <Pill dotColor="var(--green)">
+            🔥 {streak} {streak === 1 ? 'dia' : 'dias'}
             {streakShields > 0 && (
               <span title="1 falta por semana não zera sua sequência" style={{ marginLeft: 4 }} aria-label={`${streakShields} escudo(s) de proteção`}>
                 🛡

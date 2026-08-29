@@ -48,28 +48,18 @@ export default async function HojePageV2() {
   });
   const weeklyGoal = profile?.weekly_cadence_target || 5;
   const streakCount = profile?.streak_count || 0;
-  const streakText = streakCount >= 1
-    ? `Streak de ${streakCount} ${streakCount === 1 ? 'dia' : 'dias'}`
-    : 'Comece seu streak hoje';
 
   return (
     <>
       <div className="mobile-only">
         <AppHeader
+          streak={streakCount}
           avatarUrl={profile?.avatar_url}
           avatarInitial={profile?.full_name || user.email}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-          <span style={{ fontSize: 18 }} aria-hidden="true">🔥</span>
-          <strong style={{ fontSize: 15, color: 'var(--ink)' }}>{streakText}</strong>
-        </div>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>{getGreeting()}</p>
+        <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>{getGreeting()}</p>
       </div>
       <div className="desktop-only">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-          <span style={{ fontSize: 20 }} aria-hidden="true">🔥</span>
-          <strong style={{ fontSize: 16, color: 'var(--ink)' }}>{streakText}</strong>
-        </div>
         <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-1px', margin: 0, color: 'var(--ink)' }}>{getGreeting()}</h1>
         <p style={{ margin: '6px 0 0', fontSize: 14, color: 'var(--ink-soft)' }}>
           {now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo' })}

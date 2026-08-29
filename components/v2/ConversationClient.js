@@ -14,7 +14,7 @@ function deriveTitle(messages) {
   return `Conversa · ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
 }
 
-function ConversationInner({ firstName, onSaved, agent }) {
+function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic }) {
   const [starting, setStarting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [notConfigured, setNotConfigured] = useState(false);
@@ -94,6 +94,7 @@ function ConversationInner({ firstName, onSaved, agent }) {
         dynamicVariables: {
           ...(firstName ? { user_name: firstName } : {}),
           ...(agent?.name ? { agent_name: agent.name } : {}),
+          ...(resumeContext ? { prior_context: resumeContext } : {}),
         },
       });
     } catch (err) {
@@ -105,7 +106,7 @@ function ConversationInner({ firstName, onSaved, agent }) {
     } finally {
       setStarting(false);
     }
-  }, [conversation, firstName, agent]);
+  }, [conversation, firstName, agent, resumeContext]);
 
   const stop = useCallback(async () => {
     try {
@@ -136,7 +137,7 @@ function ConversationInner({ firstName, onSaved, agent }) {
   const muted = active && conversation.isMuted;
   const speaking = active && conversation.isSpeaking;
 
-  let statusLabel = agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
+  let statusLabel = resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
   if (connecting) statusLabel = 'Conectando…';
   else if (muted) statusLabel = 'Microfone mudo — o coach continua';
   else if (speaking) statusLabel = `${agent?.name || 'Coach'} falando…`;
@@ -155,12 +156,19 @@ function ConversationInner({ firstName, onSaved, agent }) {
         </div>
       )}
 
+      {resumeTopic && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--accent-deep)', background: 'var(--accent-soft)', padding: '6px 12px', borderRadius: 999, maxWidth: '90%' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14l-4-4 4-4M5 10h11a4 4 0 0 1 0 8h-2" /></svg>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Continuando: {resumeTopic}</span>
+        </div>
+      )}
+
       <button
         onClick={active ? stop : start}
         disabled={connecting}
         aria-label={active ? 'Encerrar conversa' : 'Começar conversa'}
         style={{
-          width: 100, height: 100, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
+          width: 85, height: 85, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
           display: 'grid', placeItems: 'center', position: 'relative',
           // Verde sólido nos dois modos (ícone branco sempre legível, tanto no
           // fundo claro quanto no escuro).
@@ -171,11 +179,11 @@ function ConversationInner({ firstName, onSaved, agent }) {
         }}
       >
         {active ? (
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="6" y="6" width="12" height="12" rx="2.5" />
           </svg>
         ) : (
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
             <rect x="9" y="3" width="6" height="11" rx="3" />
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
           </svg>
@@ -274,10 +282,10 @@ function ConversationInner({ firstName, onSaved, agent }) {
   );
 }
 
-export function ConversationClient({ firstName, onSaved, agent }) {
+export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic }) {
   return (
     <ConversationProvider>
-      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} />
+      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} />
     </ConversationProvider>
   );
 }
