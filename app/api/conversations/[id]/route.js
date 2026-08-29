@@ -37,26 +37,38 @@ export async function PATCH(request, { params }) {
   } catch {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
-  const pinned = !!body.pinned;
-
-  // Limite de 5 fixadas por usuário.
-  if (pinned) {
-    const { count } = await supabase
+  // Atualizar mensagens (retomar/continuar uma conversa — anexa o novo trecho).
+  if (Array.isArray(body.messages)) {
+    const messages = body.messages;
+    const { error } = await supabase
       .from('conversations')
-      .select('id', { count: 'exact', head: true })
+      .update({ messages, turn_count: messages.length, ended_at: body.ended_at || new Date().toISOString() })
       .eq('user_id', user.id)
-      .eq('pinned', true);
-    if ((count || 0) >= 5) return NextResponse.json({ error: 'max_pins' }, { status: 409 });
+      .eq('id', params.id);
+    if (error) return NextResponse.json({ error: 'update_failed' }, { status: 500 });
+    return NextResponse.json({ ok: true });
   }
 
-  const { error } = await supabase
-    .from('conversations')
-    .update({ pinned })
-    .eq('user_id', user.id)
-    .eq('id', params.id);
+  // Fixar/desafixar (limite de 5 por usuário).
+  if (typeof body.pinned === 'boolean') {
+    if (body.pinned) {
+      const { count } = await supabase
+        .from('conversations')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('pinned', true);
+      if ((count || 0) >= 5) return NextResponse.json({ error: 'max_pins' }, { status: 409 });
+    }
+    const { error } = await supabase
+      .from('conversations')
+      .update({ pinned: body.pinned })
+      .eq('user_id', user.id)
+      .eq('id', params.id);
+    if (error) return NextResponse.json({ error: 'pin_failed' }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
 
-  if (error) return NextResponse.json({ error: 'pin_failed' }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ error: 'nothing_to_update' }, { status: 400 });
 }
 
 export async function DELETE(request, { params }) {

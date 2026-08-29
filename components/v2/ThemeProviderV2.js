@@ -7,7 +7,7 @@ import { ThemeProvider } from 'next-themes';
 // nunca referencia essa classe, então fica inerte a isso.
 export function ThemeProviderV2({ children }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
       {children}
     </ThemeProvider>
   );

@@ -63,7 +63,7 @@ export function AjustesClient({ profile, email }) {
 
   const [state, setState] = useState({
     weeklyCadence: profile?.weekly_cadence_target || 5,
-    themePref: profile?.theme || 'light',
+    themePref: profile?.theme === 'dark' ? 'dark' : 'light',
   });
   const [sheet, setSheet] = useState(null); // 'weekly' | null
   const [signingOut, setSigningOut] = useState(false);
@@ -75,7 +75,7 @@ export function AjustesClient({ profile, email }) {
 
   const changeTheme = async (value) => {
     setState((prev) => ({ ...prev, themePref: value }));
-    setTheme(value === 'auto' ? 'system' : value);
+    setTheme(value);
     await save({ theme: value });
   };
 
@@ -115,7 +115,7 @@ export function AjustesClient({ profile, email }) {
             <span style={{ fontSize: 14 }}>Tema</span>
           </div>
           <SegmentedControl
-            options={[{ value: 'light', label: 'Claro' }, { value: 'dark', label: 'Escuro' }, { value: 'auto', label: 'Auto' }]}
+            options={[{ value: 'light', label: 'Claro' }, { value: 'dark', label: 'Escuro' }]}
             value={state.themePref}
             onChange={changeTheme}
           />

@@ -14,7 +14,7 @@ function deriveTitle(messages) {
   return `Conversa · ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
 }
 
-function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, unit }) {
+function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit }) {
   const [starting, setStarting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [notConfigured, setNotConfigured] = useState(false);
@@ -27,8 +27,11 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const conversation = useConversation({
     onConnect: () => {
       startedAtRef.current = Date.now();
-      messagesRef.current = [];
-      setTranscript([]);
+      // Ao retomar, a transcrição já começa com o histórico antigo (continuidade
+      // visual); as falas novas entram por cima.
+      const base = Array.isArray(resumeMessages) ? resumeMessages : [];
+      messagesRef.current = base;
+      setTranscript(base);
       setErrorMsg('');
     },
     onDisconnect: () => {
@@ -47,20 +50,26 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       }
 
       if (messages.length) {
-        fetch('/api/conversations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages,
-            title: unit ? `Lição: ${unit.title}` : deriveTitle(messages),
-            theme: unit ? unit.title : agent?.name || null,
-            started_at: new Date(startedAt).toISOString(),
-            ended_at: new Date().toISOString(),
-            duration_seconds: seconds,
-          }),
-        })
-          .then(() => onSaved && onSaved())
-          .catch(() => {});
+        // Retomada: atualiza a MESMA conversa (anexa o novo trecho). Senão, cria.
+        const req = resumeId
+          ? fetch(`/api/conversations/${resumeId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ messages, ended_at: new Date().toISOString() }),
+            })
+          : fetch('/api/conversations', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messages,
+                title: unit ? `Lição: ${unit.title}` : deriveTitle(messages),
+                theme: unit ? unit.title : agent?.name || null,
+                started_at: new Date(startedAt).toISOString(),
+                ended_at: new Date().toISOString(),
+                duration_seconds: seconds,
+              }),
+            });
+        req.then(() => onSaved && onSaved()).catch(() => {});
       }
 
       // Progresso da trilha: a lição conta como feita se rodou de verdade (>=30s).
@@ -174,7 +183,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       )}
 
       {resumeTopic && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--accent-deep)', background: 'var(--accent-soft)', padding: '6px 12px', borderRadius: 999, maxWidth: '90%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--green-dark, var(--green))', background: 'var(--green-soft)', padding: '6px 12px', borderRadius: 999, maxWidth: '90%' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14l-4-4 4-4M5 10h11a4 4 0 0 1 0 8h-2" /></svg>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Continuando: {resumeTopic}</span>
         </div>
@@ -299,10 +308,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   );
 }
 
-export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, unit }) {
+export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit }) {
   return (
     <ConversationProvider>
-      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} unit={unit} />
+      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} />
     </ConversationProvider>
   );
 }

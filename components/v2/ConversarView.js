@@ -14,10 +14,13 @@ function fullDateTime(iso) {
 // Contexto de retomada pro agente — só o trecho recente (custo controlado),
 // não a conversa inteira.
 function buildResumeContext(messages, topic) {
-  const recent = (messages || []).slice(-16);
-  const lines = recent.map((m) => `${m.role === 'you' ? 'Student' : 'Coach'}: ${m.text}`).join('\n');
-  const ctx = `You and the student were already talking${topic ? ` about "${topic}"` : ''}. Here's the recent part of that conversation:\n${lines}\n\nContinue naturally from here — don't restart or make them repeat what they already said.`;
-  return ctx.length > 1600 ? `${ctx.slice(0, 1600)}…` : ctx;
+  const all = messages || [];
+  const lines = all.map((m) => `${m.role === 'you' ? 'Student' : 'Coach'}: ${m.text}`).join('\n');
+  const head = `You and the student were already having this conversation${topic ? ` about "${topic}"` : ''}. Here's the transcript so far:\n\n`;
+  const tail = `\n\nContinue naturally from exactly where it left off — you remember all of this, so don't restart and don't make them repeat themselves.`;
+  const budget = 4500; // mantém o trecho mais recente sem estourar o prompt
+  const body = lines.length > budget ? `…${lines.slice(-budget)}` : lines;
+  return head + body + tail;
 }
 
 // Aba Conversar com histórico ao lado (estilo LLM). Painel esquerdo = galeria
@@ -79,7 +82,7 @@ export function ConversarView({ firstName }) {
   const resumeConversation = useCallback(() => {
     if (!detail) return;
     const topic = detail.title || selected?.title || 'nossa conversa';
-    setResume({ context: buildResumeContext(detail.messages, topic), topic });
+    setResume({ context: buildResumeContext(detail.messages, topic), topic, id: detail.id, messages: detail.messages });
     setSelected(null);
     setDetail(null);
     setRailOpen(false);
@@ -201,6 +204,8 @@ export function ConversarView({ firstName }) {
               agent={activeAgent}
               resumeContext={resume?.context}
               resumeTopic={resume?.topic}
+              resumeMessages={resume?.messages}
+              resumeId={resume?.id}
             />
           </div>
         )}
