@@ -2,8 +2,8 @@ import Link from 'next/link';
 import styles from './page.module.css';
 
 export const metadata = {
-  title: 'cadence — você já sabe inglês. hora de aprender de vez',
-  description: 'cadence é feito pra quem já passou do básico e quer treinar exatamente o que falta: escrever com naturalidade e falar com confiança em situações reais.',
+  title: 'cadence — você entende inglês. hora de destravar a fala',
+  description: 'cadence é pra quem já entende inglês e quer soltar a fala: converse por voz com a Cadi, sua coach de IA, e treine numa trilha de lições de 1–2 minutos, do B1 ao C1, com correção na hora.',
 };
 
 export default function CadenceLandingPage() {
@@ -27,27 +27,28 @@ export default function CadenceLandingPage() {
       <section className={styles.hero}>
         <div className={`${styles.wrap} ${styles.heroGrid}`}>
           <div>
-            <span className={styles.eyebrow}>você já sabe inglês. hora de aprender de vez</span>
-            <h1>você entende quase tudo em inglês. <em>então por que ainda trava</em> na hora de escrever ou falar?</h1>
-            <p className={styles.leadHero}>cadence é feito pra quem já passou do básico — nível intermediário pra cima — e quer treinar exatamente o que falta: escrever com naturalidade e falar com confiança em situações reais. sem lição de gramática do zero.</p>
+            <span className={styles.eyebrow}>você já entende inglês. hora de soltar a fala</span>
+            <h1>você entende quase tudo em inglês. <em>então por que ainda trava</em> na hora de falar?</h1>
+            <p className={styles.leadHero}>cadence é pra quem já passou do básico e quer treinar o que realmente falta: <strong>conversar</strong>. você fala por voz com a Cadi, sua coach de IA — em conversas livres ou numa trilha de lições de 1 a 2 minutos, do B1 ao C1 — e ela entende, responde e corrige na hora. sem lição escrita, sem gramática do zero.</p>
             <div className={styles.ctaRow}>
               <Link href="/inicio/onboarding" className={styles.btnPrimary}>quero destravar meu inglês agora</Link>
               <a href="#metodo" className={styles.btnGhost}>ver como funciona</a>
             </div>
-            <p className={styles.microcopy}>acesso antecipado · sessões de ~10 min · sem cartão de crédito</p>
+            <p className={styles.microcopy}>acesso antecipado · lições de 1–2 min · treino por voz</p>
           </div>
           <div className={styles.heroVisual}>
-            <div className={styles.phone}>
+            <div className={`${styles.phone} ${styles.phoneDark}`}>
               <div className={styles.phoneBar}><span>9:41</span><span>●●●</span></div>
-              <span className={styles.phoneStep}>01 · hoje · início da sessão</span>
+              <span className={styles.phoneStep}>conversar · ao vivo</span>
               <div className={styles.phoneBody}>
-                <p style={{ fontSize: '13px', color: 'var(--stone)', marginBottom: '2px' }}>bom dia, rafa</p>
-                <div className={styles.phoneTitle}>Hoje</div>
-                <div className={styles.phoneCard}>
-                  <span className={styles.phonePill}>10 min · 6 itens</span><br />
-                  2 escrita · 2 fala · 2 revisão
+                <p style={{ fontSize: '11px', color: '#9FB6A9', margin: '6px 0 14px' }}>CADI · THE ENGLISH TEACHER</p>
+                <div className={styles.mic}>
+                  <div className={styles.micBars}>
+                    <span style={{ height: '10px' }}></span><span style={{ height: '18px' }}></span><span style={{ height: '8px' }}></span><span style={{ height: '14px' }}></span>
+                  </div>
                 </div>
-                <div className={styles.phoneBtn}>continuar sessão</div>
+                <p className={styles.captionDark}>toque pra falar com a Cadi</p>
+                <div className={styles.quoteYou} style={{ marginTop: '12px' }}><span>🔥 4 dias seguidos</span>continue a cadência</div>
               </div>
             </div>
           </div>
@@ -57,23 +58,23 @@ export default function CadenceLandingPage() {
       <section className={styles.problem} id="problema">
         <div className={styles.wrap}>
           <span className={styles.eyebrow}>// o problema real</span>
-          <h2>você não é iniciante. então por que ainda trava?</h2>
-          <p className={styles.leadProblem}>anos de inglês, série sem legenda, e-mail lido sem esforço — mas na hora de escrever algo importante ou entrar numa call em inglês, o cérebro trava. isso não é falta de nível. é falta de prática no que realmente importa.</p>
+          <h2>você não é iniciante. então por que ainda trava pra falar?</h2>
+          <p className={styles.leadProblem}>anos de inglês, série sem legenda, e-mail lido sem esforço — mas na hora de entrar numa call ou puxar uma conversa em inglês, o cérebro trava. isso não é falta de nível. é falta de treino de fala no que realmente importa.</p>
           <div className={styles.cards}>
             <div className={styles.card}>
               <h3>o platô do intermediário</h3>
-              <p>você passou dos exercícios básicos há anos, mas continua com os mesmos deslizes: preposição errada, tempo verbal torto, aquela pausa antes de falar porque não sabe se soa natural.</p>
+              <p>você passou dos exercícios básicos há anos, mas na hora de falar continua com os mesmos deslizes: preposição errada, tempo verbal torto, e aquela pausa antes de abrir a boca porque não sabe se soa natural.</p>
             </div>
             <div className={styles.card}>
               <h3>tempo, você não tem</h3>
-              <p>entre trabalho e o resto da vida, sobra pouco. curso inteiro, aula de 40 minutos, lição de casa — não cabe. o que cabe são os 10 minutos entre uma reunião e outra.</p>
+              <p>entre trabalho e o resto da vida, sobra pouco. curso inteiro, aula de 40 minutos — não cabe. o que cabe são 1 ou 2 minutos entre uma reunião e outra. o cadence é feito nesse tamanho.</p>
             </div>
             <div className={styles.card}>
               <h3>os apps tratam você como principiante</h3>
-              <p>"the cat is on the table" não é o seu problema. você já lê, já assiste, já entende. falta treinar escrita e fala em situações reais — com correção que explica o porquê, não só pontuação por acerto.</p>
+              <p>&quot;the cat is on the table&quot; não é o seu problema. você já lê, já assiste, já entende. o que falta é <strong>conversar de verdade</strong> — falando, com correção que explica o porquê, na hora.</p>
             </div>
           </div>
-          <p className={styles.closer}>resultado: você entende quase tudo — mas ainda reescreve um e-mail cinco vezes ou trava numa apresentação. familiar?</p>
+          <p className={styles.closer}>resultado: você entende quase tudo — mas trava numa call ou fica calado num jantar em inglês. familiar?</p>
         </div>
       </section>
 
@@ -81,46 +82,48 @@ export default function CadenceLandingPage() {
         <div className={styles.wrap}>
           <div className={styles.solutionHead}>
             <span className={styles.eyebrow}>// como o cadence funciona</span>
-            <h2>duas dores, um método: escrever e falar, todo dia, um pouco.</h2>
-            <p className={styles.leadSolution}>cada sessão dura o tempo de um café — cerca de 10 minutos, sempre misturando escrita e fala em cenários reais, nunca frases soltas de manual.</p>
+            <h2>um jeito só: conversar. todo dia, um pouco.</h2>
+            <p className={styles.leadSolution}>nada de lição escrita. você <strong>fala</strong> — com a Cadi, sua coach de IA — em conversas livres sobre o que quiser, ou seguindo uma trilha de lições de 1 a 2 minutos. ela entende, responde e corrige na hora, sem quebrar o papo.</p>
           </div>
           <div className={styles.chipRow}>
-            <span className={styles.chip}>cenários reais, não frases soltas</span>
-            <span className={styles.chip}>correção direta + o porquê</span>
-            <span className={styles.chip}>SRS: hoje → amanhã → 1 sem → 1 mês</span>
+            <span className={styles.chip}>conversa de verdade, por voz</span>
+            <span className={styles.chip}>correção na hora, com o porquê</span>
+            <span className={styles.chip}>trilha do B1 ao C1 · 1–2 min por lição</span>
           </div>
 
           <div className={styles.phonesGrid}>
             <div className={styles.phone}>
               <div className={styles.phoneBar}><span>9:41</span><span>●●●</span></div>
-              <span className={styles.phoneStep}>02 · escrita · cenário real</span>
+              <span className={styles.phoneStep}>01 · trilha · escolha o nível</span>
               <div className={styles.phoneBody}>
-                <p style={{ fontSize: '11px', color: 'var(--stone)', marginBottom: '6px' }}>CENÁRIO · E-MAIL DE TRABALHO</p>
-                <div className={styles.phoneTitle} style={{ fontSize: '16px' }}>seu gerente pergunta se o relatório fica pronto hoje.</div>
-                <div className={styles.phoneInput}>I will send the report until tomorrow morning.</div>
-                <div className={styles.phoneBtn}>verificar</div>
+                <div className={styles.phoneTitle} style={{ fontSize: '16px' }}>B1 · Independent</div>
+                <p style={{ fontSize: '11px', color: 'var(--stone)', margin: '2px 0 8px' }}>3/30 lições · continue de onde parou</p>
+                <div className={styles.phoneCard}>
+                  <span className={styles.phonePill}>present perfect</span><br />
+                  Ever been there?
+                </div>
               </div>
             </div>
 
             <div className={styles.phone}>
               <div className={styles.phoneBar}><span>9:41</span><span>●●●</span></div>
-              <span className={styles.phoneStep}>03 · escrita · correção direta</span>
+              <span className={styles.phoneStep}>02 · lição · 1–2 min</span>
               <div className={styles.phoneBody}>
-                <p style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>✓ quase lá — 1 ajuste</p>
-                <div className={styles.phoneCard}>
-                  <span style={{ fontSize: '10px', color: 'var(--stone)' }}>VOCÊ ESCREVEU</span><br />
-                  I will send the report <span className={styles.strike}>until</span> <span className={styles.ok}>by</span> tomorrow morning.
+                <p style={{ fontSize: '11px', color: 'var(--stone)', marginBottom: '6px' }}>PRESENT PERFECT VS PAST SIMPLE</p>
+                <div className={styles.phoneTitle} style={{ fontSize: '16px' }}>Ever been there?</div>
+                <div className={styles.phoneCard} style={{ marginTop: '10px' }}>
+                  a Cadi dá um exemplo, você fala, ela corrige — e em ~1 min tá feito.
                 </div>
-                <div className={styles.phoneWhy}><b>por quê:</b> "by" marca um prazo final. "until" seria uma ação que continua até aquele momento.</div>
+                <div className={styles.phoneBtn}>começar a falar</div>
               </div>
             </div>
 
             <div className={`${styles.phone} ${styles.phoneDark}`}>
               <div className={styles.phoneBar}><span>9:41</span><span>●●●</span></div>
-              <span className={styles.phoneStep}>04 · fala · gravando</span>
+              <span className={styles.phoneStep}>03 · fala · ao vivo</span>
               <div className={styles.phoneBody}>
-                <p style={{ fontSize: '11px', color: '#9FB6A9', marginTop: '6px' }}>CENÁRIO · RESTAURANTE</p>
-                <div className={styles.transcript}>você terminou de comer.<br />peça a conta com educação.</div>
+                <p style={{ fontSize: '11px', color: '#9FB6A9', marginTop: '6px' }}>A CADI ESTÁ OUVINDO</p>
+                <div className={styles.transcript}>fale à vontade —<br />ela entende do jeito que der.</div>
                 <div className={styles.mic}>
                   <div className={styles.micBars}>
                     <span style={{ height: '10px' }}></span><span style={{ height: '18px' }}></span><span style={{ height: '8px' }}></span><span style={{ height: '14px' }}></span>
@@ -132,47 +135,47 @@ export default function CadenceLandingPage() {
 
             <div className={`${styles.phone} ${styles.phoneDark}`}>
               <div className={styles.phoneBar}><span>9:41</span><span>●●●</span></div>
-              <span className={styles.phoneStep}>05 · fala · correção + porquê</span>
+              <span className={styles.phoneStep}>04 · correção · na hora</span>
               <div className={styles.phoneBody}>
-                <p style={{ fontSize: '11px', color: '#e2a583', marginTop: '6px' }}>entendível, mas soa rude</p>
-                <div className={styles.quoteYou}><span>você falou</span>&quot;I want the bill.&quot;</div>
-                <div className={styles.quoteYou}><span>como um nativo diria</span>&quot;Could we get the bill, please?&quot;</div>
+                <p style={{ fontSize: '11px', color: '#e2a583', marginTop: '6px' }}>certo, mas dá pra soar mais natural</p>
+                <div className={styles.quoteYou}><span>você falou</span>&quot;I have 25 years.&quot;</div>
+                <div className={styles.quoteYou}><span>a Cadi ajusta</span>&quot;I&rsquo;m 25 — em inglês idade usa &lsquo;be&rsquo;, não &lsquo;have&rsquo;.&quot;</div>
               </div>
             </div>
 
             <div className={styles.phone}>
               <div className={styles.phoneBar}><span>9:41</span><span>●●●</span></div>
-              <span className={styles.phoneStep}>06 · progresso · pipeline SRS</span>
+              <span className={styles.phoneStep}>05 · progresso · cadência</span>
               <div className={styles.phoneBody}>
-                <div className={styles.phoneTitle} style={{ fontSize: '16px' }}>progresso</div>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                <div className={styles.phoneTitle} style={{ fontSize: '16px' }}>sua cadência</div>
+                <div style={{ display: 'flex', gap: '8px', margin: '10px 0' }}>
                   <div className={styles.phoneCard} style={{ flex: 1, textAlign: 'center', padding: '10px' }}>
-                    <b style={{ fontSize: '18px' }}>12</b><br /><span style={{ fontSize: '11px' }}>dias seguidos</span>
+                    <b style={{ fontSize: '18px' }}>🔥 12</b><br /><span style={{ fontSize: '11px' }}>dias seguidos</span>
                   </div>
                   <div className={styles.phoneCard} style={{ flex: 1, textAlign: 'center', padding: '10px' }}>
-                    <b style={{ fontSize: '18px' }}>47</b><br /><span style={{ fontSize: '11px' }}>itens dominados</span>
+                    <b style={{ fontSize: '18px' }}>18</b><br /><span style={{ fontSize: '11px' }}>lições feitas</span>
                   </div>
                 </div>
-                <p style={{ fontSize: '11px', color: 'var(--stone)' }}>memória espaçada: hoje · amanhã · 1 sem · 1 mês</p>
+                <p style={{ fontSize: '11px', color: 'var(--stone)' }}>um pouco todo dia é o que vira reflexo.</p>
               </div>
             </div>
           </div>
 
           <div className={styles.featGrid}>
             <div className={styles.feat}>
-              <span className={styles.num}>escrita</span>
-              <h4>situações reais, não gramática solta</h4>
-              <p>você escreve dentro de um cenário — um e-mail, uma mensagem, um pedido — porque é assim que o inglês te trava na vida real.</p>
+              <span className={styles.num}>conversa</span>
+              <h4>fale à vontade, do seu jeito</h4>
+              <p>papo livre com a Cadi sobre o que quiser, ou siga a trilha. ela entende mesmo se você travar no meio — e puxa a conversa pra você continuar falando.</p>
             </div>
             <div className={styles.feat}>
-              <span className={styles.num}>fala</span>
-              <h4>correção com o porquê, em uma linha</h4>
-              <p>nada de &quot;errado, tente de novo&quot;. cada correção explica por que a frase soa mais natural — e volta pra revisão depois.</p>
+              <span className={styles.num}>correção</span>
+              <h4>na hora, com o porquê</h4>
+              <p>cada deslize que importa vem com o porquê em uma linha, dentro da conversa. nada de &quot;errado, tente de novo&quot; — é do jeito que um professor nativo faria.</p>
             </div>
             <div className={styles.feat}>
-              <span className={styles.num}>memória</span>
-              <h4>repetição espaçada, sem enrolação</h4>
-              <p>o que você errou volta hoje, amanhã, em uma semana e em um mês — só o suficiente pra ficar de verdade, sem repetir o que você já domina.</p>
+              <span className={styles.num}>cadência</span>
+              <h4>1–2 min por dia viram fluência</h4>
+              <p>lições curtas de propósito, do B1 ao C1, com uma sequência que te puxa a voltar. um pouco todo dia é o que faz o inglês virar reflexo — não mais um curso que você abandona.</p>
             </div>
           </div>
         </div>
@@ -185,31 +188,31 @@ export default function CadenceLandingPage() {
           <div className={styles.faqList}>
             <details>
               <summary>preciso ser avançado pra usar o cadence?</summary>
-              <p>não, o cadence serve para todas as pessoas que têm inglês intermediário. se você já entende conversas no geral, lê sem ficar traduzindo tudo mentalmente e consegue entender alguns trechos de músicas em inglês, é exatamente pra você.</p>
+              <p>não. o cadence é pra quem já tem inglês intermediário (B1 pra cima). se você entende conversas no geral, lê sem traduzir tudo mentalmente e pega trechos de músicas em inglês, é exatamente pra você.</p>
             </details>
             <details>
               <summary>quanto tempo eu preciso dedicar por dia?</summary>
-              <p>em torno de 10 minutos. as sessões são curtas de propósito, pra caber entre uma reunião e outra — não pedem hora marcada.</p>
+              <p>o mínimo é 1 a 2 minutos — o tempo de uma lição da trilha. se quiser, puxa uma conversa livre mais longa com a Cadi. as lições são curtas de propósito, pra caber entre uma reunião e outra, sem hora marcada.</p>
             </details>
             <details>
               <summary>o cadence ensina gramática do zero?</summary>
-              <p>não. não tem lição de &quot;verb to be&quot; ou vocabulário básico. o foco é no que trava quem já tem base: escrever com naturalidade e falar com confiança em situações reais.</p>
+              <p>não. não tem lição de &quot;verb to be&quot; nem vocabulário básico. o foco é destravar quem já tem base: falar com naturalidade e confiança. a gramática aparece dentro da conversa, no contexto — nunca solta.</p>
             </details>
             <details>
               <summary>como funciona a correção?</summary>
-              <p>cada erro vem com o porquê em uma linha — não só o certo e o errado. e o que você errou volta pra revisão em hoje, amanhã, uma semana e um mês, seguindo repetição espaçada.</p>
+              <p>na hora, dentro da conversa. a Cadi corrige o que realmente importa com o porquê em uma linha — sem te interromper a cada palavra e sem quebrar o clima. o que te pega volta nas próximas lições.</p>
             </details>
             <details>
-              <summary>por que eu pagaria para treinar só 10 minutos por dia?</summary>
-              <p>relembre os momentos que você ficou insegura(o) pra escrever uma mensagem ou email em inglês e teve que pesquisar cada frase antes de enviar. relembre as vezes que precisou falar e travou, ficou calado ou disparou a frase rápido demais só pra sair da situação. relembre aquela oportunidade de trabalho ou de vida que talvez tivesse sido diferente se o seu inglês não tivesse travado. 10 minutos por dia, todo dia, é o que resolve isso — porque é treino real, não mais uma lição que você vai esquecer. e o custo de continuar assim é maior que r$89,90 — pagos uma única vez, com acesso vitalício (até o lançamento oficial). pagar esse valor também é o que garante que você vai abrir o app hoje, amanhã e o resto da semana — de graça é fácil abandonar, você já viveu isso outras vezes.</p>
+              <summary>é só por voz? e se eu estiver num lugar público?</summary>
+              <p>sim, o treino é falando — é assim que a fala destrava. dá pra mutar o microfone e só ouvir a Cadi quando não der pra falar, mas o melhor é achar um cantinho e mandar ver por 1–2 minutos. não tem exercício escrito: aqui você pratica conversando.</p>
             </details>
             <details>
-              <summary>preciso falar em voz alta, mesmo em lugar público?</summary>
-              <p>dá pra treinar por texto ou por áudio — você escolhe o formato e o ritmo de cada sessão, dependendo de onde e quando estiver praticando.</p>
+              <summary>por que eu pagaria para treinar só 1–2 minutos por dia?</summary>
+              <p>relembre as vezes que precisou falar inglês e travou, ficou calado ou disparou a frase rápido demais só pra sair da situação. relembre aquela call ou oportunidade que talvez tivesse sido diferente se o seu inglês não tivesse travado na hora de falar. 1 a 2 minutos por dia, todo dia, é o que resolve isso — porque é treino de fala real, não mais uma lição que você esquece. e o custo de continuar travado é maior que r$89,90 — pagos uma única vez, com acesso vitalício (até o lançamento oficial). pagar também é o que garante que você vai abrir o app hoje, amanhã e o resto da semana — de graça é fácil abandonar, você já viveu isso.</p>
             </details>
             <details>
               <summary>quando eu posso começar a usar?</summary>
-              <p>você já pode começar a usar — estamos em fase inicial, então no momento estamos testando com os usuários. e a grande vantagem de começar a usar agora é ter o acesso vitalício: ele vai ser só para as pessoas que adquirirem nessa fase de pré-lançamento e quiserem ajudar a gente a melhorar o inglês de mais gente.</p>
+              <p>já. estamos em fase inicial, testando com os primeiros usuários. a vantagem de entrar agora é o acesso vitalício — só pra quem adquirir nesse pré-lançamento e quiser ajudar a gente a destravar o inglês de mais gente.</p>
             </details>
           </div>
         </div>
@@ -220,14 +223,14 @@ export default function CadenceLandingPage() {
           <div className={styles.footTop}>
             <div>
               <div className={styles.footLogo}>cadence</div>
-              <div className={styles.footTag}>você já sabe inglês. hora de aprender de vez</div>
+              <div className={styles.footTag}>você já entende inglês. hora de soltar a fala</div>
             </div>
             <div className={styles.footCta}>
               <Link href="/inicio/onboarding" className={styles.btnPrimary}>quero destravar meu inglês agora</Link>
             </div>
           </div>
           <div className={styles.footBottom}>
-            <span>© 2026 cadence. feito pra quem já sabe inglês o bastante pra querer mais.</span>
+            <span>© 2026 cadence. feito pra quem já sabe inglês o bastante pra querer falar de vez.</span>
             <span>contato · privacidade</span>
           </div>
         </div>
