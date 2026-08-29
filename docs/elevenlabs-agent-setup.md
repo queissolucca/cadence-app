@@ -28,6 +28,9 @@ abaixo usam `{{user_name}}`.
      espera ~22s você em silêncio antes de retomar a fala. O default (7s)
      retruca rápido demais quando você fica pensando. (via API é
      `conversation_config.turn.turn_timeout`.)
+   - **Max conversation duration message** (aba **Advanced**): a fala quando bate
+     o limite de duração (ex: 300s). Curta, pra não cortar:
+     `That's our time for now — great work, {{user_name}}! Tap to jump back in whenever you want to keep going. See you soon!`
    - **First message**: cole o bloco "First message (Cadi)" abaixo.
    - **System prompt**: cole o bloco "System prompt (Cadi)" abaixo.
    - Ao digitar `{{` o ElevenLabs pede um **default** pra `user_name` — põe
