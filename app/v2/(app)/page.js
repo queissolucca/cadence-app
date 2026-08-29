@@ -10,8 +10,6 @@ function getGreeting() {
   return 'Bora conversar?';
 }
 
-// Home enxuta: streak da semana/mês + o atalho pra conversa. Duas queries
-// baratas ao Supabase, nada de IA no load — pinta na hora.
 export default async function HojePageV2() {
   const supabase = createClient();
   const {
@@ -20,21 +18,9 @@ export default async function HojePageV2() {
 
   const now = new Date();
   const todayKey = todayKeySP();
-
-  // Mês atual em America/Sao_Paulo.
   const spYM = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(now);
-  const [my, mm] = spYM.split('-').map(Number);
-  const monthPrefix = `${my}-${String(mm).padStart(2, '0')}`;
-  const firstOfMonth = new Date(my, mm - 1, 1, 12); // meio-dia evita virada de fuso
-  const monthLabel = firstOfMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' });
-  const mondayIndex = (firstOfMonth.getDay() + 6) % 7; // segunda = 0
-  const daysInMonth = new Date(my, mm, 0).getDate();
-  const totalCells = Math.ceil((mondayIndex + daysInMonth) / 7) * 7;
-  const gridStart = addDays(firstOfMonth, -mondayIndex);
-
+  const [curYear, curMonth] = spYM.split('-').map(Number);
   const weekStart = weekStartSP(now);
-  const rangeStart = addDays(gridStart, -1);
-  const rangeEnd = addDays(gridStart, totalCells + 1);
 
   const [profileRes, sessionsRes] = await Promise.all([
     supabase
@@ -42,36 +28,31 @@ export default async function HojePageV2() {
       .select('full_name, avatar_url, streak_count, weekly_cadence_target')
       .eq('id', user.id)
       .single(),
+    // Cobre 2026 e 2027 pro calendário navegável — só volta os DIAS com sessão,
+    // então o dado é minúsculo (um Set de datas).
     supabase
       .from('sessions')
       .select('started_at')
       .eq('user_id', user.id)
-      .gte('started_at', rangeStart.toISOString())
-      .lte('started_at', rangeEnd.toISOString()),
+      .gte('started_at', '2026-01-01T00:00:00Z')
+      .lte('started_at', '2028-01-01T00:00:00Z'),
   ]);
 
   const profile = profileRes.data;
-  const doneDays = new Set((sessionsRes.data || []).map((s) => dayKeySP(new Date(s.started_at))));
+  const doneDays = Array.from(new Set((sessionsRes.data || []).map((s) => dayKeySP(new Date(s.started_at)))));
+  const doneSet = new Set(doneDays);
 
   const weekDots = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStart, i);
     const key = dayKeySP(date);
-    return { key, label: WEEKDAY_LABELS[i], done: doneDays.has(key), isToday: key === todayKey };
+    return { key, label: WEEKDAY_LABELS[i], done: doneSet.has(key), isToday: key === todayKey };
   });
   const weekDoneCount = weekDots.filter((d) => d.done).length;
-
-  const monthGrid = Array.from({ length: totalCells }, (_, i) => {
-    const date = addDays(gridStart, i);
-    const key = dayKeySP(date);
-    return { key, day: Number(key.slice(8, 10)), inMonth: key.slice(0, 7) === monthPrefix, done: doneDays.has(key), isToday: key === todayKey };
-  });
-  const monthDoneCount = monthGrid.filter((c) => c.inMonth && c.done).length;
 
   const weeklyGoal = profile?.weekly_cadence_target || 5;
   const streakCount = profile?.streak_count || 0;
 
-  // Recorde de streak — best-effort: a coluna streak_max pode ainda não existir
-  // (migration 0013). Se não existir, cai pro streak atual sem quebrar a página.
+  // Recorde de streak (best-effort — coluna streak_max pode não existir ainda).
   let streakMax = streakCount;
   const { data: maxRow } = await supabase.from('profiles').select('streak_max').eq('id', user.id).maybeSingle();
   if (maxRow && typeof maxRow.streak_max === 'number') streakMax = Math.max(streakMax, maxRow.streak_max);
@@ -103,16 +84,17 @@ export default async function HojePageV2() {
         weekdayLabels={WEEKDAY_LABELS}
         weekDoneCount={weekDoneCount}
         weeklyGoal={weeklyGoal}
-        monthGrid={monthGrid}
-        monthLabel={monthLabel}
-        monthDoneCount={monthDoneCount}
+        doneDays={doneDays}
+        todayKey={todayKey}
+        year={curYear}
+        month={curMonth}
       />
 
       <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.4px', margin: '2px 0 0', color: 'var(--ink)' }}>Como você quer treinar hoje?</h2>
       <div className="web-grid-2">
         <Link href="/v2/trilha" style={{ textDecoration: 'none' }}>
           <div className="v2-card-green" style={{ display: 'flex', alignItems: 'center', gap: 14, height: '100%' }}>
-            <div style={{ width: 50, height: 50, borderRadius: 15, background: 'var(--ink)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <div style={{ width: 50, height: 50, borderRadius: 15, background: '#16231C', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
@@ -127,15 +109,15 @@ export default async function HojePageV2() {
 
         <Link href="/v2/conversar" style={{ textDecoration: 'none' }}>
           <div className="v2-card-dark" style={{ display: 'flex', alignItems: 'center', gap: 14, height: '100%' }}>
-            <div style={{ width: 50, height: 50, borderRadius: 15, background: 'var(--green)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <div style={{ width: 50, height: 50, borderRadius: 15, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="3" width="6" height="11" rx="3" />
                 <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
               </svg>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong style={{ fontSize: 16 }}>Conversa aberta</strong>
-              <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Bate-papo livre com seu coach, do seu jeito.</p>
+              <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Converse agora à vontade com a Cadi ou outras pessoas!</p>
             </div>
             <span style={{ fontSize: 20, opacity: 0.85, flexShrink: 0 }}>→</span>
           </div>
