@@ -24,6 +24,10 @@ abaixo usam `{{user_name}}`.
    - **LLM**: **Claude Haiku** (rápido e barato, ideal pra tempo real). Suba pra
      um Claude Sonnet só se quiser respostas mais ricas (fica mais lento).
    - **Language**: English.
+   - **Take turn after silence** (aba **Advanced**): **22** segundos — o agente
+     espera ~22s você em silêncio antes de retomar a fala. O default (7s)
+     retruca rápido demais quando você fica pensando. (via API é
+     `conversation_config.turn.turn_timeout`.)
    - **First message**: cole o bloco "First message (Cadi)" abaixo.
    - **System prompt**: cole o bloco "System prompt (Cadi)" abaixo.
    - Ao digitar `{{` o ElevenLabs pede um **default** pra `user_name` — põe
