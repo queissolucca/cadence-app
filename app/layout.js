@@ -1,5 +1,6 @@
 import './globals.css';
 import { Bricolage_Grotesque, Hanken_Grotesk, Spline_Sans_Mono } from 'next/font/google';
+import { ZoomLock } from '../components/ZoomLock';
 
 // Antes: 3 <link> pra fonts.googleapis.com/fonts.gstatic.com — cada carga de
 // página pagava DNS + conexão + uma requisição render-blocking antes mesmo
@@ -34,13 +35,19 @@ export const metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
+  minimumScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR" className={`${bricolage.variable} ${hanken.variable} ${splineMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        <ZoomLock />
+        {children}
+      </body>
     </html>
   );
 }
