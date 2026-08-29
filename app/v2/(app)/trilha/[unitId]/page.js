@@ -42,7 +42,7 @@ export default async function UnitPage({ params }) {
       <ConversationClient
         firstName={firstName}
         agent={DEFAULT_AGENT}
-        unit={{ id: unit.id, title: unit.title, focus: unit.target, drill: unit.drill, context: unit.context }}
+        unit={{ id: unit.id, title: unit.title, focus: unit.target, drill: unit.drill, context: unit.context, example: unit.example }}
       />
     </>
   );
