@@ -12,23 +12,11 @@ function IconHome() {
   );
 }
 
-function IconGrid() {
+function IconMic() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.5" />
-      <rect x="13" y="3.5" width="7.5" height="7.5" rx="1.5" />
-      <rect x="3.5" y="13" width="7.5" height="7.5" rx="1.5" />
-      <rect x="13" y="13" width="7.5" height="7.5" rx="1.5" />
-    </svg>
-  );
-}
-
-function IconBars() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 20V13" />
-      <path d="M12 20V7" />
-      <path d="M19 20v-5" />
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
     </svg>
   );
 }
@@ -44,8 +32,7 @@ function IconGear() {
 
 const NAV_ITEMS = [
   { href: '', label: 'Hoje', Icon: IconHome },
-  { href: '/mapa', label: 'Mapa', Icon: IconGrid },
-  { href: '/progresso', label: 'Progresso', Icon: IconBars },
+  { href: '/conversar', label: 'Conversar', Icon: IconMic },
   { href: '/ajustes', label: 'Ajustes', Icon: IconGear },
 ];
 
