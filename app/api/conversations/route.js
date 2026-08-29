@@ -12,14 +12,25 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('conversations')
-    .select('id, title, theme, started_at, turn_count')
+    .select('id, title, theme, started_at, turn_count, pinned')
     .eq('user_id', user.id)
     .order('started_at', { ascending: false })
     .limit(200);
 
-  if (error) return NextResponse.json({ error: 'list_failed' }, { status: 500 });
+  if (error) {
+    // A coluna 'pinned' pode ainda não existir (migration 0014) — fallback.
+    const fb = await supabase
+      .from('conversations')
+      .select('id, title, theme, started_at, turn_count')
+      .eq('user_id', user.id)
+      .order('started_at', { ascending: false })
+      .limit(200);
+    if (fb.error) return NextResponse.json({ error: 'list_failed' }, { status: 500 });
+    data = (fb.data || []).map((c) => ({ ...c, pinned: false }));
+  }
+
   return NextResponse.json({ conversations: data || [] });
 }
 

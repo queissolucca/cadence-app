@@ -100,6 +100,25 @@ export function ConversarView({ firstName }) {
     setSelected((sel) => (sel && sel.id === id ? null : sel));
   }, []);
 
+  const togglePin = useCallback(async (item) => {
+    const next = !item.pinned;
+    if (next && items.filter((x) => x.pinned).length >= 5) {
+      window.alert('Você já fixou 5 conversas. Desafixe uma pra fixar outra.');
+      return;
+    }
+    setItems((prev) => prev.map((x) => (x.id === item.id ? { ...x, pinned: next } : x)));
+    try {
+      const res = await fetch(`/api/conversations/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pinned: next }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setItems((prev) => prev.map((x) => (x.id === item.id ? { ...x, pinned: !next } : x)));
+    }
+  }, [items]);
+
   return (
     <div className="conv-shell">
       <button className="conv-railtoggle" onClick={() => setRailOpen((o) => !o)}>
@@ -116,6 +135,7 @@ export function ConversarView({ firstName }) {
           onSelect={openConversation}
           onNew={startNew}
           onDelete={remove}
+          onTogglePin={togglePin}
           loading={loading}
           agents={AGENTS}
           activeAgentId={activeAgent?.id}
