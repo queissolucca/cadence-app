@@ -31,7 +31,7 @@ function IconGear() {
 }
 
 const NAV_ITEMS = [
-  { href: '', label: 'Hoje', Icon: IconHome },
+  { href: '', label: 'Início', Icon: IconHome },
   { href: '/conversar', label: 'Conversar', Icon: IconMic },
   { href: '/ajustes', label: 'Ajustes', Icon: IconGear },
 ];

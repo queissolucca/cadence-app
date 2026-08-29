@@ -31,7 +31,7 @@ function IconGear() {
 }
 
 const TABS = [
-  { key: 'hoje', href: '', label: 'Hoje', Icon: IconHome },
+  { key: 'hoje', href: '', label: 'Início', Icon: IconHome },
   { key: 'conversar', href: '/conversar', label: 'Conversar', Icon: IconMic },
   { key: 'ajustes', href: '/ajustes', label: 'Ajustes', Icon: IconGear },
 ];
