@@ -14,7 +14,7 @@ function deriveTitle(messages) {
   return `Conversa · ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
 }
 
-function ConversationInner({ firstName, onSaved }) {
+function ConversationInner({ firstName, onSaved, agent }) {
   const [starting, setStarting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [notConfigured, setNotConfigured] = useState(false);
@@ -37,7 +37,6 @@ function ConversationInner({ firstName, onSaved }) {
       if (!startedAt) return;
       const seconds = Math.round((Date.now() - startedAt) / 1000);
 
-      // Sessão do dia (streak) — só se durou de verdade.
       if (seconds >= 15) {
         fetch('/api/session/complete', {
           method: 'POST',
@@ -46,7 +45,6 @@ function ConversationInner({ firstName, onSaved }) {
         }).catch(() => {});
       }
 
-      // Salva a conversa inteira no histórico (barato — é só texto).
       if (messages.length) {
         fetch('/api/conversations', {
           method: 'POST',
@@ -54,6 +52,7 @@ function ConversationInner({ firstName, onSaved }) {
           body: JSON.stringify({
             messages,
             title: deriveTitle(messages),
+            theme: agent?.name || null,
             started_at: new Date(startedAt).toISOString(),
             ended_at: new Date().toISOString(),
             duration_seconds: seconds,
@@ -87,11 +86,14 @@ function ConversationInner({ firstName, onSaved }) {
       }
       if (!res.ok) throw new Error('signed_url');
       const { signedUrl } = await res.json();
-      // dynamicVariables: o agente usa {{user_name}} na 1ª mensagem e no prompt
-      // pra falar "Hey Lucca!" em vez de só "Hey".
+      // dynamicVariables: o agente usa {{user_name}} e {{agent_name}} na 1ª
+      // mensagem e no prompt (ex: "Hi Lucca! I'm Cadi!").
       await conversation.startSession({
         signedUrl,
-        dynamicVariables: firstName ? { user_name: firstName } : {},
+        dynamicVariables: {
+          ...(firstName ? { user_name: firstName } : {}),
+          ...(agent?.name ? { agent_name: agent.name } : {}),
+        },
       });
     } catch (err) {
       if (err?.name === 'NotAllowedError' || err?.name === 'NotFoundError') {
@@ -102,7 +104,7 @@ function ConversationInner({ firstName, onSaved }) {
     } finally {
       setStarting(false);
     }
-  }, [conversation, firstName]);
+  }, [conversation, firstName, agent]);
 
   const stop = useCallback(async () => {
     try {
@@ -126,14 +128,25 @@ function ConversationInner({ firstName, onSaved }) {
   const muted = active && conversation.isMuted;
   const speaking = active && conversation.isSpeaking;
 
-  let statusLabel = 'Toque pra começar a falar';
+  let statusLabel = agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
   if (connecting) statusLabel = 'Conectando…';
   else if (muted) statusLabel = 'Microfone mudo — o coach continua';
-  else if (speaking) statusLabel = 'Coach falando…';
+  else if (speaking) statusLabel = `${agent?.name || 'Coach'} falando…`;
   else if (active) statusLabel = 'Pode falar — estou ouvindo';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, paddingTop: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, paddingTop: 8 }}>
+      {agent && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 30, height: 30, borderRadius: 9, background: agent.accent, color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 }}>
+            {agent.name.charAt(0)}
+          </span>
+          <span style={{ fontSize: 14, color: 'var(--ink)' }}>
+            <strong>{agent.name}</strong> <span style={{ color: 'var(--ink-soft)' }}>· {agent.role}</span>
+          </span>
+        </div>
+      )}
+
       <button
         onClick={active ? stop : start}
         disabled={connecting}
@@ -141,28 +154,30 @@ function ConversationInner({ firstName, onSaved }) {
         style={{
           width: 156, height: 156, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
           display: 'grid', placeItems: 'center', position: 'relative',
-          background: active ? 'var(--green)' : 'var(--ink)', color: '#fff',
-          boxShadow: speaking ? '0 0 0 12px rgba(62,155,95,0.18)' : '0 10px 30px rgba(0,0,0,0.18)',
+          // Verde sólido nos dois modos (ícone branco sempre legível, tanto no
+          // fundo claro quanto no escuro).
+          background: active ? '#2E9E5B' : '#1E6B41', color: '#fff',
+          boxShadow: speaking ? '0 0 0 12px rgba(46,158,91,0.22)' : '0 10px 30px rgba(0,0,0,0.22)',
           transition: 'box-shadow 180ms ease, background 180ms ease, transform 120ms ease',
           transform: connecting ? 'scale(0.97)' : 'scale(1)',
         }}
       >
         {active ? (
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="6" y="6" width="12" height="12" rx="2.5" />
           </svg>
         ) : (
-          <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
             <rect x="9" y="3" width="6" height="11" rx="3" />
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
           </svg>
         )}
       </button>
 
-      <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--ink)', minHeight: 22 }}>{statusLabel}</p>
+      <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--ink)', minHeight: 22, textAlign: 'center' }}>{statusLabel}</p>
 
       {active && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <button
             onClick={toggleMute}
             aria-pressed={muted}
@@ -227,8 +242,10 @@ function ConversationInner({ firstName, onSaved }) {
                   style={{
                     alignSelf: line.role === 'you' ? 'flex-end' : 'flex-start',
                     maxWidth: '85%', fontSize: 13.5, lineHeight: 1.45,
-                    background: line.role === 'you' ? 'var(--green-soft)' : 'var(--surface, #f4f4f2)',
-                    color: 'var(--ink)', borderRadius: 12, padding: '8px 12px',
+                    background: line.role === 'you' ? 'var(--green-soft)' : 'var(--v2-card-bg)',
+                    color: line.role === 'you' ? 'var(--ink)' : 'var(--v2-card-fg)',
+                    border: line.role === 'you' ? 'none' : '1px solid var(--line)',
+                    borderRadius: 12, padding: '8px 12px',
                   }}
                 >
                   {line.text}
@@ -242,10 +259,10 @@ function ConversationInner({ firstName, onSaved }) {
   );
 }
 
-export function ConversationClient({ firstName, onSaved }) {
+export function ConversationClient({ firstName, onSaved, agent }) {
   return (
     <ConversationProvider>
-      <ConversationInner firstName={firstName} onSaved={onSaved} />
+      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} />
     </ConversationProvider>
   );
 }

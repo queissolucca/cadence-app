@@ -1,8 +1,8 @@
 'use client';
 
-// Barra lateral de histórico (estilo LLM): lista as conversas do usuário,
-// agrupadas por dia, com o horário exato (hora:min:seg). Clicar abre a conversa
-// no viewer; dá pra apagar e pra começar uma nova.
+// Barra lateral da aba Conversar: no topo, a galeria de Agentes (clica no
+// agente pra abrir uma conversa nova com ele); abaixo, o histórico das
+// conversas salvas, agrupado por dia com o horário exato (hora:min:seg).
 
 function sameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -26,8 +26,7 @@ function timeLabel(iso) {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-export function ConversationHistory({ items, selectedId, onSelect, onNew, onDelete, loading }) {
-  // Agrupa em blocos consecutivos por dia (items já vêm ordenados desc).
+export function ConversationHistory({ items, selectedId, onSelect, onNew, onDelete, loading, agents = [], activeAgentId, onSelectAgent }) {
   const groups = [];
   items.forEach((it) => {
     const label = dayLabel(it.started_at);
@@ -37,14 +36,47 @@ export function ConversationHistory({ items, selectedId, onSelect, onNew, onDele
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Galeria de agentes */}
+      {agents.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--ink-soft)', padding: '0 2px' }}>
+            Agentes
+          </span>
+          {agents.map((a) => {
+            const activeSel = a.id === activeAgentId;
+            return (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => onSelectAgent && onSelectAgent(a)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', cursor: 'pointer',
+                  padding: '9px 11px', borderRadius: 12,
+                  border: activeSel ? '1.5px solid var(--green)' : '1px solid var(--line)',
+                  background: activeSel ? 'var(--green-soft)' : 'var(--v2-card-bg)',
+                }}
+              >
+                <span style={{ width: 32, height: 32, borderRadius: 9, background: a.accent, color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>
+                  {a.name.charAt(0)}
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--v2-card-fg)' }}>{a.name}</span>
+                  <span style={{ display: 'block', fontSize: 11.5, color: 'var(--ink-soft)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.role}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <button
         type="button"
         onClick={onNew}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%',
-          padding: '10px 14px', borderRadius: 12, border: '1px solid var(--line)', background: 'var(--surface, #fff)',
-          color: 'var(--ink)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
+          padding: '10px 14px', borderRadius: 12, border: '1px solid var(--line)', background: 'var(--v2-card-bg)',
+          color: 'var(--v2-card-fg)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
         }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

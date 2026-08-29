@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ConversationClient } from './ConversationClient';
 import { ConversationHistory } from './ConversationHistory';
+import { AGENTS, DEFAULT_AGENT } from '../../lib/track/sessionOptions';
 
 function fullDateTime(iso) {
   return new Date(iso).toLocaleString('pt-BR', {
@@ -10,9 +11,9 @@ function fullDateTime(iso) {
   });
 }
 
-// Aba Conversar com histórico ao lado (estilo LLM). Painel esquerdo = lista de
-// conversas salvas; painel direito = a conversa ao vivo, ou o transcript de uma
-// conversa passada quando o usuário clica pra revisitar um tema.
+// Aba Conversar com histórico ao lado (estilo LLM). Painel esquerdo = galeria
+// de agentes + lista de conversas salvas; painel direito = a conversa ao vivo,
+// ou o transcript de uma conversa passada quando o usuário revisita um tema.
 export function ConversarView({ firstName }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +21,7 @@ export function ConversarView({ firstName }) {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
+  const [activeAgent, setActiveAgent] = useState(DEFAULT_AGENT);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -63,6 +65,11 @@ export function ConversarView({ firstName }) {
     setRailOpen(false);
   }, []);
 
+  const selectAgent = useCallback((agent) => {
+    setActiveAgent(agent);
+    startNew();
+  }, [startNew]);
+
   const remove = useCallback(async (id) => {
     try {
       await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
@@ -79,7 +86,7 @@ export function ConversarView({ firstName }) {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 6h16M4 12h16M4 18h10" />
         </svg>
-        {railOpen ? 'Fechar histórico' : `Histórico${items.length ? ` (${items.length})` : ''}`}
+        {railOpen ? 'Fechar' : `Agentes & histórico${items.length ? ` (${items.length})` : ''}`}
       </button>
 
       <aside className={`conv-rail ${railOpen ? 'open' : ''}`}>
@@ -90,6 +97,9 @@ export function ConversarView({ firstName }) {
           onNew={startNew}
           onDelete={remove}
           loading={loading}
+          agents={AGENTS}
+          activeAgentId={activeAgent?.id}
+          onSelectAgent={selectAgent}
         />
       </aside>
 
@@ -118,8 +128,10 @@ export function ConversarView({ firstName }) {
                     style={{
                       alignSelf: line.role === 'you' ? 'flex-end' : 'flex-start',
                       maxWidth: '85%', fontSize: 14, lineHeight: 1.45,
-                      background: line.role === 'you' ? 'var(--green-soft)' : 'var(--v2-card-bg, #f4f4f2)',
-                      color: 'var(--ink)', borderRadius: 12, padding: '9px 13px',
+                      background: line.role === 'you' ? 'var(--green-soft)' : 'var(--v2-card-bg)',
+                      color: line.role === 'you' ? 'var(--ink)' : 'var(--v2-card-fg)',
+                      border: line.role === 'you' ? 'none' : '1px solid var(--line)',
+                      borderRadius: 12, padding: '9px 13px',
                     }}
                   >
                     {line.text}
@@ -132,7 +144,7 @@ export function ConversarView({ firstName }) {
             )}
           </div>
         ) : (
-          <ConversationClient firstName={firstName} onSaved={fetchHistory} />
+          <ConversationClient firstName={firstName} onSaved={fetchHistory} agent={activeAgent} />
         )}
       </div>
 
@@ -143,7 +155,7 @@ export function ConversarView({ firstName }) {
           align-items: flex-start;
         }
         .conv-rail {
-          width: 280px;
+          width: 288px;
           flex-shrink: 0;
           position: sticky;
           top: 16px;
@@ -176,8 +188,8 @@ export function ConversarView({ firstName }) {
             padding: 8px 14px;
             border-radius: 10px;
             border: 1px solid var(--line);
-            background: var(--surface, #fff);
-            color: var(--ink);
+            background: var(--v2-card-bg);
+            color: var(--v2-card-fg);
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
