@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
 
 // Título curtinho pra listar na barra lateral: pega a 1ª fala do usuário com
@@ -22,6 +22,7 @@ function ConversationInner({ firstName, onSaved, agent }) {
   const [showTranscript, setShowTranscript] = useState(false);
   const startedAtRef = useRef(null);
   const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
+  const scrollRef = useRef(null); // janela de transcrição com scroll próprio
 
   const conversation = useConversation({
     onConnect: () => {
@@ -122,6 +123,13 @@ function ConversationInner({ firstName, onSaved, agent }) {
     }
   }, [conversation]);
 
+  // A janela de transcrição acompanha a conversa sozinha (rola pro fim a cada
+  // fala nova), sem empurrar a página inteira.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [transcript, showTranscript]);
+
   const status = conversation.status; // 'disconnected' | 'connecting' | 'connected'
   const active = status === 'connected';
   const connecting = starting || status === 'connecting';
@@ -152,7 +160,7 @@ function ConversationInner({ firstName, onSaved, agent }) {
         disabled={connecting}
         aria-label={active ? 'Encerrar conversa' : 'Começar conversa'}
         style={{
-          width: 156, height: 156, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
+          width: 128, height: 128, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
           display: 'grid', placeItems: 'center', position: 'relative',
           // Verde sólido nos dois modos (ícone branco sempre legível, tanto no
           // fundo claro quanto no escuro).
@@ -163,11 +171,11 @@ function ConversationInner({ firstName, onSaved, agent }) {
         }}
       >
         {active ? (
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="6" y="6" width="12" height="12" rx="2.5" />
           </svg>
         ) : (
-          <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
             <rect x="9" y="3" width="6" height="11" rx="3" />
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
           </svg>
@@ -235,7 +243,14 @@ function ConversationInner({ firstName, onSaved, agent }) {
             {showTranscript ? 'Esconder transcrição' : 'Ver transcrição ao vivo'}
           </button>
           {showTranscript && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+            <div
+              ref={scrollRef}
+              style={{
+                display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8,
+                maxHeight: 'min(44vh, 340px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+                padding: '10px 12px', borderRadius: 14, border: '1px solid var(--line)',
+              }}
+            >
               {transcript.map((line, i) => (
                 <div
                   key={i}
