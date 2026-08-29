@@ -144,7 +144,9 @@ export function ConversarView({ firstName }) {
             )}
           </div>
         ) : (
-          <ConversationClient firstName={firstName} onSaved={fetchHistory} agent={activeAgent} />
+          <div className="conv-live">
+            <ConversationClient firstName={firstName} onSaved={fetchHistory} agent={activeAgent} />
+          </div>
         )}
       </div>
 
@@ -164,8 +166,19 @@ export function ConversarView({ firstName }) {
           flex: 1;
           min-width: 0;
         }
+        .conv-live {
+          width: 100%;
+        }
         .conv-railtoggle {
           display: none;
+        }
+        @media (max-width: 860px) {
+          .conv-live {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 58vh;
+          }
         }
         @media (max-width: 860px) {
           .conv-shell {
