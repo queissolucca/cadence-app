@@ -165,7 +165,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
 
   let statusLabel = unit ? 'Toque pra começar a lição' : resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
   if (connecting) statusLabel = 'Conectando…';
-  else if (muted) statusLabel = 'Microfone mudo — o coach continua';
+  else if (muted) statusLabel = 'Microfone mudo — desmute para voltar a falar';
   else if (speaking) statusLabel = `${agent?.name || 'Coach'} falando…`;
   else if (active) statusLabel = 'Pode falar — estou ouvindo';
 
