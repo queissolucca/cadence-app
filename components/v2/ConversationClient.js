@@ -3,49 +3,73 @@
 import { useCallback, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
 
-// Agente de voz em tempo real (ElevenLabs Conversational AI). Foco 100% em
-// falar: um botão de microfone grande, status ao vivo, e o texto fica "em
-// segundo plano" (colapsado por padrão). Ao encerrar, registra uma sessão
-// (kind 'roleplay') pra acender a sequência da semana — sem migration nova.
-//
-// IMPORTANTE: no @elevenlabs/react v1.x o useConversation SÓ funciona dentro
-// de um <ConversationProvider> (senão joga erro no mount). Por isso o
-// componente exportado só envolve o provider e o miolo real vive em
-// ConversationInner.
-function ConversationInner() {
+// Título curtinho pra listar na barra lateral: pega a 1ª fala do usuário com
+// substância; senão, cai pra data.
+function deriveTitle(messages) {
+  const firstYou = messages.find((m) => m.role === 'you' && (m.text || '').trim().split(/\s+/).length >= 3);
+  if (firstYou) {
+    const words = firstYou.text.trim().split(/\s+/).slice(0, 8).join(' ');
+    return words.length > 60 ? `${words.slice(0, 60)}…` : words;
+  }
+  return `Conversa · ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
+}
+
+function ConversationInner({ firstName, onSaved }) {
   const [starting, setStarting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [notConfigured, setNotConfigured] = useState(false);
   const [transcript, setTranscript] = useState([]);
   const [showTranscript, setShowTranscript] = useState(false);
   const startedAtRef = useRef(null);
+  const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
 
   const conversation = useConversation({
     onConnect: () => {
       startedAtRef.current = Date.now();
+      messagesRef.current = [];
+      setTranscript([]);
       setErrorMsg('');
     },
     onDisconnect: () => {
       const startedAt = startedAtRef.current;
       startedAtRef.current = null;
-      if (startedAt) {
-        const seconds = Math.round((Date.now() - startedAt) / 1000);
-        // Só conta como sessão do dia se a conversa durou de verdade (>15s),
-        // pra um clique acidental não marcar a sequência.
-        if (seconds >= 15) {
-          fetch('/api/session/complete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ kind: 'roleplay', mode: 'speaking', duration_seconds: seconds }),
-          }).catch(() => {});
-        }
+      const messages = messagesRef.current;
+      if (!startedAt) return;
+      const seconds = Math.round((Date.now() - startedAt) / 1000);
+
+      // Sessão do dia (streak) — só se durou de verdade.
+      if (seconds >= 15) {
+        fetch('/api/session/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'roleplay', mode: 'speaking', duration_seconds: seconds }),
+        }).catch(() => {});
+      }
+
+      // Salva a conversa inteira no histórico (barato — é só texto).
+      if (messages.length) {
+        fetch('/api/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages,
+            title: deriveTitle(messages),
+            started_at: new Date(startedAt).toISOString(),
+            ended_at: new Date().toISOString(),
+            duration_seconds: seconds,
+          }),
+        })
+          .then(() => onSaved && onSaved())
+          .catch(() => {});
       }
     },
     onMessage: (msg) => {
       const text = msg?.message ?? msg?.text;
       if (!text) return;
       const role = msg?.source === 'user' ? 'you' : 'coach';
-      setTranscript((t) => [...t, { role, text }]);
+      const line = { role, text, at: new Date().toISOString() };
+      messagesRef.current = [...messagesRef.current, line];
+      setTranscript((t) => [...t, line]);
     },
     onError: () => setErrorMsg('Algo deu errado na conexão de voz. Tenta de novo.'),
   });
@@ -63,7 +87,12 @@ function ConversationInner() {
       }
       if (!res.ok) throw new Error('signed_url');
       const { signedUrl } = await res.json();
-      await conversation.startSession({ signedUrl });
+      // dynamicVariables: o agente usa {{user_name}} na 1ª mensagem e no prompt
+      // pra falar "Hey Lucca!" em vez de só "Hey".
+      await conversation.startSession({
+        signedUrl,
+        dynamicVariables: firstName ? { user_name: firstName } : {},
+      });
     } catch (err) {
       if (err?.name === 'NotAllowedError' || err?.name === 'NotFoundError') {
         setErrorMsg('Preciso do microfone pra gente conversar. Libera o acesso e tenta de novo.');
@@ -73,7 +102,7 @@ function ConversationInner() {
     } finally {
       setStarting(false);
     }
-  }, [conversation]);
+  }, [conversation, firstName]);
 
   const stop = useCallback(async () => {
     try {
@@ -83,26 +112,34 @@ function ConversationInner() {
     }
   }, [conversation]);
 
+  const toggleMute = useCallback(() => {
+    try {
+      conversation.setMuted(!conversation.isMuted);
+    } catch {
+      /* noop */
+    }
+  }, [conversation]);
+
   const status = conversation.status; // 'disconnected' | 'connecting' | 'connected'
   const active = status === 'connected';
   const connecting = starting || status === 'connecting';
+  const muted = active && conversation.isMuted;
   const speaking = active && conversation.isSpeaking;
 
   let statusLabel = 'Toque pra começar a falar';
   if (connecting) statusLabel = 'Conectando…';
+  else if (muted) statusLabel = 'Microfone mudo — o coach continua';
   else if (speaking) statusLabel = 'Coach falando…';
   else if (active) statusLabel = 'Pode falar — estou ouvindo';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22, paddingTop: 12 }}>
-      {/* Botão-orbe de microfone */}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, paddingTop: 8 }}>
       <button
         onClick={active ? stop : start}
         disabled={connecting}
         aria-label={active ? 'Encerrar conversa' : 'Começar conversa'}
-        className={active ? 'orb orb-active' : 'orb'}
         style={{
-          width: 168, height: 168, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
+          width: 156, height: 156, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
           display: 'grid', placeItems: 'center', position: 'relative',
           background: active ? 'var(--green)' : 'var(--ink)', color: '#fff',
           boxShadow: speaking ? '0 0 0 12px rgba(62,155,95,0.18)' : '0 10px 30px rgba(0,0,0,0.18)',
@@ -111,11 +148,11 @@ function ConversationInner() {
         }}
       >
         {active ? (
-          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="6" y="6" width="12" height="12" rx="2.5" />
           </svg>
         ) : (
-          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
             <rect x="9" y="3" width="6" height="11" rx="3" />
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
           </svg>
@@ -125,12 +162,39 @@ function ConversationInner() {
       <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--ink)', minHeight: 22 }}>{statusLabel}</p>
 
       {active && (
-        <button
-          onClick={stop}
-          style={{ background: 'transparent', border: '1.5px solid var(--line)', borderRadius: 999, padding: '8px 18px', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer' }}
-        >
-          Encerrar
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={toggleMute}
+            aria-pressed={muted}
+            title={muted ? 'Ativar microfone' : 'Mutar microfone'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, borderRadius: 999, padding: '9px 16px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+              border: muted ? '1.5px solid var(--green)' : '1.5px solid var(--line)',
+              background: muted ? 'var(--green-soft)' : 'transparent',
+              color: 'var(--ink)',
+            }}
+          >
+            {muted ? (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 9v3a3 3 0 0 0 5.1 2.1M15 10.5V6a3 3 0 0 0-5.9-.7" />
+                <path d="M5 11a7 7 0 0 0 10.3 6.2M19 11a7 7 0 0 0-.5-2.6M12 18v3" />
+                <path d="M3 3l18 18" />
+              </svg>
+            ) : (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="3" width="6" height="11" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+              </svg>
+            )}
+            {muted ? 'Microfone mudo' : 'Mutar microfone'}
+          </button>
+          <button
+            onClick={stop}
+            style={{ background: 'transparent', border: '1.5px solid var(--line)', borderRadius: 999, padding: '9px 16px', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer' }}
+          >
+            Encerrar
+          </button>
+        </div>
       )}
 
       {errorMsg && (
@@ -147,14 +211,13 @@ function ConversationInner() {
         </div>
       )}
 
-      {/* Transcrição — em segundo plano, colapsada */}
       {transcript.length > 0 && (
-        <div style={{ width: '100%', maxWidth: 480, marginTop: 8 }}>
+        <div style={{ width: '100%', maxWidth: 480, marginTop: 4 }}>
           <button
             onClick={() => setShowTranscript((v) => !v)}
             style={{ background: 'transparent', border: 'none', color: 'var(--ink-soft)', fontSize: 12.5, cursor: 'pointer', padding: 6 }}
           >
-            {showTranscript ? 'Esconder transcrição' : 'Ver transcrição'}
+            {showTranscript ? 'Esconder transcrição' : 'Ver transcrição ao vivo'}
           </button>
           {showTranscript && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
@@ -179,10 +242,10 @@ function ConversationInner() {
   );
 }
 
-export function ConversationClient() {
+export function ConversationClient({ firstName, onSaved }) {
   return (
     <ConversationProvider>
-      <ConversationInner />
+      <ConversationInner firstName={firstName} onSaved={onSaved} />
     </ConversationProvider>
   );
 }
