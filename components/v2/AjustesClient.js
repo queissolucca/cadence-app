@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight } from 'lucide-react';
 import { createClient } from '../../lib/supabase/client';
+import { APP_VERSION } from '../../lib/version';
 import { usePreferenceSave } from '../../lib/usePreferenceSave';
 import { BottomSheet } from './BottomSheet';
 import { SegmentedControl } from './SegmentedControl';
@@ -137,7 +138,7 @@ export function AjustesClient({ profile, email }) {
         {signingOut ? 'Saindo…' : 'Sair da conta'}
       </button>
 
-      <p style={{ textAlign: 'center', fontFamily: 'var(--font-mono-v2)', fontSize: 11, color: 'var(--ink-soft)' }}>cadence v1.5.0</p>
+      <p style={{ textAlign: 'center', fontFamily: 'var(--font-mono-v2)', fontSize: 11, color: 'var(--ink-soft)' }}>cadence v{APP_VERSION}</p>
 
       <BottomSheet open={sheet === 'weekly'} onClose={() => setSheet(null)} title="Meta semanal">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>

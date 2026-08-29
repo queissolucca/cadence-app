@@ -14,7 +14,7 @@ function deriveTitle(messages) {
   return `Conversa · ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
 }
 
-function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic }) {
+function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, unit }) {
   const [starting, setStarting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [notConfigured, setNotConfigured] = useState(false);
@@ -52,8 +52,8 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages,
-            title: deriveTitle(messages),
-            theme: agent?.name || null,
+            title: unit ? `Lição: ${unit.title}` : deriveTitle(messages),
+            theme: unit ? unit.title : agent?.name || null,
             started_at: new Date(startedAt).toISOString(),
             ended_at: new Date().toISOString(),
             duration_seconds: seconds,
@@ -95,6 +95,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           ...(firstName ? { user_name: firstName } : {}),
           ...(agent?.name ? { agent_name: agent.name } : {}),
           ...(resumeContext ? { prior_context: resumeContext } : {}),
+          ...(unit ? { unit_title: unit.title, unit_focus: unit.focus, unit_drill: unit.drill, unit_context: unit.context } : {}),
         },
       });
     } catch (err) {
@@ -106,7 +107,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     } finally {
       setStarting(false);
     }
-  }, [conversation, firstName, agent, resumeContext]);
+  }, [conversation, firstName, agent, resumeContext, unit]);
 
   const stop = useCallback(async () => {
     try {
@@ -137,7 +138,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const muted = active && conversation.isMuted;
   const speaking = active && conversation.isSpeaking;
 
-  let statusLabel = resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
+  let statusLabel = unit ? 'Toque pra começar a lição' : resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
   if (connecting) statusLabel = 'Conectando…';
   else if (muted) statusLabel = 'Microfone mudo — o coach continua';
   else if (speaking) statusLabel = `${agent?.name || 'Coach'} falando…`;
@@ -282,10 +283,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   );
 }
 
-export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic }) {
+export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, unit }) {
   return (
     <ConversationProvider>
-      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} />
+      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} unit={unit} />
     </ConversationProvider>
   );
 }

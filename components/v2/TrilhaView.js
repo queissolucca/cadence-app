@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { TRACK } from '../../lib/track/units';
 
 const tabStyle = (active) => ({
@@ -15,8 +16,8 @@ const tabStyle = (active) => ({
   cursor: 'pointer',
 });
 
-// C2 — tela da trilha: escolhe o nível (B1/B2) e navega os módulos → lições.
-// Ainda não roda a lição no agente (isso é a C3); aqui é a estrutura navegável.
+// C2 + C3 — tela da trilha: escolhe o nível (B1/B2), navega módulos → lições, e
+// toca numa lição pra a Cadi conduzir o drill de 1–2 min.
 export function TrilhaView() {
   const [levelCode, setLevelCode] = useState('B1');
   const level = TRACK.find((l) => l.code === levelCode) || TRACK[0];
@@ -50,9 +51,10 @@ export function TrilhaView() {
 
           <div>
             {mod.units.map((u, ui) => (
-              <div
+              <Link
                 key={u.id}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderTop: ui > 0 ? '1px solid var(--line)' : 'none' }}
+                href={`/v2/trilha/${u.id}`}
+                style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderTop: ui > 0 ? '1px solid var(--line)' : 'none' }}
               >
                 <span style={{ fontFamily: 'var(--font-mono-v2, monospace)', fontSize: 11.5, color: 'var(--ink-soft)', width: 16, flexShrink: 0, textAlign: 'center' }}>{ui + 1}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -62,15 +64,17 @@ export function TrilhaView() {
                     <span style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>{u.context}</span>
                   </div>
                 </div>
-                <span style={{ fontFamily: 'var(--font-mono-v2, monospace)', fontSize: 10.5, color: 'var(--ink-soft)', flexShrink: 0 }}>~1–2 min</span>
-              </div>
+                <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--green)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M8 5v14l11-7z" /></svg>
+                </span>
+              </Link>
             ))}
           </div>
         </div>
       ))}
 
       <p style={{ margin: '2px 0 8px', fontSize: 12.5, color: 'var(--ink-soft)', textAlign: 'center', lineHeight: 1.5 }}>
-        🎯 Em breve: toque numa lição e a Cadi conduz o treino de 1–2 min (próxima etapa).
+        🎯 Toque numa lição e a Cadi conduz o treino de 1–2 min.
       </p>
     </div>
   );
