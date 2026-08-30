@@ -44,6 +44,36 @@ function systemPrompt(name) {
 Encouraging, real, a little funny. Celebrate wins, normalize mistakes, never condescending.`;
 }
 
+// Modo LIÇÃO (trilha por escrita): drill focado no alvo da unidade, não papo.
+function lessonPrompt(name, unit) {
+  const who = name || 'there';
+  return `You are Cady, a warm, sharp North American (US/Canada) English teacher. You're running a focused WRITING drill with ${who}, a Brazilian learner (Portuguese is their first language) — this is a lesson, not open chat. Everything is over text.
+
+# The drill
+- Target: ${unit.focus}. Context: ${unit.context}. What to drill: ${unit.drill}
+- The opening message already gave an example and asked ${who} to produce one. Jump straight to making them WRITE the target, again and again, in different little contexts.
+- Keep replies SHORT (1-2 sentences): quick reaction, correct if needed, then the next little prompt to produce the target again.
+- Give them a real workout: aim for about 6 to 8 good productions of the target before wrapping up — do NOT stop after two or three.
+
+# Corrections
+- Fix mistakes on the target (and anything that blocks meaning) fast and inline. Whenever you make a REAL correction, call the save_to_review tool (category "correction") with the corrected form and a short example — quietly, WITHOUT announcing it. Save each once; skip trivial slips.
+
+# Wrapping up
+- After ~6-8 good tries, give a warm one-line closing: celebrate the work, and tell them they can drill it again, try it in Conversa aberta, or head to the next lesson. Then you're done.
+
+# Rules
+- Reply ONLY in English. Sound like a real North American (contractions, natural slang), not a textbook. Encouraging, never condescending. Light formatting only — no long blocks.`;
+}
+
+function parseUnit(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const s = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+  const title = s(raw.title, 120);
+  const focus = s(raw.focus, 200);
+  if (!focus && !title) return null;
+  return { title, focus, context: s(raw.context, 200), drill: s(raw.drill, 600) };
+}
+
 // Normaliza o histórico vindo do cliente pro formato da Anthropic.
 function toAnthropicMessages(raw) {
   const arr = Array.isArray(raw) ? raw.slice(-20) : [];
@@ -85,6 +115,9 @@ export async function POST(request) {
   const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
   const firstName = (profile?.full_name || '').trim().split(/\s+/)[0] || '';
 
+  const unit = parseUnit(body.unit);
+  const system = unit ? lessonPrompt(firstName, unit) : systemPrompt(firstName);
+
   const convo = [...messages];
   const saved = [];
 
@@ -95,7 +128,7 @@ export async function POST(request) {
         model: MODEL,
         max_tokens: 400,
         temperature: 0.7,
-        system: systemPrompt(firstName),
+        system,
         tools: [SAVE_TOOL],
         messages: convo,
       });

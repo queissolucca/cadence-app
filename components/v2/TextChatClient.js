@@ -14,10 +14,12 @@ function deriveTitle(messages) {
 // Conversa aberta por TEXTO — a Cady via Claude (Haiku, barato). Corrige inline,
 // salva na Revisão sozinha (tool server-side), e conta streak/histórico igual à
 // conversa por voz. Alternativa ao microfone dentro da mesma aba.
-export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic }) {
+export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit }) {
   const name = firstName || '';
   const resuming = Array.isArray(initialMessages) && initialMessages.length > 0;
-  const greeting = `Hi ${name || 'there'}! I'm Cady. What do you wanna talk about today?`;
+  const greeting = unit
+    ? `Alright ${name || 'there'}! Let's nail ${unit.focus}. Here's an example — ${unit.example} Now your turn: write one like that!`
+    : `Hi ${name || 'there'}! I'm Cady. What do you wanna talk about today?`;
   const [messages, setMessages] = useState(
     resuming
       ? initialMessages.map((m) => ({ role: m.role === 'you' ? 'you' : 'coach', text: m.text }))
@@ -33,6 +35,7 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
   const convIdRef = useRef(resuming ? resumeId || null : null);
   const startedAtRef = useRef(Date.now());
   const streakDoneRef = useRef(false);
+  const progressDoneRef = useRef(false);
   const userCountRef = useRef(0);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
@@ -57,8 +60,8 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: msgs,
-          title: deriveTitle(msgs),
-          theme: 'Cady · texto',
+          title: unit ? `Lição: ${unit.title}` : deriveTitle(msgs),
+          theme: unit ? unit.title : 'Cady · texto',
           started_at: new Date(startedAtRef.current).toISOString(),
           ended_at: new Date().toISOString(),
           duration_seconds: 0,
@@ -90,7 +93,10 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({
+          messages: history,
+          ...(unit ? { unit: { title: unit.title, focus: unit.focus, context: unit.context, drill: unit.drill } } : {}),
+        }),
       });
       if (res.status === 503) {
         setNotConfigured(true);
@@ -110,6 +116,15 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ kind: 'roleplay', mode: 'writing', duration_seconds: Math.max(secs, 30) }),
+        }).catch(() => {});
+      }
+      // Lição da trilha por escrita: conta como feita depois de um drill real.
+      if (unit?.id && userCountRef.current >= 4 && !progressDoneRef.current) {
+        progressDoneRef.current = true;
+        fetch('/api/track/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ unit_id: unit.id }),
         }).catch(() => {});
       }
     } catch {

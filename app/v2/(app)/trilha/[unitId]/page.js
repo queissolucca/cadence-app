@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '../../../../../lib/supabase/server';
 import { getUnit } from '../../../../../lib/track/units';
 import { DEFAULT_AGENT } from '../../../../../lib/track/sessionOptions';
-import { ConversationClient } from '../../../../../components/v2/ConversationClient';
+import { LessonRunner } from '../../../../../components/v2/LessonRunner';
 
 // C3 — rodar a lição: abre a Cady já com o alvo/contexto/drill da unidade
 // injetados (dynamic variables), pra ela conduzir o drill de 1–2 min.
@@ -39,7 +39,7 @@ export default async function UnitPage({ params }) {
         </div>
       </div>
 
-      <ConversationClient
+      <LessonRunner
         firstName={firstName}
         agent={DEFAULT_AGENT}
         unit={{ id: unit.id, title: unit.title, focus: unit.target, drill: unit.drill, context: unit.context, example: unit.example }}
