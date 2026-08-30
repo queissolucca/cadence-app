@@ -5,7 +5,7 @@ import { getUnit } from '../../../../../lib/track/units';
 import { DEFAULT_AGENT } from '../../../../../lib/track/sessionOptions';
 import { ConversationClient } from '../../../../../components/v2/ConversationClient';
 
-// C3 — rodar a lição: abre a Cadi já com o alvo/contexto/drill da unidade
+// C3 — rodar a lição: abre a Cady já com o alvo/contexto/drill da unidade
 // injetados (dynamic variables), pra ela conduzir o drill de 1–2 min.
 export default async function UnitPage({ params }) {
   const unit = getUnit(params.unitId);

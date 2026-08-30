@@ -9,15 +9,27 @@ export default async function RevisaoPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // best-effort — a tabela pode não existir ainda (migration 0016).
+  // best-effort — a tabela pode não existir ainda (migration 0016), e as colunas
+  // de SRS box/due_at podem faltar (migration 0017). Tenta o completo; cai pro
+  // básico se der erro.
   let items = [];
-  const { data } = await supabase
+  const withSrs = await supabase
     .from('review_saved')
-    .select('id, term, example, note, category, status, created_at')
+    .select('id, term, example, note, category, status, box, due_at, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(500);
-  if (data) items = data;
+  if (!withSrs.error) {
+    items = withSrs.data || [];
+  } else {
+    const { data } = await supabase
+      .from('review_saved')
+      .select('id, term, example, note, category, status, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (data) items = data;
+  }
 
   return (
     <>

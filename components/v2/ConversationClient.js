@@ -14,7 +14,8 @@ function deriveTitle(messages) {
   return `Conversa · ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
 }
 
-function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit }) {
+function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems }) {
+  const isReview = Array.isArray(reviewItems) && reviewItems.length > 0;
   const [starting, setStarting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [notConfigured, setNotConfigured] = useState(false);
@@ -62,8 +63,8 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 messages,
-                title: unit ? `Lição: ${unit.title}` : deriveTitle(messages),
-                theme: unit ? unit.title : agent?.name || null,
+                title: unit ? `Lição: ${unit.title}` : isReview ? 'Revisão com a Cady' : deriveTitle(messages),
+                theme: unit ? unit.title : isReview ? 'Revisão' : agent?.name || null,
                 started_at: new Date(startedAt).toISOString(),
                 ended_at: new Date().toISOString(),
                 duration_seconds: seconds,
@@ -80,6 +81,15 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           body: JSON.stringify({ unit_id: unit.id }),
         }).catch(() => {});
       }
+
+      // Revisão falada: os cards treinados sobem de caixa (conta como acerto).
+      if (isReview && seconds >= 20) {
+        fetch('/api/review/practice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: reviewItems.map((it) => it.id).filter(Boolean) }),
+        }).catch(() => {});
+      }
     },
     onMessage: (msg) => {
       const text = msg?.message ?? msg?.text;
@@ -91,7 +101,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     },
     onError: () => setErrorMsg('Algo deu errado na conexão de voz. Tenta de novo.'),
     clientTools: {
-      // A Cadi chama isso quando o usuário pede pra salvar/memorizar algo —
+      // A Cady chama isso quando o usuário pede pra salvar/memorizar algo —
       // vai pra aba Revisão. (Precisa do client tool 'save_to_review' declarado
       // no agente do ElevenLabs.)
       save_to_review: async ({ term, example, category } = {}) => {
@@ -124,13 +134,29 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       if (!res.ok) throw new Error('signed_url');
       const { signedUrl } = await res.json();
       const name = firstName || 'there';
-      // 1ª fala da Cadi: no modo lição ela já abre no exercício; senão, saudação
-      // normal. Vai pra {{opening_line}} na First message do agente.
+      // Modo revisão falada: vira uma "lição guiada" cujo drill são os cards
+      // salvos — reusa a mesma mecânica de lição (nenhuma seção nova no prompt).
+      const reviewList = isReview
+        ? reviewItems.map((it, i) => `${i + 1}) ${it.term}${it.example ? ` — e.g. "${it.example}"` : ''}`).join('  ')
+        : '';
+      const lessonUnit = unit
+        || (isReview
+          ? {
+              title: 'your review',
+              focus: 'the words and phrases you saved',
+              context: 'your saved review list',
+              drill: `Go through these saved items one at a time. For each, get ${name} to produce a correct, natural sentence using it: if they nail it, say so and move on; if not, correct briefly and have them try once more. Keep it snappy. Items: ${reviewList}`,
+            }
+          : null);
+      // 1ª fala da Cady: lição abre no exercício; revisão abre no 1º card;
+      // senão, saudação normal. Vai pra {{opening_line}} na First message.
       const openingLine = unit
         ? `Alright ${name}! Let's nail ${unit.focus}. Here's an example — ${unit.example} Now your turn: give me one like that!`
-        : resumeContext
-          ? `Hey ${name}! Let's pick up right where we left off.`
-          : `Hi ${name}! I'm Cadi, your English teacher! How's it going?`;
+        : isReview
+          ? `Alright ${name}, let's run through the ${reviewItems.length} ${reviewItems.length === 1 ? 'thing' : 'things'} you saved. First up — ${reviewItems[0].term}. Give me a fresh sentence using it!`
+          : resumeContext
+            ? `Hey ${name}! Let's pick up right where we left off.`
+            : `Hi ${name}! I'm Cady, your English teacher! How's it going?`;
       await conversation.startSession({
         signedUrl,
         dynamicVariables: {
@@ -138,7 +164,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           ...(firstName ? { user_name: firstName } : {}),
           ...(agent?.name ? { agent_name: agent.name } : {}),
           ...(resumeContext ? { prior_context: resumeContext } : {}),
-          ...(unit ? { unit_title: unit.title, unit_focus: unit.focus, unit_drill: unit.drill, unit_context: unit.context } : {}),
+          ...(lessonUnit ? { unit_title: lessonUnit.title, unit_focus: lessonUnit.focus, unit_drill: lessonUnit.drill, unit_context: lessonUnit.context } : {}),
         },
       });
     } catch (err) {
@@ -150,7 +176,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     } finally {
       setStarting(false);
     }
-  }, [conversation, firstName, agent, resumeContext, unit]);
+  }, [conversation, firstName, agent, resumeContext, unit, isReview, reviewItems]);
 
   const stop = useCallback(async () => {
     try {
@@ -181,7 +207,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const muted = active && conversation.isMuted;
   const speaking = active && conversation.isSpeaking;
 
-  let statusLabel = unit ? 'Toque pra começar a lição' : resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
+  let statusLabel = unit ? 'Toque pra começar a lição' : isReview ? 'Toque pra revisar falando' : resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
   if (connecting) statusLabel = 'Conectando…';
   else if (muted) statusLabel = 'Microfone mudo — desmute para voltar a falar';
   else if (speaking) statusLabel = `${agent?.name || 'Coach'} falando…`;
@@ -204,6 +230,13 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--green-dark, var(--green))', background: 'var(--green-soft)', padding: '6px 12px', borderRadius: 999, maxWidth: '90%' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14l-4-4 4-4M5 10h11a4 4 0 0 1 0 8h-2" /></svg>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Continuando: {resumeTopic}</span>
+        </div>
+      )}
+
+      {isReview && !resumeTopic && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--green-dark, var(--green))', background: 'var(--green-soft)', padding: '6px 12px', borderRadius: 999, maxWidth: '90%' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v6h6M3.5 12a9 9 0 1 0 2-5.7L3 9" /></svg>
+          <span>Revisando {reviewItems.length} {reviewItems.length === 1 ? 'card salvo' : 'cards salvos'}</span>
         </div>
       )}
 
@@ -326,10 +359,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   );
 }
 
-export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit }) {
+export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems }) {
   return (
     <ConversationProvider>
-      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} />
+      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} />
     </ConversationProvider>
   );
 }

@@ -1,12 +1,12 @@
 # Agentes de voz do Cadence (ElevenLabs) — setup e prompts
 
 O app já está pronto. Aqui ficam: o passo a passo pra conectar o agente, o
-**system prompt da Cadi** (a teacher principal) versionado, e o bloco do
+**system prompt da Cady** (a teacher principal) versionado, e o bloco do
 primeiro **especialista** (running coach) pronto pra quando você for criar.
 
 O que o app espera: **2 variáveis de ambiente**
 - `ELEVENLABS_API_KEY` — sua chave de API (fica só no servidor)
-- `ELEVENLABS_AGENT_ID` — o id do agente principal (a Cadi)
+- `ELEVENLABS_AGENT_ID` — o id do agente principal (a Cady)
 
 O app injeta automaticamente as variáveis dinâmicas `{{user_name}}` (primeiro
 nome do usuário) e `{{agent_name}}` no `startSession` — por isso os prompts
@@ -14,11 +14,11 @@ abaixo usam `{{user_name}}`.
 
 ---
 
-## Passo a passo (agente principal = Cadi)
+## Passo a passo (agente principal = Cady)
 
 1. Crie conta em **https://elevenlabs.io** (tier grátis; depois ~US$5/mês no
    Starter, overage por minuto).
-2. **Agents** → **Create Agent** → template **Blank**. Nome: `Cadi`.
+2. **Agents** → **Create Agent** → template **Blank**. Nome: `Cady`.
 3. Configure:
    - **Voice**: uma voz US/Canadá natural que você curta.
    - **LLM**: **Claude Haiku** (rápido e barato, ideal pra tempo real). Suba pra
@@ -31,8 +31,8 @@ abaixo usam `{{user_name}}`.
    - **Max conversation duration message** (aba **Advanced**): a fala quando bate
      o limite de duração (ex: 300s). Curta, pra não cortar:
      `That's our time for now — great work, {{user_name}}! Tap to jump back in whenever you want to keep going. See you soon!`
-   - **First message**: cole o bloco "First message (Cadi)" abaixo.
-   - **System prompt**: cole o bloco "System prompt (Cadi)" abaixo.
+   - **First message**: cole o bloco "First message (Cady)" abaixo.
+   - **System prompt**: cole o bloco "System prompt (Cady)" abaixo.
    - Ao digitar `{{` o ElevenLabs pede um **default** pra `user_name` — põe
      `there` (fallback caso o nome não chegue).
 4. **Security/Authentication**: mantenha **signed URL / require authentication**
@@ -48,28 +48,28 @@ abaixo usam `{{user_name}}`.
 > Celular: o microfone só funciona em **https** (o link do Vercel já é). Aceite
 > a permissão de microfone na 1ª vez.
 
-> Pronúncia "Keidi": se o TTS ler "Cadi" como "Cá-di", escreva `Cadi (Kaydee)`
+> Pronúncia "Keidi": se o TTS ler "Cady" como "Cá-di", escreva `Cady (Kaydee)`
 > na First message, ou adicione uma entrada no *pronunciation dictionary*.
 
 ---
 
-## First message (Cadi)
+## First message (Cady)
 
 O app monta a 1ª fala (saudação normal OU a abertura da lição da trilha) e envia
 na variável `opening_line`. Então a First message do agente deve ser só a
-variável — assim ao abrir uma lição a Cadi já começa citando o exercício:
+variável — assim ao abrir uma lição a Cady já começa citando o exercício:
 
 ```
 {{opening_line}}
 ```
 
-Dê um **default** pra `opening_line` (fallback): `Hi! I'm Cadi, your English teacher — how's it going?`
+Dê um **default** pra `opening_line` (fallback): `Hi! I'm Cady, your English teacher — how's it going?`
 
-## System prompt (Cadi)
+## System prompt (Cady)
 
 ```
 # Identity
-You are Cadi, a warm, sharp English teacher from North America (US/Canada). You're on a live voice call with {{user_name}}, a Brazilian learner (Portuguese is their first language) who wants to reach native-sounding fluency. Everything you say is spoken out loud.
+You are Cady, a warm, sharp English teacher from North America (US/Canada). You're on a live voice call with {{user_name}}, a Brazilian learner (Portuguese is their first language) who wants to reach native-sounding fluency. Everything you say is spoken out loud.
 
 # Core rules
 1. Speak ONLY in English — always. Greetings, corrections, jokes, all of it. If {{user_name}} slips into Portuguese, don't switch: answer in English, hand them the English phrasing they were reaching for, and keep going.
@@ -111,7 +111,7 @@ Encouraging, real, a little funny. Celebrate wins ("oh, that was clean!"). Norma
 
 ## Salvar na Revisão por voz (client tool)
 
-Pra a Cadi guardar termos na aba **Revisão** quando você pedir ("save this",
+Pra a Cady guardar termos na aba **Revisão** quando você pedir ("save this",
 "memorize that"), adicione um **Client tool** no agente:
 
 - **Tools → Add tool → Client tool**
@@ -122,23 +122,31 @@ Pra a Cadi guardar termos na aba **Revisão** quando você pedir ("save this",
   - `example` (string) — uma frase de exemplo curta e natural usando o termo
   - `category` (string) — um de: `correction`, `phrase`, `word`
 
-O app já registra o handler desse tool. Depois, adicione ao **System prompt**:
+O app já registra o handler desse tool. Depois, adicione ao **System prompt**
+(esta versão já inclui a **auto-captura de erros** — a Cady salva as correções
+que faz, sem você pedir, pra alimentar a aba Revisão):
 
 ```
 # Saving to review
-When {{user_name}} asks to save, memorize, or note something (e.g. "save this", "memorize that", "add that to my review"), call the save_to_review tool with the exact term, a short natural example sentence using it, and a category (correction / phrase / word). Then confirm in one quick line and keep going. Don't save unless they ask.
+Two ways things land in {{user_name}}'s review list — use the save_to_review tool for both:
+- On request: when they say "save this", "memorize that", or "add that to my review", save the exact term with a short natural example sentence and a category (correction / phrase / word). Confirm in one quick line.
+- Automatically: whenever you make a REAL correction — a mistake that blocks meaning, sounds translated from Portuguese, or keeps coming back — quietly call save_to_review with category "correction", the corrected/native form as the term, and a short natural example using it. Do NOT announce that you saved it, do NOT save trivial slips, and save each correction only once. Just keep the conversation flowing.
 ```
+
+> **Praticar com a Cady** (revisão falada) reusa a MESMA seção `# Guided lesson`
+> — o app injeta os cards salvos como se fossem o drill da lição. Não precisa de
+> nenhuma seção nova no prompt pra isso funcionar.
 
 ## Especialistas — como funcionam
 
-Um especialista = **o mesmo motor de coach da Cadi + uma pele de domínio**
+Um especialista = **o mesmo motor de coach da Cady + uma pele de domínio**
 (personalidade + vocabulário + assuntos da área). A regra de ouro: o especialista
 **ainda é um professor de inglês** — corrige, dá feedback, ensina — só que
 conversando sobre corrida/finanças/etc. Se ele só bate papo e não ensina, perdeu
 a graça.
 
 **As seções `# Core rules`, `# Corrections`, `# Wrapping up` e `# Tone` são
-idênticas às da Cadi** em todo especialista — copie-as. Muda só `# Identity` e
+idênticas às da Cady** em todo especialista — copie-as. Muda só `# Identity` e
 `# How you teach` (o domínio).
 
 **Pra ligar um especialista no app** (quando quiser): crie um agente novo no

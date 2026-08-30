@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
+import { nextState } from '../../../../lib/track/srs';
 
 export const dynamic = 'force-dynamic';
 
-// PATCH → muda o status (active <-> learned, pra "matar" o que já dominou).
+const RATINGS = ['again', 'good', 'easy'];
+
+// PATCH → duas formas:
+//   • { rating: 'again'|'good'|'easy' } — nota de um flashcard: aplica o SRS
+//     (sobe/desce de caixa, agenda a próxima revisão, gradua na caixa 5).
+//   • { status: 'active'|'learned' } — "já sei" / revisar de novo, manual.
 // DELETE → remove o item de vez.
 export async function PATCH(request, { params }) {
   const supabase = createClient();
@@ -18,8 +24,28 @@ export async function PATCH(request, { params }) {
   } catch {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
-  const status = body.status === 'learned' ? 'learned' : 'active';
 
+  if (RATINGS.includes(body.rating)) {
+    const { data: cur } = await supabase
+      .from('review_saved')
+      .select('box')
+      .eq('user_id', user.id)
+      .eq('id', params.id)
+      .maybeSingle();
+    const next = nextState(cur?.box ?? 1, body.rating);
+    const patch = { box: next.box, status: next.status };
+    if (next.due_at) patch.due_at = next.due_at;
+
+    const { error } = await supabase
+      .from('review_saved')
+      .update(patch)
+      .eq('user_id', user.id)
+      .eq('id', params.id);
+    if (error) return NextResponse.json({ error: 'update_failed' }, { status: 500 });
+    return NextResponse.json({ ok: true, box: next.box, status: next.status, graduated: next.graduated });
+  }
+
+  const status = body.status === 'learned' ? 'learned' : 'active';
   const { error } = await supabase
     .from('review_saved')
     .update({ status })

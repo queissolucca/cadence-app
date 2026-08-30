@@ -101,7 +101,7 @@ export default async function HojePageV2() {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong style={{ fontSize: 16 }}>Trilha de aprendizagem</strong>
-              <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Do B1 ao C1, em lições de 1–2 min.</p>
+              <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Do intermediário ao avançado, lições de 1-2min</p>
             </div>
             <span style={{ fontSize: 20, opacity: 0.85, flexShrink: 0 }}>→</span>
           </div>
@@ -117,7 +117,7 @@ export default async function HojePageV2() {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong style={{ fontSize: 16 }}>Conversa aberta</strong>
-              <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Converse agora à vontade com a Cadi ou outras pessoas!</p>
+              <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Converse agora à vontade com a Cady!</p>
             </div>
             <span style={{ fontSize: 20, opacity: 0.85, flexShrink: 0 }}>→</span>
           </div>

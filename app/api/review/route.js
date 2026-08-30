@@ -14,14 +14,22 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
 
-  const { data, error } = await supabase
+  // Tenta com as colunas de SRS (box, due_at). Se ainda não existem (migration
+  // 0017 não rodada), cai pro select antigo — a lista continua abrindo.
+  const withSrs = await supabase
+    .from('review_saved')
+    .select('id, term, example, note, category, status, box, due_at, created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (!withSrs.error) return NextResponse.json({ items: withSrs.data || [] });
+
+  const { data } = await supabase
     .from('review_saved')
     .select('id, term, example, note, category, status, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(500);
-
-  if (error) return NextResponse.json({ items: [] }); // tabela pode não existir ainda
   return NextResponse.json({ items: data || [] });
 }
 

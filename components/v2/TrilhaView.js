@@ -166,7 +166,7 @@ export function TrilhaView({ completedIds = [] }) {
       })}
 
       <p style={{ margin: '2px 0 8px', fontSize: 12.5, color: 'var(--ink-soft)', textAlign: 'center', lineHeight: 1.5 }}>
-        🎯 Toque numa lição e a Cadi conduz o treino de 1–2 min. Complete o módulo pra abrir o próximo.
+        🎯 Toque numa lição e a Cady conduz o treino de 1–2 min. Complete o módulo pra abrir o próximo.
       </p>
     </div>
   );
