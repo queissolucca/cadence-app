@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ConversationClient } from './ConversationClient';
+import { TextChatClient } from './TextChatClient';
 import { ConversationHistory } from './ConversationHistory';
 import { AGENTS, DEFAULT_AGENT } from '../../lib/track/sessionOptions';
 
@@ -35,6 +36,7 @@ export function ConversarView({ firstName }) {
   const [railOpen, setRailOpen] = useState(false);
   const [activeAgent, setActiveAgent] = useState(DEFAULT_AGENT);
   const [resume, setResume] = useState(null);
+  const [mode, setMode] = useState('voice'); // 'voice' = microfone | 'text' = escrever
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -83,6 +85,7 @@ export function ConversarView({ firstName }) {
     if (!detail) return;
     const topic = detail.title || selected?.title || 'nossa conversa';
     setResume({ context: buildResumeContext(detail.messages, topic), topic, id: detail.id, messages: detail.messages });
+    setMode('voice'); // retomar por voz
     setSelected(null);
     setDetail(null);
     setRailOpen(false);
@@ -198,15 +201,25 @@ export function ConversarView({ firstName }) {
           </div>
         ) : (
           <div className="conv-live">
-            <ConversationClient
-              firstName={firstName}
-              onSaved={() => { fetchHistory(); setResume(null); }}
-              agent={activeAgent}
-              resumeContext={resume?.context}
-              resumeTopic={resume?.topic}
-              resumeMessages={resume?.messages}
-              resumeId={resume?.id}
-            />
+            {!resume && (
+              <div className="conv-modetoggle">
+                <button type="button" className={mode === 'voice' ? 'on' : ''} onClick={() => setMode('voice')}>🎙 Falar</button>
+                <button type="button" className={mode === 'text' ? 'on' : ''} onClick={() => setMode('text')}>⌨️ Escrever</button>
+              </div>
+            )}
+            {mode === 'text' && !resume ? (
+              <TextChatClient firstName={firstName} agent={activeAgent} onSaved={fetchHistory} />
+            ) : (
+              <ConversationClient
+                firstName={firstName}
+                onSaved={() => { fetchHistory(); setResume(null); }}
+                agent={activeAgent}
+                resumeContext={resume?.context}
+                resumeTopic={resume?.topic}
+                resumeMessages={resume?.messages}
+                resumeId={resume?.id}
+              />
+            )}
           </div>
         )}
       </div>
@@ -229,16 +242,39 @@ export function ConversarView({ firstName }) {
         }
         .conv-live {
           width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .conv-modetoggle {
+          display: inline-flex;
+          gap: 4px;
+          padding: 4px;
+          margin-bottom: 8px;
+          border-radius: 999px;
+          background: var(--v2-card-bg);
+          border: 1px solid var(--line);
+        }
+        .conv-modetoggle button {
+          border: none;
+          background: transparent;
+          color: var(--ink-soft);
+          font-size: 13px;
+          font-weight: 600;
+          padding: 7px 16px;
+          border-radius: 999px;
+          cursor: pointer;
+        }
+        .conv-modetoggle button.on {
+          background: var(--green);
+          color: #fff;
         }
         .conv-railtoggle {
           display: none;
         }
         @media (max-width: 860px) {
           .conv-live {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding-top: 20px;
+            padding-top: 12px;
           }
         }
         @media (max-width: 860px) {
