@@ -81,11 +81,12 @@ export function ConversarView({ firstName }) {
     setRailOpen(false);
   }, []);
 
-  const resumeConversation = useCallback(() => {
+  // Continuar uma conversa passada — por voz OU por texto, escolha do usuário.
+  const resumeConversation = useCallback((targetMode = 'voice') => {
     if (!detail) return;
     const topic = detail.title || selected?.title || 'nossa conversa';
-    setResume({ context: buildResumeContext(detail.messages, topic), topic, id: detail.id, messages: detail.messages });
-    setMode('voice'); // retomar por voz
+    setResume({ context: buildResumeContext(detail.messages, topic), topic, id: detail.id, messages: detail.messages || [] });
+    setMode(targetMode);
     setSelected(null);
     setDetail(null);
     setRailOpen(false);
@@ -108,8 +109,8 @@ export function ConversarView({ firstName }) {
 
   const togglePin = useCallback(async (item) => {
     const next = !item.pinned;
-    if (next && items.filter((x) => x.pinned).length >= 5) {
-      window.alert('Você já fixou 5 conversas. Desafixe uma pra fixar outra.');
+    if (next && items.filter((x) => x.pinned).length >= 3) {
+      window.alert('Você já fixou 3 conversas. Desafixe uma pra fixar outra.');
       return;
     }
     setItems((prev) => prev.map((x) => (x.id === item.id ? { ...x, pinned: next } : x)));
@@ -165,16 +166,27 @@ export function ConversarView({ firstName }) {
             <p style={{ margin: '4px 0 12px', fontSize: 12.5, color: 'var(--ink-soft)', fontFamily: 'var(--font-mono-v2, monospace)' }}>
               {fullDateTime(selected.started_at)}
             </p>
-            <button
-              onClick={resumeConversation}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 18, padding: '9px 16px', borderRadius: 999, border: 'none', background: 'var(--green)', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="9" y="3" width="6" height="11" rx="3" />
-                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-              </svg>
-              Falar sobre isso
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+              <button
+                onClick={() => resumeConversation('voice')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 999, border: 'none', background: 'var(--green)', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="3" width="6" height="11" rx="3" />
+                  <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                </svg>
+                Continuar falando
+              </button>
+              <button
+                onClick={() => resumeConversation('text')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 999, border: '1.5px solid var(--green)', background: 'transparent', color: 'var(--green-dark, var(--green))', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                Continuar escrevendo
+              </button>
+            </div>
             {detailLoading && <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>Carregando conversa…</p>}
             {detail && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -201,14 +213,20 @@ export function ConversarView({ firstName }) {
           </div>
         ) : (
           <div className="conv-live">
-            {!resume && (
-              <div className="conv-modetoggle">
-                <button type="button" className={mode === 'voice' ? 'on' : ''} onClick={() => setMode('voice')}>🎙 Falar</button>
-                <button type="button" className={mode === 'text' ? 'on' : ''} onClick={() => setMode('text')}>⌨️ Escrever</button>
-              </div>
-            )}
-            {mode === 'text' && !resume ? (
-              <TextChatClient firstName={firstName} agent={activeAgent} onSaved={fetchHistory} />
+            <div className="conv-modetoggle">
+              <button type="button" className={mode === 'voice' ? 'on' : ''} onClick={() => setMode('voice')}>🎙 Falar</button>
+              <button type="button" className={mode === 'text' ? 'on' : ''} onClick={() => setMode('text')}>⌨️ Escrever</button>
+            </div>
+            {mode === 'text' ? (
+              <TextChatClient
+                key={resume?.id || 'new-text'}
+                firstName={firstName}
+                agent={activeAgent}
+                onSaved={fetchHistory}
+                initialMessages={resume?.messages}
+                resumeId={resume?.id}
+                resumeTopic={resume?.topic}
+              />
             ) : (
               <ConversationClient
                 firstName={firstName}

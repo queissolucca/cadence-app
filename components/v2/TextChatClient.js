@@ -14,17 +14,23 @@ function deriveTitle(messages) {
 // Conversa aberta por TEXTO — a Cady via Claude (Haiku, barato). Corrige inline,
 // salva na Revisão sozinha (tool server-side), e conta streak/histórico igual à
 // conversa por voz. Alternativa ao microfone dentro da mesma aba.
-export function TextChatClient({ firstName, agent, onSaved }) {
+export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic }) {
   const name = firstName || '';
+  const resuming = Array.isArray(initialMessages) && initialMessages.length > 0;
   const greeting = `Hi ${name || 'there'}! I'm Cady. What do you wanna talk about today?`;
-  const [messages, setMessages] = useState([{ role: 'coach', text: greeting }]);
+  const [messages, setMessages] = useState(
+    resuming
+      ? initialMessages.map((m) => ({ role: m.role === 'you' ? 'you' : 'coach', text: m.text }))
+      : [{ role: 'coach', text: greeting }],
+  );
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [notConfigured, setNotConfigured] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [savedFlash, setSavedFlash] = useState(0);
 
-  const convIdRef = useRef(null);
+  // Ao retomar, escreve na MESMA conversa (anexa o novo trecho).
+  const convIdRef = useRef(resuming ? resumeId || null : null);
   const startedAtRef = useRef(Date.now());
   const streakDoneRef = useRef(false);
   const userCountRef = useRef(0);
@@ -142,6 +148,13 @@ export function TextChatClient({ firstName, agent, onSaved }) {
           <span style={{ fontSize: 14, color: 'var(--ink)' }}>
             <strong>{agent.name}</strong> <span style={{ color: 'var(--ink-soft)' }}>· escrevendo com você</span>
           </span>
+        </div>
+      )}
+
+      {resuming && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'center', fontSize: 12.5, color: 'var(--green-dark, var(--green))', background: 'var(--green-soft)', padding: '6px 12px', borderRadius: 999, maxWidth: '90%' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14l-4-4 4-4M5 10h11a4 4 0 0 1 0 8h-2" /></svg>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Continuando: {resumeTopic || 'sua conversa'}</span>
         </div>
       )}
 

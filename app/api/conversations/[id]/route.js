@@ -49,7 +49,7 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ ok: true });
   }
 
-  // Fixar/desafixar (limite de 5 por usuário).
+  // Fixar/desafixar (limite de 3 por usuário).
   if (typeof body.pinned === 'boolean') {
     if (body.pinned) {
       const { count } = await supabase
@@ -57,7 +57,7 @@ export async function PATCH(request, { params }) {
         .select('id', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('pinned', true);
-      if ((count || 0) >= 5) return NextResponse.json({ error: 'max_pins' }, { status: 409 });
+      if ((count || 0) >= 3) return NextResponse.json({ error: 'max_pins' }, { status: 409 });
     }
     const { error } = await supabase
       .from('conversations')
