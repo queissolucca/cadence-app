@@ -90,6 +90,24 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       setTranscript((t) => [...t, line]);
     },
     onError: () => setErrorMsg('Algo deu errado na conexão de voz. Tenta de novo.'),
+    clientTools: {
+      // A Cadi chama isso quando o usuário pede pra salvar/memorizar algo —
+      // vai pra aba Revisão. (Precisa do client tool 'save_to_review' declarado
+      // no agente do ElevenLabs.)
+      save_to_review: async ({ term, example, category } = {}) => {
+        if (!term) return "I didn't catch what to save.";
+        try {
+          await fetch('/api/review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ term, example, category }),
+          });
+          return 'Saved to your Revisão tab!';
+        } catch {
+          return "I couldn't save that right now, but let's keep going.";
+        }
+      },
+    },
   });
 
   const start = useCallback(async () => {

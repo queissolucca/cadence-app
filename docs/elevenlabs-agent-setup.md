@@ -109,6 +109,26 @@ Encouraging, real, a little funny. Celebrate wins ("oh, that was clean!"). Norma
 
 ---
 
+## Salvar na Revisão por voz (client tool)
+
+Pra a Cadi guardar termos na aba **Revisão** quando você pedir ("save this",
+"memorize that"), adicione um **Client tool** no agente:
+
+- **Tools → Add tool → Client tool**
+- **Name:** `save_to_review`
+- **Description:** Save a word, phrase, or correction to the user's review list.
+- **Parameters:**
+  - `term` (string, obrigatório) — a palavra/frase/correção a salvar
+  - `example` (string) — uma frase de exemplo curta e natural usando o termo
+  - `category` (string) — um de: `correction`, `phrase`, `word`
+
+O app já registra o handler desse tool. Depois, adicione ao **System prompt**:
+
+```
+# Saving to review
+When {{user_name}} asks to save, memorize, or note something (e.g. "save this", "memorize that", "add that to my review"), call the save_to_review tool with the exact term, a short natural example sentence using it, and a category (correction / phrase / word). Then confirm in one quick line and keep going. Don't save unless they ask.
+```
+
 ## Especialistas — como funcionam
 
 Um especialista = **o mesmo motor de coach da Cadi + uma pele de domínio**
