@@ -53,7 +53,7 @@ export function AppHeader({ streak, streakShields = 0, avatarUrl, avatarInitial,
           >
             <span style={{ fontSize: 44, lineHeight: 1 }} aria-hidden="true">🔥</span>
             <p style={{ margin: 0, fontSize: 16, color: 'var(--v2-card-fg, var(--ink))', lineHeight: 1.55 }}>
-              Você está a {streak} {streak === 1 ? 'dia' : 'dias'} aprendendo inglês! <strong>Isso sim é cadência de aprendizagem!</strong>
+              Você está a {streak} {streak === 1 ? 'dia' : 'dias'} aprendendo inglês! <strong>Continue com essa cadência de aprendizagem!</strong>
             </p>
             <Link
               href="/v2/conversar"

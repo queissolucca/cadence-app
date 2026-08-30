@@ -109,7 +109,10 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
       if (Array.isArray(saved) && saved.length) setSavedFlash((n) => n + saved.length);
 
       persist(withReply);
-      if (userCountRef.current >= 2 && !streakDoneRef.current) {
+      // Só conta pro streak se foi atividade real: uma lição de fato (>=4 trocas)
+      // ou uma conversa aberta com troca real (>=2 mensagens suas).
+      const streakQualifies = unit ? userCountRef.current >= 4 : userCountRef.current >= 2;
+      if (streakQualifies && !streakDoneRef.current) {
         streakDoneRef.current = true;
         const secs = Math.round((Date.now() - startedAtRef.current) / 1000);
         fetch('/api/session/complete', {

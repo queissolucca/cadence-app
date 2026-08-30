@@ -42,7 +42,11 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       if (!startedAt) return;
       const seconds = Math.round((Date.now() - startedAt) / 1000);
 
-      if (seconds >= 15) {
+      // Só conta pro streak/calendário se foi atividade real: uma lição ou uma
+      // revisão que rodou (>=30s = um exercício de fato) OU conversa aberta
+      // acima de 1 minuto. Aberturas de poucos segundos não contam.
+      const qualifies = unit ? seconds >= 30 : isReview ? seconds >= 30 : seconds >= 60;
+      if (qualifies) {
         fetch('/api/session/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
