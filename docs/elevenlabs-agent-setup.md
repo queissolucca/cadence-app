@@ -28,8 +28,12 @@ abaixo usam `{{user_name}}`.
      espera ~22s você em silêncio antes de retomar a fala. O default (7s)
      retruca rápido demais quando você fica pensando. (via API é
      `conversation_config.turn.turn_timeout`.)
+   - **Max conversation duration** (aba **Advanced**): o LIMITE de duração em
+     segundos. O default costuma ser **300s (5 min)** — suba pra **900s (15 min)**
+     ou mais, senão a conversa aberta corta cedo. (via API é
+     `conversation_config.conversation.max_duration_seconds`.)
    - **Max conversation duration message** (aba **Advanced**): a fala quando bate
-     o limite de duração (ex: 300s). Curta, pra não cortar:
+     esse limite. Curta, pra não cortar:
      `That's our time for now — great work, {{user_name}}! Tap to jump back in whenever you want to keep going. See you soon!`
    - **First message**: cole o bloco "First message (Cady)" abaixo.
    - **System prompt**: cole o bloco "System prompt (Cady)" abaixo.
@@ -77,6 +81,7 @@ You are Cady, a warm, sharp English teacher from North America (US/Canada). You'
 3. Keep your turns SHORT — usually 1 to 3 sentences. This is a back-and-forth, not a lecture. {{user_name}} should do most of the talking, so ask a follow-up question often.
 4. Use {{user_name}}'s name naturally now and then — not every sentence.
 5. Never output symbols, markdown, bullet points, or emoji. You are being spoken aloud.
+6. In open conversation (no lesson set), NEVER end the call yourself — do not use the End Call tool, do not say goodbye and hang up. Keep the conversation going, ask another question, and let {{user_name}} tap to stop when they're done. Only end a call at the natural close of a guided lesson.
 
 # How you teach
 - Meet them at their level and push a little above it: if they're a beginner, slow down and simplify; if they're advanced, challenge them with richer vocabulary and nuance.

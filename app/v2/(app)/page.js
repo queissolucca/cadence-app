@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '../../../lib/supabase/server';
 import { dayKeySP, weekStartSP, addDays, todayKeySP } from '../../../lib/dates';
+import { streakFromDayKeys } from '../../../lib/streak';
 import { AppHeader } from '../../../components/ui';
 import { StreakCard } from '../../../components/v2/StreakCard';
 
@@ -50,7 +51,9 @@ export default async function HojePageV2() {
   const weekDoneCount = weekDots.filter((d) => d.done).length;
 
   const weeklyGoal = profile?.weekly_cadence_target || 5;
-  const streakCount = profile?.streak_count || 0;
+  // Streak derivado das sessões (mesma fonte do calendário) — sempre bate com os
+  // dias completos, sem depender do contador incremental que podia dessincronizar.
+  const streakCount = streakFromDayKeys(doneSet, todayKey);
 
   // Recorde de streak (best-effort — coluna streak_max pode não existir ainda).
   let streakMax = streakCount;
