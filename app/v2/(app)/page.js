@@ -95,21 +95,6 @@ export default async function HojePageV2() {
 
       <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.4px', margin: '2px 0 0', color: 'var(--ink)' }}>Como você quer treinar hoje?</h2>
       <div className="web-grid-2">
-        <Link href="/v2/trilha" style={{ textDecoration: 'none' }}>
-          <div className="v2-card-green" style={{ display: 'flex', alignItems: 'center', gap: 14, height: '100%' }}>
-            <div style={{ width: 50, height: 50, borderRadius: 15, background: '#16231C', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <strong style={{ fontSize: 16 }}>Trilha de aprendizagem</strong>
-              <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Do intermediário ao avançado, lições de 1-2min</p>
-            </div>
-            <span style={{ fontSize: 20, opacity: 0.85, flexShrink: 0 }}>→</span>
-          </div>
-        </Link>
-
         <Link href="/v2/conversar" style={{ textDecoration: 'none' }}>
           <div className="v2-card-dark" style={{ display: 'flex', alignItems: 'center', gap: 14, height: '100%' }}>
             <div style={{ width: 50, height: 50, borderRadius: 15, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
@@ -121,6 +106,21 @@ export default async function HojePageV2() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong style={{ fontSize: 16 }}>Conversa aberta</strong>
               <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Converse agora à vontade com a Cady!</p>
+            </div>
+            <span style={{ fontSize: 20, opacity: 0.85, flexShrink: 0 }}>→</span>
+          </div>
+        </Link>
+
+        <Link href="/v2/trilha" style={{ textDecoration: 'none' }}>
+          <div className="v2-card-green" style={{ display: 'flex', alignItems: 'center', gap: 14, height: '100%' }}>
+            <div style={{ width: 50, height: 50, borderRadius: 15, background: '#16231C', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <strong style={{ fontSize: 16 }}>Trilha de aprendizagem</strong>
+              <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Do intermediário ao avançado, lições de 1-2min</p>
             </div>
             <span style={{ fontSize: 20, opacity: 0.85, flexShrink: 0 }}>→</span>
           </div>

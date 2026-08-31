@@ -12,7 +12,7 @@ export function AppHeader({ streak, streakShields = 0, avatarUrl, avatarInitial,
 
   return (
     <header className={`v2-app-header ${className}`} {...props}>
-      <span className="v2-logo">cadence</span>
+      <Link href="/v2" className="v2-logo" style={{ textDecoration: 'none', color: 'inherit' }} aria-label="Ir para o início">cadence</Link>
       <div className="v2-header-right">
         {hasStreak && (
           <button

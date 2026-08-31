@@ -12,15 +12,6 @@ function IconHome() {
   );
 }
 
-function IconMic() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-    </svg>
-  );
-}
-
 function IconReview() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -40,7 +31,6 @@ function IconGear() {
 
 const TABS = [
   { key: 'hoje', href: '', label: 'Início', Icon: IconHome },
-  { key: 'conversar', href: '/conversar', label: 'Conversar', Icon: IconMic },
   { key: 'revisao', href: '/revisao', label: 'Revisão', Icon: IconReview },
   { key: 'ajustes', href: '/ajustes', label: 'Ajustes', Icon: IconGear },
 ];

@@ -100,6 +100,13 @@ export function AjustesClient({ profile, email }) {
           </strong>
           <span style={{ display: 'block', fontSize: 12.5, opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{email}</span>
         </div>
+        <span
+          title="Você está no plano Pro"
+          style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.02em', color: '#16231C', background: 'var(--green)', padding: '5px 11px', borderRadius: 999 }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.9 6.1 6.7.9-4.9 4.6 1.2 6.6L12 17.8 6.1 20.8l1.2-6.6L2.4 9l6.7-.9L12 2z" /></svg>
+          Plano Pro
+        </span>
       </div>
 
       {/* Treino */}

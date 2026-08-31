@@ -61,6 +61,7 @@ export function RevisaoView({ initialItems = [] }) {
 
   // Sessão de flashcards
   const [flash, setFlash] = useState(null); // { queue: [...], idx, flipped, done }
+  const [reviewOpen, setReviewOpen] = useState(false); // expande as opções de revisão
 
   const active = useMemo(() => items.filter((i) => i.status !== 'learned'), [items]);
   const learned = useMemo(() => items.filter((i) => i.status === 'learned'), [items]);
@@ -100,10 +101,11 @@ export function RevisaoView({ initialItems = [] }) {
     }
   };
 
-  // ---- Flashcards ----
+  // ---- Flashcards ---- usa os vencidos; se nada vencido, revisa todos os ativos
   const startFlash = () => {
-    if (!due.length) return;
-    setFlash({ queue: shuffle(due), idx: 0, flipped: false, done: false });
+    const pool = due.length ? due : active;
+    if (!pool.length) return;
+    setFlash({ queue: shuffle(pool), idx: 0, flipped: false, done: false });
   };
 
   const rate = async (rating) => {
@@ -225,31 +227,38 @@ export function RevisaoView({ initialItems = [] }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Revisar hoje — os itens vencidos, em flashcards ou falando com a Cady. */}
-      {due.length > 0 ? (
-        <div className="v2-card-green" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Revisar — toque pra abrir as opções (flashcards ou falando com a Cady).
+          Sempre disponível; usa os cards vencidos do dia, ou todos os ativos. */}
+      {active.length > 0 && (
+        <div className="v2-card-green" style={{ display: 'flex', flexDirection: 'column', gap: reviewOpen ? 12 : 0 }}>
+          <button
+            type="button"
+            onClick={() => setReviewOpen((v) => !v)}
+            aria-expanded={reviewOpen}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+          >
             <span style={{ fontSize: 22 }}>🔁</span>
-            <div>
-              <strong style={{ fontSize: 16 }}>{due.length} {due.length === 1 ? 'card' : 'cards'} pra revisar hoje</strong>
-              <p style={{ margin: '2px 0 0', fontSize: 12.5, opacity: 0.85 }}>Rápido nos flashcards, ou treinando a fala.</p>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <strong style={{ fontSize: 16 }}>Revisar{due.length > 0 ? ` — ${due.length} pra hoje` : ''}</strong>
+              <p style={{ margin: '2px 0 0', fontSize: 12.5, opacity: 0.85 }}>
+                {due.length > 0 ? 'Escolha como treinar hoje.' : 'Em dia — revise quando quiser.'}
+              </p>
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={startFlash} style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#16231C', color: '#fff', border: 'none', borderRadius: 12, padding: '11px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
-              ⚡ Flashcards
-            </button>
-            <Link href="/v2/revisao/praticar" style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(255,255,255,0.9)', color: '#16231C', border: 'none', borderRadius: 12, padding: '11px', fontWeight: 700, fontSize: 13.5, textDecoration: 'none' }}>
-              🎙 Com a Cady
-            </Link>
-          </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: reviewOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+          {reviewOpen && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={startFlash} style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#16231C', color: '#fff', border: 'none', borderRadius: 12, padding: '11px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
+                ⚡ Flashcards
+              </button>
+              <Link href="/v2/revisao/praticar" style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(255,255,255,0.92)', color: '#16231C', border: 'none', borderRadius: 12, padding: '11px', fontWeight: 700, fontSize: 13.5, textDecoration: 'none' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+                Com a Cady
+              </Link>
+            </div>
+          )}
         </div>
-      ) : active.length > 0 ? (
-        <div className="v2-card" style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--ink-soft)', fontSize: 13.5 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-          Tudo em dia — nada vencido agora. Volta mais tarde ou treina na conversa.
-        </div>
-      ) : null}
+      )}
 
       <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5 }}>
         Durante a conversa, diga <strong>&quot;save this&quot;</strong> ou <strong>&quot;memorize that&quot;</strong> que a Cady guarda aqui. Você revisa com espaçamento; o que domina vira <strong>Aprendidos</strong> sozinho.

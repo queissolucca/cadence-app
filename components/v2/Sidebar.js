@@ -12,15 +12,6 @@ function IconHome() {
   );
 }
 
-function IconMic() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-    </svg>
-  );
-}
-
 function IconReview() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -40,7 +31,6 @@ function IconGear() {
 
 const NAV_ITEMS = [
   { href: '', label: 'Início', Icon: IconHome },
-  { href: '/conversar', label: 'Conversar', Icon: IconMic },
   { href: '/revisao', label: 'Revisão', Icon: IconReview },
   { href: '/ajustes', label: 'Ajustes', Icon: IconGear },
 ];
@@ -55,7 +45,7 @@ export function Sidebar({ streak = 0, avatarUrl, avatarInitial, basePath = '/v2'
 
   return (
     <aside className="web-sidebar">
-      <div className="web-sidebar-logo">cadence</div>
+      <Link href={basePath} className="web-sidebar-logo" style={{ textDecoration: 'none', color: 'inherit' }}>cadence</Link>
 
       <nav className="web-sidebar-nav">
         {NAV.map(({ href, label, Icon }) => {
