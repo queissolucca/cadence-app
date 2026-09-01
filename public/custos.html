@@ -40,7 +40,7 @@
 <body>
 <div class="wrap">
   <h1>Cadence · Custos por usuário</h1>
-  <p class="sub">Estima o custo de cada usuário: <b style="color:var(--el)">ElevenLabs</b> (minutos de voz, tabela <code>sessions</code>) + <b style="color:var(--cl)">Claude</b> (tokens, tabela <code>usage_events</code>). Roda 100% no seu navegador — a service key fica só aqui (localStorage), nunca sai daqui.</p>
+  <p class="sub">Estima o custo de cada usuário: <b style="color:var(--el)">ElevenLabs</b> (minutos de voz, tabela <code>sessions</code>) + <b style="color:var(--cl)">Claude</b> (tokens, tabela <code>usage_events</code>). Roda 100% no seu navegador.</p>
 
   <div class="card" style="margin-top:20px">
     <div class="cfg">
@@ -57,7 +57,7 @@
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--soft);font-weight:600;cursor:pointer;margin:0"><input type="checkbox" id="auto" style="width:auto;margin:0"> tempo real (30s)</label>
       <span class="status" id="status"></span>
     </div>
-    <div class="warn">⚠️ Use a <b>service_role</b> key (Supabase → Settings → API). Ela ignora o RLS e lê todos os usuários — por isso este arquivo é <b>local</b>, não vai pro deploy. Nunca cole essa key em nada público.</div>
+    <div class="warn">⚠️ Cole a <b>service_role</b> key (Supabase → Settings → API). A página só mostra dados pra quem tem ela. A key fica só no <b>seu navegador</b> (localStorage) e vai direto pro seu Supabase — nunca passa pelo nosso servidor. Não compartilhe esse link com a key preenchida.</div>
   </div>
 
   <div id="out"></div>
@@ -69,7 +69,6 @@ const LS = 'cadence-usage-cfg';
 const fmt$ = (n) => '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtN = (n) => (n || 0).toLocaleString('pt-BR');
 
-// Carrega config salva
 try {
   const c = JSON.parse(localStorage.getItem(LS) || '{}');
   for (const k of ['url','key','since','elRate','inRate','outRate']) if (c[k] != null) $(k).value = c[k];
@@ -82,7 +81,6 @@ $('save').onclick = () => {
 
 function headers(key){ return { apikey: key, Authorization: 'Bearer ' + key, Accept: 'application/json' }; }
 
-// Busca todas as linhas de uma tabela REST, paginando de 1000 em 1000.
 async function fetchAll(base, key, path){
   let out = [], offset = 0, page = 1000;
   for(;;){
@@ -98,7 +96,6 @@ async function fetchAll(base, key, path){
   return out;
 }
 
-// Mapa user_id -> email via Admin API (service key). Best-effort.
 async function fetchEmails(base, key){
   const map = {};
   try{
@@ -186,15 +183,14 @@ $('load').onclick = async () => {
             <td style="color:var(--cl)">${fmt$(T.claude)}</td><td class="tot-cell">${fmt$(T.total)}</td>
           </tr></tfoot>
         </table></div>
-        <p class="note">Estimativa. <b>Voz</b> = minutos de <code>sessions</code> (mode speaking) × sua tarifa/min do ElevenLabs. <b>Claude</b> = tokens de <code>usage_events</code> × suas tarifas por 1M. Ajuste as tarifas conforme seu plano real do ElevenLabs e o modelo do Claude. O <code>usage_events</code> começa a registrar a partir do deploy que ligou o logging; a voz cobre todo o histórico de sessões.</p>
+        <p class="note">Estimativa. <b>Voz</b> = minutos de <code>sessions</code> (mode speaking) × tarifa/min do ElevenLabs. <b>Claude</b> = tokens de <code>usage_events</code> × tarifas por 1M. Ajuste as tarifas conforme seu plano. O <code>usage_events</code> registra a partir do deploy que ligou o logging; a voz cobre todo o histórico. <b>#</b> = client_id sequencial.</p>
       </div>`;
   }catch(err){
     $('status').textContent = 'Erro: ' + err.message;
-    $('out').innerHTML = `<div class="warn">Falha ao carregar. Verifique URL e service key.</div>`;
+    $('out').innerHTML = `<div class="warn">Falha ao carregar. Verifique a URL e a service_role key.</div>`;
   }
 };
 
-// Tempo real: recarrega a cada 30s enquanto marcado.
 let autoTimer = null;
 $('auto').onchange = () => {
   clearInterval(autoTimer); autoTimer = null;
