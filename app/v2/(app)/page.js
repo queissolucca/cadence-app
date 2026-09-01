@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { createClient } from '../../../lib/supabase/server';
 import { dayKeySP, weekStartSP, addDays, todayKeySP } from '../../../lib/dates';
 import { streakFromDayKeys } from '../../../lib/streak';
+import { computeGamification } from '../../../lib/gamification';
 import { AppHeader } from '../../../components/ui';
 import { StreakCard } from '../../../components/v2/StreakCard';
+import { JourneyCard } from '../../../components/v2/JourneyCard';
 
 const WEEKDAY_LABELS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']; // segunda -> domingo
 
@@ -64,6 +66,33 @@ export default async function HojePageV2() {
     ? new Date(user.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })
     : null;
 
+  // Gamificação (RPG) — derivada dos dados (best-effort: tabelas podem faltar).
+  const weekKeys = new Set(weekDots.map((d) => d.key));
+  const sessionsAll = sessionsRes.data || [];
+  const sessionsThisWeek = sessionsAll.filter((s) => weekKeys.has(dayKeySP(new Date(s.started_at)))).length;
+
+  let completedIds = [];
+  let unitsThisWeek = 0;
+  const up = await supabase.from('unit_progress').select('unit_id, completed_at').eq('user_id', user.id);
+  if (up.data) {
+    completedIds = up.data.map((r) => r.unit_id);
+    unitsThisWeek = up.data.filter((r) => r.completed_at && weekKeys.has(dayKeySP(new Date(r.completed_at)))).length;
+  }
+  let cardsLearned = 0;
+  const cl = await supabase.from('review_saved').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'learned');
+  if (typeof cl.count === 'number') cardsLearned = cl.count;
+
+  const game = computeGamification({
+    completedIds,
+    sessionsTotal: sessionsAll.length,
+    sessionsThisWeek,
+    cardsLearned,
+    streak: streakCount,
+    unitsThisWeek,
+    daysThisWeek: weekDoneCount,
+    weeklyGoal,
+  });
+
   return (
     <>
       <div className="mobile-only">
@@ -92,6 +121,8 @@ export default async function HojePageV2() {
         year={curYear}
         month={curMonth}
       />
+
+      <JourneyCard game={game} />
 
       <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.4px', margin: '2px 0 0', color: 'var(--ink)' }}>Como você quer treinar hoje?</h2>
       <div className="web-grid-2">
