@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '../../../lib/supabase/server';
 import { loadMemoryBlock } from '../../../lib/memory';
+import { logUsage } from '../../../lib/usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -134,6 +135,9 @@ export async function POST(request) {
 
   const convo = [...messages];
   const saved = [];
+  let usageIn = 0;
+  let usageOut = 0;
+  const logChat = () => logUsage(supabase, user.id, { kind: unit ? 'chat_lesson' : 'chat', model: MODEL, inputTokens: usageIn, outputTokens: usageOut });
 
   try {
     // Loop de tool use: a Cady pode salvar 1+ itens antes de responder em texto.
@@ -146,6 +150,8 @@ export async function POST(request) {
         tools: [SAVE_TOOL],
         messages: convo,
       });
+      usageIn += resp.usage?.input_tokens || 0;
+      usageOut += resp.usage?.output_tokens || 0;
 
       const toolUses = (resp.content || []).filter((b) => b.type === 'tool_use');
       if (resp.stop_reason === 'tool_use' && toolUses.length) {
@@ -176,9 +182,11 @@ export async function POST(request) {
         .map((b) => b.text)
         .join('\n')
         .trim();
+      logChat();
       return NextResponse.json({ reply: text || "Go on — tell me more!", saved });
     }
 
+    logChat();
     return NextResponse.json({ reply: "Let's keep going — what's on your mind?", saved });
   } catch (err) {
     console.error('chat error:', err);

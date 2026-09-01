@@ -36,7 +36,7 @@ export default async function PagamentoPage() {
             <p style={{ margin: '10px 0 4px', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
               {user
                 ? 'ainda não encontramos um pagamento aprovado pra este email'
-                : 'desbloqueie o cadence com acesso vitalício'}
+                : 'destrave seu inglês com a Cady, sua professora de IA'}
             </p>
             {user?.email && (
               <p style={{ margin: '0 0 16px', fontSize: 13.5, color: 'var(--ink-soft)' }}>
@@ -46,17 +46,19 @@ export default async function PagamentoPage() {
 
             <div style={{ background: 'var(--v2-card-bg)', border: '1px solid var(--line)', borderRadius: 12, padding: 16, marginBottom: 18 }}>
               <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', background: 'var(--green)', borderRadius: 6, padding: '3px 8px', marginBottom: 10 }}>
-                acesso vitalício · lançamento
+                3 meses · oferta de lançamento
               </span>
-              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>R$ 89,90<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-soft)' }}> pagamento único · vitalício</span></div>
-              <div style={{ marginTop: 8, fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.7 }}>
-                + sessões diárias de ~10 minutos<br />
-                + correção direta com o porquê<br />
-                + repetição espaçada (hoje → amanhã → 1 sem → 1 mês)<br />
-                + cenários reais ilimitados de escrita e fala
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)' }}>R$ 89<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-soft)' }}> · 3 meses de acesso</span></div>
+              <div style={{ marginTop: 2, fontSize: 13.5, fontWeight: 700, color: 'var(--green-dark, var(--green))' }}>menos de R$ 1 por dia pra aprender inglês de verdade</div>
+              <div style={{ marginTop: 10, fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.7 }}>
+                + a Cady, sua professora de inglês por IA — conversa real, por <strong>voz ou texto</strong><br />
+                + correção assertiva na hora: gramática, conjugação e o porquê<br />
+                + trilha do intermediário ao avançado, com XP e patentes (Aprendiz → Nativo)<br />
+                + revisão inteligente: flashcards + repetição espaçada<br />
+                + a Cady <strong>lembra de você</strong> e personaliza cada conversa
               </div>
               <p style={{ margin: '12px 0 0', fontSize: 12.5, color: 'var(--ink-soft)', lineHeight: 1.6 }}>
-                estamos lançando o cadence agora e só as primeiras pessoas que entrarem com a gente nessa fase têm o privilégio de pagar uma vez e ter acesso vitalício. depois do lançamento, a cobrança passa a ser mensal.
+                não é chatbot genérico: é uma IA que conversa como gente de verdade, corrige do jeito que faz você evoluir e se lembra da sua vida pra cada aula ser sua. <strong>Só quem entra agora, no lançamento, garante os 3 meses por R$ 89</strong> — depois, a cobrança passa a ser mensal.
               </p>
             </div>
 

@@ -38,6 +38,7 @@ export async function POST(request) {
       schema: SCHEMA,
       maxTokens: 120,
       temperature: 0.7,
+      meta: { supabase, userId: user.id, kind: 'example_gen' },
     });
     const example = typeof res?.example === 'string' ? res.example.trim().slice(0, 400) : '';
     if (!example) return NextResponse.json({ error: 'no_example' }, { status: 500 });
