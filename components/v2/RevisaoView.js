@@ -58,6 +58,8 @@ export function RevisaoView({ initialItems = [] }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ term: '', example: '', category: 'phrase' });
   const [saving, setSaving] = useState(false);
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError, setGenError] = useState('');
 
   // Sessão de flashcards
   const [flash, setFlash] = useState(null); // { queue: [...], idx, flipped, done }
@@ -76,6 +78,30 @@ export function RevisaoView({ initialItems = [] }) {
   const remove = async (id) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
     fetch(`/api/review/${id}`, { method: 'DELETE' }).catch(() => {});
+  };
+
+  const genExample = async () => {
+    const term = form.term.trim();
+    if (!term || genLoading) return;
+    setGenLoading(true);
+    setGenError('');
+    try {
+      const res = await fetch('/api/review/example', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ term }),
+      });
+      if (res.ok) {
+        const { example } = await res.json();
+        if (example) setForm((f) => ({ ...f, example }));
+      } else {
+        setGenError('Não consegui gerar agora. Tenta de novo ou escreva você mesmo.');
+      }
+    } catch {
+      setGenError('Não consegui gerar agora. Tenta de novo ou escreva você mesmo.');
+    } finally {
+      setGenLoading(false);
+    }
   };
 
   const add = async () => {
@@ -277,8 +303,23 @@ export function RevisaoView({ initialItems = [] }) {
 
       {adding && (
         <div className="v2-card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <input style={inputStyle} placeholder="Termo, frase ou palavra" value={form.term} onChange={(e) => setForm((f) => ({ ...f, term: e.target.value }))} maxLength={200} />
-          <input style={inputStyle} placeholder="Exemplo de uso (opcional)" value={form.example} onChange={(e) => setForm((f) => ({ ...f, example: e.target.value }))} maxLength={400} />
+          <input style={inputStyle} placeholder="Termo, frase ou palavra" value={form.term} onChange={(e) => setForm((f) => ({ ...f, term: e.target.value, }))} maxLength={200} />
+          <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 54, fontFamily: 'inherit' }} placeholder="Exemplo de uso (escreva ou gere com IA)" value={form.example} onChange={(e) => setForm((f) => ({ ...f, example: e.target.value }))} maxLength={400} />
+          <button
+            type="button"
+            onClick={genExample}
+            disabled={!form.term.trim() || genLoading}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              border: '1.5px solid var(--green)', background: 'var(--green-soft)', color: 'var(--green-dark, var(--green))',
+              borderRadius: 10, padding: '9px', fontSize: 13, fontWeight: 700,
+              cursor: !form.term.trim() || genLoading ? 'default' : 'pointer', opacity: !form.term.trim() ? 0.55 : 1,
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l1.9 4.9L19 9l-5.1 2.1L12 16l-1.9-4.9L5 9l5.1-2.1L12 2zM19 15l.9 2.3L22 18l-2.1.7L19 21l-.9-2.3L16 18l2.1-.7L19 15z" /></svg>
+            {genLoading ? 'Gerando exemplo…' : 'Gerar exemplo de uso'}
+          </button>
+          {genError && <p style={{ margin: 0, fontSize: 12, color: 'var(--red, #c0392b)' }}>{genError}</p>}
           <div style={{ display: 'flex', gap: 6 }}>
             {Object.entries(CATS).map(([id, c]) => (
               <button key={id} type="button" onClick={() => setForm((f) => ({ ...f, category: id }))} style={{ flex: 1, fontSize: 12.5, fontWeight: 600, padding: '8px', borderRadius: 10, cursor: 'pointer', border: form.category === id ? `1.5px solid ${c.color}` : '1px solid var(--line)', background: form.category === id ? 'var(--green-soft)' : 'transparent', color: 'var(--ink)' }}>
