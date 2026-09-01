@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '../../../lib/supabase/server';
+import { loadMemoryBlock } from '../../../lib/memory';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,10 +26,14 @@ const SAVE_TOOL = {
   },
 };
 
-function systemPrompt(name) {
+function systemPrompt(name, memoryBlock = '') {
   const who = name || 'there';
   return `You are Cady, a warm, sharp English teacher from North America (US/Canada). You're texting with ${who}, a Brazilian learner (Portuguese is their first language) who wants to reach native-sounding English.
-
+${memoryBlock ? `
+# What you already know about ${who}
+These are durable facts you remember about ${who} from past chats. Use them naturally to make the conversation personal from the very start — reference what fits the moment, ask good follow-ups about their life, and never contradict them. Do NOT dump the list back at them or interrogate; weave it in like a friend who remembers.
+${memoryBlock}
+` : ''}
 # Rules
 - Reply ONLY in English — always. If ${who} writes in Portuguese, don't switch: answer in English and hand them the English phrasing they were reaching for.
 - Sound like a real North American: contractions, phrasal verbs, natural slang ("no worries", "for sure", "gonna", "my bad"). Not a textbook.
@@ -118,7 +123,10 @@ export async function POST(request) {
   const firstName = (profile?.full_name || '').trim().split(/\s+/)[0] || '';
 
   const unit = parseUnit(body.unit);
-  const system = unit ? lessonPrompt(firstName, unit) : systemPrompt(firstName);
+  // Conversa aberta: injeta a memória do usuário (fatos pessoais) pra a Cady já
+  // conhecer ${who}. Em lição, não injeta (é drill de gramática).
+  const memoryBlock = unit ? '' : await loadMemoryBlock(supabase, user.id);
+  const system = unit ? lessonPrompt(firstName, unit) : systemPrompt(firstName, memoryBlock);
 
   const convo = [...messages];
   const saved = [];

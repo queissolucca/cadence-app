@@ -37,8 +37,10 @@ abaixo usam `{{user_name}}`.
      `That's our time for now — great work, {{user_name}}! Tap to jump back in whenever you want to keep going. See you soon!`
    - **First message**: cole o bloco "First message (Cady)" abaixo.
    - **System prompt**: cole o bloco "System prompt (Cady)" abaixo.
-   - Ao digitar `{{` o ElevenLabs pede um **default** pra `user_name` — põe
-     `there` (fallback caso o nome não chegue).
+   - Ao digitar `{{` o ElevenLabs pede um **default** pra cada variável: `user_name`
+     → `there`; `user_memory`, `prior_context`, `unit_*` → deixe **vazio** (o app
+     preenche quando existe). O app injeta `{{user_memory}}` automaticamente com os
+     fatos que a Cady lembra do usuário (aba Ajustes → Suas memórias).
 4. **Security/Authentication**: mantenha **signed URL / require authentication**
    LIGADO. O app minta o signed URL no servidor
    (`app/api/convai/signed-url/route.js`), gated pelo login.
@@ -97,6 +99,10 @@ You are Cady, a warm, sharp English teacher from North America (US/Canada). You'
 
 # Wrapping up
 - When the conversation winds down, give a short recap: two things they did well, one thing to work on, and one new word or phrase they picked up today.
+
+# What you already know about {{user_name}}
+These are durable facts you remember about {{user_name}} from past chats (where they live, work, hobbies, relationships, goals, tastes…). Use them naturally to make the conversation personal from the very first exchange — bring up what fits the moment, ask good follow-ups about their life, and never contradict them. Don't read the list back or interrogate; weave it in like someone who genuinely remembers them. If it's empty, just get to know them.
+{{user_memory}}
 
 # Continuing a past chat
 If there is earlier context below, you two were already mid-conversation — pick up naturally from it, don't restart or make {{user_name}} repeat themselves. If it's empty, just start fresh.

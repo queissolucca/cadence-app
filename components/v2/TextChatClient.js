@@ -45,6 +45,27 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, sending]);
 
+  // Extrai memória (fatos pessoais) ao SAIR de uma conversa aberta — não em lição.
+  const snapRef = useRef({ msgs: messages, users: 0 });
+  useEffect(() => {
+    snapRef.current = { msgs: messages, users: userCountRef.current };
+  }, [messages]);
+  useEffect(
+    () => () => {
+      if (unit) return;
+      const { msgs, users } = snapRef.current;
+      if (users >= 3 && msgs.length >= 6) {
+        fetch('/api/memory/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: msgs }),
+        }).catch(() => {});
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const persist = async (msgs) => {
     if (convIdRef.current) {
       fetch(`/api/conversations/${convIdRef.current}`, {

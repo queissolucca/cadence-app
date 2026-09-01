@@ -14,7 +14,7 @@ function deriveTitle(messages) {
   return `Conversa · ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
 }
 
-function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems }) {
+function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText }) {
   const isReview = Array.isArray(reviewItems) && reviewItems.length > 0;
   const [starting, setStarting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -94,6 +94,16 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           body: JSON.stringify({ ids: reviewItems.map((it) => it.id).filter(Boolean) }),
         }).catch(() => {});
       }
+
+      // Conversa aberta: extrai memória (fatos pessoais) ao encerrar — 1 chamada
+      // Haiku, best-effort. Não roda em lição/revisão.
+      if (!unit && !isReview && messages.length >= 6) {
+        fetch('/api/memory/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages }),
+        }).catch(() => {});
+      }
     },
     onMessage: (msg) => {
       const text = msg?.message ?? msg?.text;
@@ -168,6 +178,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           ...(firstName ? { user_name: firstName } : {}),
           ...(agent?.name ? { agent_name: agent.name } : {}),
           ...(resumeContext ? { prior_context: resumeContext } : {}),
+          ...(memoryText && !unit && !isReview ? { user_memory: memoryText } : {}),
           ...(lessonUnit ? { unit_title: lessonUnit.title, unit_focus: lessonUnit.focus, unit_drill: lessonUnit.drill, unit_context: lessonUnit.context } : {}),
         },
       });
@@ -180,7 +191,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     } finally {
       setStarting(false);
     }
-  }, [conversation, firstName, agent, resumeContext, unit, isReview, reviewItems]);
+  }, [conversation, firstName, agent, resumeContext, unit, isReview, reviewItems, memoryText]);
 
   const stop = useCallback(async () => {
     try {
@@ -363,10 +374,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   );
 }
 
-export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems }) {
+export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText }) {
   return (
     <ConversationProvider>
-      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} />
+      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} memoryText={memoryText} />
     </ConversationProvider>
   );
 }

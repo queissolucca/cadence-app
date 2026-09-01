@@ -1,5 +1,6 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { ConversarView } from '../../../../components/v2/ConversarView';
+import { loadMemoryBlock } from '../../../../lib/memory';
 
 // Aba Conversar — a tela principal. Server component: pega o primeiro nome do
 // usuário (pro agente falar "Hey Lucca!") e renderiza a view com o histórico de
@@ -17,6 +18,8 @@ export default async function ConversarPage() {
     .maybeSingle();
 
   const firstName = (profile?.full_name || '').trim().split(/\s+/)[0] || '';
+  // Memória do usuário pra Cady já conhecer você na voz (best-effort).
+  const memoryText = await loadMemoryBlock(supabase, user.id);
 
   return (
     <>
@@ -26,7 +29,7 @@ export default async function ConversarPage() {
           Bora destravar seu inglês agora! Comece aos poucos, mas tenha cadência de continuar aprendendo! <strong style={{ color: 'var(--ink)' }}>Não pense muito, apenas clique e comece agora!</strong>
         </p>
       </div>
-      <ConversarView firstName={firstName} />
+      <ConversarView firstName={firstName} memoryText={memoryText} />
     </>
   );
 }

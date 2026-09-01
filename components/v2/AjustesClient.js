@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight } from 'lucide-react';
+import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight, Brain } from 'lucide-react';
 import { createClient } from '../../lib/supabase/client';
 import { APP_VERSION } from '../../lib/version';
 import { usePreferenceSave } from '../../lib/usePreferenceSave';
 import { BottomSheet } from './BottomSheet';
 import { SegmentedControl } from './SegmentedControl';
+import { MemoriesDialog } from './MemoriesDialog';
 import { Toast } from './Toast';
 
 // Ajustes enxuto pro app voice-first: só o que realmente funciona hoje —
@@ -67,6 +68,7 @@ export function AjustesClient({ profile, email }) {
   });
   const [sheet, setSheet] = useState(null); // 'weekly' | null
   const [signingOut, setSigningOut] = useState(false);
+  const [showMemories, setShowMemories] = useState(false);
 
   const setWeekly = async (value) => {
     setState((prev) => ({ ...prev, weeklyCadence: value }));
@@ -129,6 +131,11 @@ export function AjustesClient({ profile, email }) {
         </div>
       </Group>
 
+      {/* Personalização */}
+      <Group title="Personalização">
+        <Row icon={Brain} label="Suas memórias" onClick={() => setShowMemories(true)} />
+      </Group>
+
       {/* Ajuda */}
       <Group title="Ajuda">
         <Row icon={Send} label="Enviar feedback" onClick={() => router.push('/v2/ajuda/feedback')} />
@@ -167,6 +174,8 @@ export function AjustesClient({ profile, email }) {
         </div>
         <p style={{ textAlign: 'center', marginTop: 10, fontSize: 13, color: 'var(--ink-soft)' }}>dias por semana</p>
       </BottomSheet>
+
+      <MemoriesDialog open={showMemories} onClose={() => setShowMemories(false)} />
 
       <Toast message={toast} />
     </>
