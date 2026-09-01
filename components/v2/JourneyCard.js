@@ -7,17 +7,21 @@ import { useState } from 'react';
 // (lib/gamification.js). Deixa claro o que você é, quanto falta e o que ganha.
 export function JourneyCard({ game }) {
   const [showBadges, setShowBadges] = useState(false);
+  const [showRanks, setShowRanks] = useState(false);
   if (!game) return null;
-  const { rank, level, next, pct, xp, xpToNext, quests, badges, badgesEarned } = game;
+  const { rank, level, next, pct, xp, xpToNext, quests, badges, badgesEarned, ranks = [] } = game;
 
   return (
     <div className="v2-card-dark" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Patente + XP */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 34, lineHeight: 1 }} aria-hidden="true">{rank.icon}</span>
+        <button type="button" onClick={() => setShowRanks(true)} aria-label="Ver todas as patentes" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 34, lineHeight: 1 }}>{rank.icon}</button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-            <strong style={{ fontSize: 16 }}>{rank.name}</strong>
+            <button type="button" onClick={() => setShowRanks(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#fff', font: 'inherit', fontSize: 16, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              {rank.name}
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><path d="M6 9l6 6 6-6" /></svg>
+            </button>
             <span style={{ fontSize: 12, opacity: 0.75, fontFamily: 'var(--font-mono-v2, monospace)' }}>Nível {level} · {xp} XP</span>
           </div>
           <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.16)', overflow: 'hidden', marginTop: 6 }}>
@@ -57,6 +61,52 @@ export function JourneyCard({ game }) {
         🏆 Conquistas
         <span style={{ fontFamily: 'var(--font-mono-v2, monospace)', opacity: 0.85 }}>{badgesEarned}/{badges.length}</span>
       </button>
+
+      {showRanks && (
+        <div
+          onClick={() => setShowRanks(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 20, zIndex: 200 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="v2-card"
+            style={{ width: '100%', maxWidth: 400, maxHeight: '82vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <strong style={{ fontSize: 17, color: 'var(--v2-card-fg, var(--ink))' }}>Patentes</strong>
+                <p style={{ margin: '3px 0 0', fontSize: 12.5, color: 'var(--ink-soft)' }}>Você tem <strong style={{ color: 'var(--green-dark, var(--green))' }}>{xp} XP</strong>. Continue estudando pra subir.</p>
+              </div>
+              <button type="button" onClick={() => setShowRanks(false)} aria-label="Fechar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-soft)', padding: 4, flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {ranks.map((r) => (
+                <div
+                  key={r.name}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 11,
+                    background: r.current ? 'var(--green-soft)' : 'var(--v2-card-bg)',
+                    border: `1px solid ${r.current ? 'transparent' : 'var(--line)'}`,
+                    borderRadius: 12, padding: '10px 12px',
+                    opacity: r.reached || r.current ? 1 : 0.6,
+                  }}
+                >
+                  <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0, filter: r.reached ? 'none' : 'grayscale(0.6)' }} aria-hidden="true">{r.icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong style={{ fontSize: 14, color: r.current ? 'var(--green-dark, var(--green))' : 'var(--ink)' }}>{r.name}</strong>
+                    {r.current && <span style={{ fontSize: 11, color: 'var(--green-dark, var(--green))', fontWeight: 700 }}> · você está aqui</span>}
+                  </div>
+                  <span style={{ fontSize: 12.5, color: 'var(--ink-soft)', fontFamily: 'var(--font-mono-v2, monospace)', flexShrink: 0 }}>
+                    {r.min === 0 ? 'início' : `${r.min} XP`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showBadges && (
         <div
