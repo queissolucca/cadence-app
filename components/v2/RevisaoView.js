@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { isDue, boxProgress, SRS_STEPS } from '../../lib/track/srs';
+import { CardPracticeDialog } from './CardPracticeDialog';
 
 const CATS = {
   correction: { label: 'Correção', color: '#B0722C' },
@@ -51,7 +52,7 @@ const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
 // categoria + repetição espaçada (Leitner). "Revisar hoje" surge os vencidos em
 // flashcards ou numa fala com a Cady; acertando várias vezes o item gradua pra
 // Aprendidos sozinho (sem acumular infinito). Salva por voz na conversa ou aqui.
-export function RevisaoView({ initialItems = [] }) {
+export function RevisaoView({ initialItems = [], firstName = '' }) {
   const [items, setItems] = useState(initialItems);
   const [filter, setFilter] = useState('all');
   const [showLearned, setShowLearned] = useState(false);
@@ -64,6 +65,7 @@ export function RevisaoView({ initialItems = [] }) {
   // Sessão de flashcards
   const [flash, setFlash] = useState(null); // { queue: [...], idx, flipped, done }
   const [reviewOpen, setReviewOpen] = useState(false); // expande as opções de revisão
+  const [practiceItem, setPracticeItem] = useState(null); // card em prática (pop-up)
 
   const active = useMemo(() => items.filter((i) => i.status !== 'learned'), [items]);
   const learned = useMemo(() => items.filter((i) => i.status === 'learned'), [items]);
@@ -246,8 +248,16 @@ export function RevisaoView({ initialItems = [] }) {
           </button>
         </div>
       </div>
-      <strong style={{ fontSize: 15, color: 'var(--ink)' }}>{it.term}</strong>
-      {it.example && <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.45 }}>{it.example}</p>}
+      <div onClick={isLearned ? undefined : () => setPracticeItem(it)} style={{ cursor: isLearned ? 'default' : 'pointer', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <strong style={{ fontSize: 15, color: 'var(--ink)' }}>{it.term}</strong>
+        {it.example && <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.45 }}>{it.example}</p>}
+        {!isLearned && (
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--green-dark, var(--green))', display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 1 }}>
+            praticar com a Cady
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </span>
+        )}
+      </div>
     </div>
   );
 
@@ -353,6 +363,13 @@ export function RevisaoView({ initialItems = [] }) {
           )}
         </div>
       )}
+
+      <CardPracticeDialog
+        item={practiceItem}
+        firstName={firstName}
+        onClose={() => setPracticeItem(null)}
+        onCompleted={(id) => setStatus(id, 'learned')}
+      />
     </div>
   );
 }

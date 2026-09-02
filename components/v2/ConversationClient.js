@@ -14,8 +14,9 @@ function deriveTitle(messages) {
   return `Conversa · ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
 }
 
-function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText }) {
+function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill }) {
   const isReview = Array.isArray(reviewItems) && reviewItems.length > 0;
+  const isCard = !!(cardDrill && cardDrill.term); // drill relâmpago de 1 card da Revisão
   const [starting, setStarting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [notConfigured, setNotConfigured] = useState(false);
@@ -41,6 +42,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       const messages = messagesRef.current;
       if (!startedAt) return;
       const seconds = Math.round((Date.now() - startedAt) / 1000);
+
+      // Drill relâmpago de 1 card: micro-interação — não salva histórico, não
+      // conta streak, não extrai memória.
+      if (isCard) return;
 
       // Só conta pro streak/calendário se foi atividade real: uma lição ou uma
       // revisão que rodou (>=30s = um exercício de fato) OU conversa aberta
@@ -166,11 +171,13 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       // senão, saudação normal. Vai pra {{opening_line}} na First message.
       const openingLine = unit
         ? `Alright ${name}! Let's nail ${unit.focus}. Here's an example — ${unit.example} Now your turn: give me one like that!`
-        : isReview
-          ? `Alright ${name}, let's run through the ${reviewItems.length} ${reviewItems.length === 1 ? 'thing' : 'things'} you saved. First up — ${reviewItems[0].term}. Give me a fresh sentence using it!`
-          : resumeContext
-            ? `Hey ${name}! Let's pick up right where we left off.`
-            : `Hi ${name}! I'm Cady, your English teacher! How's it going?`;
+        : isCard
+          ? `Quick practice on "${cardDrill.term}".${cardDrill.example ? ` Here's how it's used — ${cardDrill.example}` : ''} Now you try: say a sentence with it. We'll do it just twice, then you've got it — I'll wrap up with a "you're learning how to use ${cardDrill.term}!"`
+          : isReview
+            ? `Alright ${name}, let's run through the ${reviewItems.length} ${reviewItems.length === 1 ? 'thing' : 'things'} you saved. First up — ${reviewItems[0].term}. Give me a fresh sentence using it!`
+            : resumeContext
+              ? `Hey ${name}! Let's pick up right where we left off.`
+              : `Hi ${name}! I'm Cady, your English teacher! How's it going?`;
       await conversation.startSession({
         signedUrl,
         dynamicVariables: {
@@ -191,7 +198,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     } finally {
       setStarting(false);
     }
-  }, [conversation, firstName, agent, resumeContext, unit, isReview, reviewItems, memoryText]);
+  }, [conversation, firstName, agent, resumeContext, unit, isReview, reviewItems, memoryText, isCard, cardDrill]);
 
   const stop = useCallback(async () => {
     try {
@@ -222,7 +229,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const muted = active && conversation.isMuted;
   const speaking = active && conversation.isSpeaking;
 
-  let statusLabel = unit ? 'Toque pra começar a lição' : isReview ? 'Toque pra revisar falando' : resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
+  let statusLabel = unit ? 'Toque pra começar a lição' : isCard ? 'Toque pra praticar falando' : isReview ? 'Toque pra revisar falando' : resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
   if (connecting) statusLabel = 'Conectando…';
   else if (muted) statusLabel = 'Microfone mudo — desmute para voltar a falar';
   else if (speaking) statusLabel = `${agent?.name || 'Coach'} falando…`;
@@ -374,10 +381,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   );
 }
 
-export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText }) {
+export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill }) {
   return (
     <ConversationProvider>
-      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} memoryText={memoryText} />
+      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} memoryText={memoryText} cardDrill={cardDrill} />
     </ConversationProvider>
   );
 }

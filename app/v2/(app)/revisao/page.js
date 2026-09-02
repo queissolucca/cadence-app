@@ -31,6 +31,9 @@ export default async function RevisaoPage() {
     if (data) items = data;
   }
 
+  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+  const firstName = (profile?.full_name || '').trim().split(/\s+/)[0] || '';
+
   return (
     <>
       <div>
@@ -39,7 +42,7 @@ export default async function RevisaoPage() {
           O que você guardou pra treinar de novo — organizado por categoria, e some quando você domina.
         </p>
       </div>
-      <RevisaoView initialItems={items} />
+      <RevisaoView initialItems={items} firstName={firstName} />
     </>
   );
 }

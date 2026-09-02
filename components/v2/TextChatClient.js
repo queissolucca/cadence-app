@@ -14,12 +14,14 @@ function deriveTitle(messages) {
 // Conversa aberta por TEXTO — a Cady via Claude (Haiku, barato). Corrige inline,
 // salva na Revisão sozinha (tool server-side), e conta streak/histórico igual à
 // conversa por voz. Alternativa ao microfone dentro da mesma aba.
-export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit }) {
+export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit, cardDrill }) {
   const name = firstName || '';
   const resuming = Array.isArray(initialMessages) && initialMessages.length > 0;
-  const greeting = unit
-    ? `Alright ${name || 'there'}! Let's nail ${unit.focus}. Here's an example — ${unit.example} Now your turn: write one like that!`
-    : `Hi ${name || 'there'}! I'm Cady. What do you wanna talk about today?`;
+  const greeting = cardDrill
+    ? `Quick practice with "${cardDrill.term}"${cardDrill.example ? ` — like: "${cardDrill.example}"` : ''}. Write a sentence using it, something from your own life!`
+    : unit
+      ? `Alright ${name || 'there'}! Let's nail ${unit.focus}. Here's an example — ${unit.example} Now your turn: write one like that!`
+      : `Hi ${name || 'there'}! I'm Cady. What do you wanna talk about today?`;
   const [messages, setMessages] = useState(
     resuming
       ? initialMessages.map((m) => ({ role: m.role === 'you' ? 'you' : 'coach', text: m.text }))
@@ -52,7 +54,7 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
   }, [messages]);
   useEffect(
     () => () => {
-      if (unit) return;
+      if (unit || cardDrill) return;
       const { msgs, users } = snapRef.current;
       if (users >= 3 && msgs.length >= 6) {
         fetch('/api/memory/extract', {
@@ -117,6 +119,7 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
         body: JSON.stringify({
           messages: history,
           ...(unit ? { unit: { title: unit.title, focus: unit.focus, context: unit.context, drill: unit.drill } } : {}),
+          ...(cardDrill ? { cardDrill: { term: cardDrill.term, example: cardDrill.example } } : {}),
         }),
       });
       if (res.status === 503) {
@@ -129,10 +132,10 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
       setMessages(withReply);
       if (Array.isArray(saved) && saved.length) setSavedFlash((n) => n + saved.length);
 
-      persist(withReply);
+      if (!cardDrill) persist(withReply); // drill de card é micro-interação: não salva no histórico
       // Só conta pro streak se foi atividade real: uma lição de fato (>=4 trocas)
-      // ou uma conversa aberta com troca real (>=2 mensagens suas).
-      const streakQualifies = unit ? userCountRef.current >= 4 : userCountRef.current >= 2;
+      // ou uma conversa aberta com troca real (>=2 mensagens suas). Card drill não conta.
+      const streakQualifies = cardDrill ? false : unit ? userCountRef.current >= 4 : userCountRef.current >= 2;
       if (streakQualifies && !streakDoneRef.current) {
         streakDoneRef.current = true;
         const secs = Math.round((Date.now() - startedAtRef.current) / 1000);

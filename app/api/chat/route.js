@@ -86,6 +86,35 @@ function parseUnit(raw) {
   return { title, focus, context: s(raw.context, 200), drill: s(raw.drill, 600) };
 }
 
+function parseCard(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const s = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+  const term = s(raw.term, 200);
+  if (!term) return null;
+  return { term, example: s(raw.example, 400) };
+}
+
+// Drill RELÂMPAGO de 1 card da Revisão (escrita): direto ao ponto, exemplo da
+// vida do usuário, pede pra escrever, 2 rodadas, e encerra parabenizando.
+function cardDrillPrompt(name, card, memoryBlock = '') {
+  const who = name || 'there';
+  return `You are Cady, a warm English teacher doing a SUPER quick, focused writing practice with ${who} (a Brazilian learning English) on ONE thing: "${card.term}"${card.example ? ` (example: "${card.example}")` : ''}.
+${memoryBlock ? `
+# What you know about ${who} (use it to pick a real, personal context)
+${memoryBlock}
+` : ''}
+# How this works — keep it FAST and focused
+- Go straight to "${card.term}". No small talk, no intro.
+- Give ONE natural example of it used in a real everyday context — ideally something from ${who}'s own life.
+- Then ask ${who} to WRITE a sentence using "${card.term}" in a similar real-life context.
+- React in one line and correct briefly if needed, then give ONE more quick prompt to use it again.
+- Do EXACTLY 2 rounds (2 sentences from ${who}) — no more.
+- Right after the 2nd one, END with a short warm closing, naturally like: "Awesome — you're learning how to use '${card.term}'! 🎉" Do NOT continue after that.
+
+# Rules
+- English only. Very short replies (1-2 sentences). Encouraging and natural, never a lecture.`;
+}
+
 // Normaliza o histórico vindo do cliente pro formato da Anthropic.
 function toAnthropicMessages(raw) {
   const arr = Array.isArray(raw) ? raw.slice(-20) : [];
@@ -128,16 +157,21 @@ export async function POST(request) {
   const firstName = (profile?.full_name || '').trim().split(/\s+/)[0] || '';
 
   const unit = parseUnit(body.unit);
-  // Conversa aberta: injeta a memória do usuário (fatos pessoais) pra a Cady já
-  // conhecer ${who}. Em lição, não injeta (é drill de gramática).
+  const card = parseCard(body.cardDrill);
+  // Injeta memória (fatos pessoais) na conversa aberta e no drill de card (pra
+  // Cady usar um contexto da vida do usuário). Em lição não injeta.
   const memoryBlock = unit ? '' : await loadMemoryBlock(supabase, user.id);
-  const system = unit ? lessonPrompt(firstName, unit) : systemPrompt(firstName, memoryBlock);
+  const system = unit
+    ? lessonPrompt(firstName, unit)
+    : card
+      ? cardDrillPrompt(firstName, card, memoryBlock)
+      : systemPrompt(firstName, memoryBlock);
 
   const convo = [...messages];
   const saved = [];
   let usageIn = 0;
   let usageOut = 0;
-  const logChat = () => logUsage(supabase, user.id, { kind: unit ? 'chat_lesson' : 'chat', model: MODEL, inputTokens: usageIn, outputTokens: usageOut });
+  const logChat = () => logUsage(supabase, user.id, { kind: unit ? 'chat_lesson' : card ? 'chat_card' : 'chat', model: MODEL, inputTokens: usageIn, outputTokens: usageOut });
 
   try {
     // Loop de tool use: a Cady pode salvar 1+ itens antes de responder em texto.
