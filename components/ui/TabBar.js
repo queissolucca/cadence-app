@@ -20,11 +20,11 @@ function IconReview() {
   );
 }
 
-function IconGear() {
+function IconUser() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M12 3.5v2.3M12 18.2v2.3M4.9 6.9l1.6 1.6M17.5 15.5l1.6 1.6M3.5 12h2.3M18.2 12h2.3M4.9 17.1l1.6-1.6M17.5 8.5l1.6-1.6" />
+      <circle cx="12" cy="8" r="4" />
+      <path d="M5.5 20.5a6.5 6.5 0 0 1 13 0" />
     </svg>
   );
 }
@@ -32,7 +32,7 @@ function IconGear() {
 const TABS = [
   { key: 'hoje', href: '', label: 'Início', Icon: IconHome },
   { key: 'revisao', href: '/revisao', label: 'Revisão', Icon: IconReview },
-  { key: 'ajustes', href: '/ajustes', label: 'Ajustes', Icon: IconGear },
+  { key: 'ajustes', href: '/ajustes', label: 'Perfil', Icon: IconUser },
 ];
 
 // basePath: raiz onde o shell vive hoje ("/v2" enquanto roda em paralelo ao
