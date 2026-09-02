@@ -20,7 +20,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const [errorMsg, setErrorMsg] = useState('');
   const [notConfigured, setNotConfigured] = useState(false);
   const [transcript, setTranscript] = useState([]);
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(true); // aberta por padrão; usuário pode minimizar
   const startedAtRef = useRef(null);
   const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
   const scrollRef = useRef(null); // janela de transcrição com scroll próprio
