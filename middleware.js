@@ -41,6 +41,12 @@ export async function middleware(request) {
     return response;
   }
 
+  // Onboarding pré-pagamento (5 perguntas): exige login, mas não pagamento.
+  if (pathname === '/onboarding') {
+    if (!user) return NextResponse.redirect(new URL('/login', request.url));
+    return response;
+  }
+
   if (pathname === '/pagamento') {
     if (!user) {
       return response;
@@ -52,6 +58,12 @@ export async function middleware(request) {
       .maybeSingle();
     if (paidRow) {
       return NextResponse.redirect(new URL('/v2', request.url));
+    }
+    // Não pago: garante que respondeu o onboarding primeiro (best-effort — se a
+    // tabela não existe ainda, não bloqueia).
+    const onb = await supabase.from('onboarding').select('user_id').eq('user_id', user.id).maybeSingle();
+    if (!onb.error && !onb.data) {
+      return NextResponse.redirect(new URL('/onboarding', request.url));
     }
     return response;
   }
