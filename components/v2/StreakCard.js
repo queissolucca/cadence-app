@@ -50,8 +50,8 @@ export function StreakCard({
   });
 
   return (
-    <div className="v2-card" onClick={() => setView(isMonth ? 'week' : 'month')} style={{ cursor: 'pointer' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+    <div className="v2-card" onClick={() => setView(isMonth ? 'week' : 'month')} style={{ cursor: 'pointer', ...(isMonth ? {} : { paddingTop: 12, paddingBottom: 12 }) }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMonth ? 12 : 8 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           {isMonth ? 'Seu mês' : 'Sua semana'}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -70,7 +70,7 @@ export function StreakCard({
               key={d.key}
               title={d.key}
               style={{
-                flex: 1, height: 38, borderRadius: 10, display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700,
+                flex: 1, height: 30, borderRadius: 9, display: 'grid', placeItems: 'center', fontSize: 12.5, fontWeight: 700,
                 background: d.done ? 'var(--green)' : 'transparent',
                 color: d.done ? '#fff' : 'var(--ink)',
                 border: d.done ? 'none' : `1.5px solid ${d.isToday ? 'var(--ink)' : 'var(--line)'}`,

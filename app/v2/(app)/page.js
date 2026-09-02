@@ -124,36 +124,34 @@ export default async function HojePageV2() {
 
       <JourneyCard game={game} />
 
-      <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.4px', margin: '2px 0 0', color: 'var(--ink)' }}>Como você quer treinar hoje?</h2>
-      <div className="web-grid-2">
+      <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.4px', margin: '2px 0 0', color: 'var(--ink)' }}>Como você quer aprender hoje?</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Link href="/v2/conversar" style={{ textDecoration: 'none' }}>
-          <div className="v2-card-dark" style={{ display: 'flex', alignItems: 'center', gap: 14, height: '100%' }}>
-            <div style={{ width: 50, height: 50, borderRadius: 15, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+          <div className="v2-card-dark" style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%', minHeight: 132 }}>
+            <div style={{ width: 46, height: 46, borderRadius: 14, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="3" width="6" height="11" rx="3" />
                 <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
               </svg>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <strong style={{ fontSize: 16 }}>Conversa aberta</strong>
-              <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Converse agora à vontade com a Cady!</p>
+            <div style={{ flex: 1 }}>
+              <strong style={{ fontSize: 15 }}>Conversa aberta</strong>
+              <p style={{ margin: '3px 0 0', fontSize: 12.5, opacity: 0.85, lineHeight: 1.4 }}>Converse à vontade com a Cady!</p>
             </div>
-            <span style={{ fontSize: 20, opacity: 0.85, flexShrink: 0 }}>→</span>
           </div>
         </Link>
 
         <Link href="/v2/trilha" style={{ textDecoration: 'none' }}>
-          <div className="v2-card-green" style={{ display: 'flex', alignItems: 'center', gap: 14, height: '100%' }}>
-            <div style={{ width: 50, height: 50, borderRadius: 15, background: '#16231C', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <div className="v2-card-green" style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%', minHeight: 132 }}>
+            <div style={{ width: 46, height: 46, borderRadius: 14, background: '#16231C', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <strong style={{ fontSize: 16 }}>Trilha de aprendizagem</strong>
-              <p style={{ margin: '3px 0 0', fontSize: 13, opacity: 0.85 }}>Do intermediário ao avançado, lições de 1-2min</p>
+            <div style={{ flex: 1 }}>
+              <strong style={{ fontSize: 15 }}>Trilha de aprendizagem</strong>
+              <p style={{ margin: '3px 0 0', fontSize: 12.5, opacity: 0.85, lineHeight: 1.4 }}>Do intermediário ao avançado, 1-2min</p>
             </div>
-            <span style={{ fontSize: 20, opacity: 0.85, flexShrink: 0 }}>→</span>
           </div>
         </Link>
       </div>
