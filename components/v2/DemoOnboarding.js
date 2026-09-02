@@ -66,7 +66,7 @@ export function DemoOnboarding() {
               <a href="/login" style={{ width: '100%', maxWidth: 360, textAlign: 'center', background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 15, padding: 16, fontWeight: 800, fontSize: 15.5, cursor: 'pointer', textDecoration: 'none' }}>
                 Quero destravar meu inglês agora!
               </a>
-              <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>leva 1 minuto pra começar</span>
+              <span style={{ fontSize: 12.5, color: 'var(--ink-soft)', maxWidth: 340, lineHeight: 1.45 }}>Clique no botão acima! Leva apenas 1 minuto para você começar a melhorar seu inglês!</span>
             </div>
           )}
         </div>

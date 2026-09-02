@@ -9,17 +9,39 @@ function Inner({ onEnd }) {
   const [notConf, setNotConf] = useState(false);
   const [transcript, setTranscript] = useState([]);
   const scrollRef = useRef(null);
+  const convRef = useRef(null);
+  const finishedRef = useRef(false);
+  const cadyTurnsRef = useRef(0);
+
+  // Trava a conversa JÁ e mostra o CTA — sem esperar o cap de 30s — pra a pessoa
+  // não continuar falando e gastar mais tokens/minutos.
+  const doFinish = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    const c = convRef.current;
+    try { c?.setMuted?.(true); } catch { /* noop */ }
+    try { c?.endSession?.(); } catch { /* noop */ }
+    onEnd && onEnd();
+  };
 
   const conv = useConversation({
     onMessage: (msg) => {
-      const text = msg?.message ?? msg?.text;
-      if (!text) return;
+      const raw = msg?.message ?? msg?.text;
+      if (!raw) return;
       const role = msg?.source === 'user' ? 'you' : 'cady';
+      const text = String(raw).replace(/\[[^\]]*\]/g, '').trim(); // remove [encouraging] etc.
+      if (!text) return;
       setTranscript((t) => [...t, { role, text }]);
+      if (role === 'cady') {
+        cadyTurnsRef.current += 1;
+        const closing = /real conversation in english|whole magic|that'?s the whole|thanks for trying|you'?ve got this|great job|that'?s it/i.test(text);
+        if (closing || cadyTurnsRef.current >= 3) setTimeout(doFinish, 250);
+      }
     },
     onDisconnect: () => { onEnd && onEnd(); },
     onError: () => setErr('Deu um probleminha na conexão. Tenta de novo.'),
   });
+  convRef.current = conv;
 
   const start = useCallback(async () => {
     setErr(''); setNotConf(false); setStarting(true);
