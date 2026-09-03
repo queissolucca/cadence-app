@@ -106,7 +106,7 @@ export default function PorqueCadence({ fontClass = '' }) {
     <div className={`porque ${fontClass}`.trim()} ref={rootRef}>
       {/* top bar */}
       <header className="topbar">
-        <span className="tb-logo">cadence</span>
+        <span className="tb-logo">cadence english app</span>
         <div className="tb-actions">
           <Link href={LOGIN} className="tb-login">já tenho conta criada</Link>
           <Link href={ONBOARDING} className="tb-cta">criar conta nova</Link>
