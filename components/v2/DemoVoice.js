@@ -80,6 +80,7 @@ function Inner({ onEnd }) {
         onClick={active ? stop : start}
         disabled={connecting}
         aria-label={active ? 'Encerrar' : 'Falar'}
+        className={speaking ? 'cadyOrbSpeaking' : undefined}
         style={{
           width: 110, height: 110, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
           display: 'grid', placeItems: 'center', margin: '10px 0 12px', background: active ? '#2E9E5B' : '#1E6B41', color: '#fff',
@@ -93,6 +94,15 @@ function Inner({ onEnd }) {
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
         )}
       </button>
+      <style jsx>{`
+        .cadyOrbSpeaking { animation: cadyOrbSpeak 1.1s ease-in-out infinite; }
+        @keyframes cadyOrbSpeak {
+          0%   { transform: scale(1);    box-shadow: 0 0 0 8px rgba(46,158,91,0.18), 0 10px 30px rgba(46,158,91,0.28); }
+          50%  { transform: scale(1.06); box-shadow: 0 0 0 20px rgba(46,158,91,0.07), 0 10px 30px rgba(46,158,91,0.28); }
+          100% { transform: scale(1);    box-shadow: 0 0 0 8px rgba(46,158,91,0.18), 0 10px 30px rgba(46,158,91,0.28); }
+        }
+        @media (prefers-reduced-motion: reduce) { .cadyOrbSpeaking { animation: none; } }
+      `}</style>
       <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)', minHeight: 22, textAlign: 'center' }}>{label}</p>
       <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ink-soft)' }}>uma amostra rapidinha (~30s)</p>
 

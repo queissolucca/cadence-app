@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { TypingDots } from './TypingDots';
 
 function deriveTitle(messages) {
   const firstYou = messages.find((m) => m.role === 'you' && (m.text || '').trim().split(/\s+/).length >= 2);
@@ -224,8 +225,8 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
           </div>
         ))}
         {sending && (
-          <div style={{ alignSelf: 'flex-start', fontSize: 13, color: 'var(--ink-soft)', padding: '6px 4px' }}>
-            {agent?.name || 'Cady'} está digitando…
+          <div style={{ alignSelf: 'flex-start', padding: '4px 4px' }}>
+            <TypingDots label={agent?.name || 'Cady'} />
           </div>
         )}
       </div>

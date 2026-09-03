@@ -46,23 +46,26 @@ export default async function PagamentoPage() {
 
             <div style={{ background: 'var(--v2-card-bg)', border: '1px solid var(--line)', borderRadius: 12, padding: 16, marginBottom: 18 }}>
               <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', background: 'var(--green)', borderRadius: 6, padding: '3px 8px', marginBottom: 10 }}>
-                🔥 55% OFF · só no lançamento
+                🔥 70% OFF · só no lançamento
               </span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 15, color: 'var(--ink-soft)', textDecoration: 'line-through' }}>R$ 199,90</span>
+                <span style={{ fontSize: 18, color: 'var(--ink-soft)', textDecoration: 'line-through' }}>R$ 296,90</span>
                 <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)' }}>R$ 89,90</span>
                 <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-soft)' }}>· 3 meses de acesso</span>
               </div>
-              <div style={{ marginTop: 2, fontSize: 13.5, fontWeight: 700, color: 'var(--green-dark, var(--green))' }}>menos de R$ 1 por dia — 55% de desconto pra quem chega primeiro</div>
+              <div style={{ marginTop: 2, fontSize: 13.5, fontWeight: 700, color: 'var(--green-dark, var(--green))' }}>menos de R$ 1 por dia — 70% de desconto pra quem chega primeiro</div>
               <div style={{ marginTop: 10, fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.7 }}>
                 + a Cady, sua professora de inglês por IA — conversa real, por <strong>voz ou texto</strong><br />
                 + correção assertiva na hora: gramática, conjugação e o porquê<br />
                 + trilha do intermediário ao avançado, com XP e patentes (Aprendiz → Nativo)<br />
-                + revisão inteligente: flashcards + repetição espaçada<br />
+                + revisão inteligente e personalizada<br />
                 + a Cady <strong>lembra de você</strong> e personaliza cada conversa
               </div>
               <p style={{ margin: '12px 0 0', fontSize: 12.5, color: 'var(--ink-soft)', lineHeight: 1.6 }}>
-                não é chatbot genérico: é uma IA que conversa como gente de verdade, corrige do jeito que faz você evoluir e se lembra da sua vida pra cada aula ser sua. <strong>Preço de lançamento: de R$ 199,90 por R$ 89,90 (55% off), só pra quem chega agora, no começo</strong> — depois volta ao valor cheio e a cobrança passa a ser mensal.
+                não é chatbot genérico: é uma IA que conversa como gente de verdade, corrige do jeito que faz você evoluir e se lembra da sua vida pra cada aula ser sua. <strong>Imagine pagar esse valor para ter um professor particular que te conheça e que você possa treinar todo dia! Esse é o Cadence!</strong>
+              </p>
+              <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--ink-soft)', lineHeight: 1.6 }}>
+                <strong>Preço de lançamento: de R$ 296,90 por R$ 89,90 (70% off), só pra quem chega agora, no começo</strong> — depois volta ao valor cheio e a cobrança passa a ser mensal.
               </p>
             </div>
 

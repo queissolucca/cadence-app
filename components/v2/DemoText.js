@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { TypingDots } from './TypingDots';
 
 const GREETING = "Hi! I'm Cady 👋 Just try in English — what did you do today?";
 const SUGG = ['I go to work', 'I studied a little', 'I stayed home'];
@@ -49,7 +50,7 @@ export function DemoText({ onEnd }) {
             {m.text}
           </div>
         ))}
-        {sending && <div style={{ alignSelf: 'flex-start', fontSize: 13, color: 'var(--ink-soft)', padding: '4px 2px' }}>Cady está digitando…</div>}
+        {sending && <div style={{ alignSelf: 'flex-start', padding: '4px 2px' }}><TypingDots label="Cady" /></div>}
       </div>
 
       {err && <p style={{ margin: '2px 0 0', fontSize: 13, color: '#c0392b' }}>{err}</p>}

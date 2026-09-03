@@ -1,7 +1,6 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { SectionHead } from '../../../../components/ui';
 import { AjustesClient } from '../../../../components/v2/AjustesClient';
-import { JourneyCard } from '../../../../components/v2/JourneyCard';
 import { computeGamification } from '../../../../lib/gamification';
 import { streakFromDayKeys } from '../../../../lib/streak';
 import { dayKeySP, weekStartSP, addDays, todayKeySP } from '../../../../lib/dates';
@@ -62,8 +61,7 @@ export default async function AjustesPageV2() {
   return (
     <div className="web-narrow" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <SectionHead title="Perfil" />
-      <JourneyCard game={game} />
-      <AjustesClient profile={profile} email={user.email} />
+      <AjustesClient profile={profile} email={user.email} game={game} />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { usePreferenceSave } from '../../lib/usePreferenceSave';
 import { BottomSheet } from './BottomSheet';
 import { SegmentedControl } from './SegmentedControl';
 import { MemoriesDialog } from './MemoriesDialog';
+import { JourneyCard } from './JourneyCard';
 import { Toast } from './Toast';
 
 // Ajustes enxuto pro app voice-first: só o que realmente funciona hoje —
@@ -57,7 +58,7 @@ function Group({ title, children }) {
 
 const WEEKLY_LABEL = (n) => `${n} dias/sem`;
 
-export function AjustesClient({ profile, email }) {
+export function AjustesClient({ profile, email, game }) {
   const router = useRouter();
   const { setTheme } = useTheme();
   const { toast, save } = usePreferenceSave();
@@ -110,6 +111,19 @@ export function AjustesClient({ profile, email }) {
           Plano Pro
         </span>
       </div>
+
+      {/* Sua jornada (gamificação) */}
+      {game && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--ink)' }}>🎮 Sua jornada</span>
+            <p style={{ margin: '3px 0 0', fontSize: 12.5, color: 'var(--ink-soft)', lineHeight: 1.45 }}>
+              Sua patente, XP e missões da semana — <strong>toque na patente</strong> pra ver o quanto você já evoluiu. 🚀
+            </p>
+          </div>
+          <JourneyCard game={game} />
+        </div>
+      )}
 
       {/* Treino */}
       <Group title="Treino">

@@ -266,6 +266,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
         onClick={active ? stop : start}
         disabled={connecting}
         aria-label={active ? 'Encerrar conversa' : 'Começar conversa'}
+        className={speaking ? 'cadyOrbSpeaking' : undefined}
         style={{
           width: 85, height: 85, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
           display: 'grid', placeItems: 'center', position: 'relative',
@@ -288,6 +289,17 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           </svg>
         )}
       </button>
+
+      <style jsx>{`
+        /* Orbe com movimento orgânico enquanto a Cady fala */
+        .cadyOrbSpeaking { animation: cadyOrbSpeak 1.1s ease-in-out infinite; }
+        @keyframes cadyOrbSpeak {
+          0%   { transform: scale(1);    box-shadow: 0 0 0 6px rgba(46,158,91,0.20), 0 10px 30px rgba(0,0,0,0.22); }
+          50%  { transform: scale(1.06); box-shadow: 0 0 0 18px rgba(46,158,91,0.08), 0 10px 30px rgba(0,0,0,0.22); }
+          100% { transform: scale(1);    box-shadow: 0 0 0 6px rgba(46,158,91,0.20), 0 10px 30px rgba(0,0,0,0.22); }
+        }
+        @media (prefers-reduced-motion: reduce) { .cadyOrbSpeaking { animation: none; } }
+      `}</style>
 
       <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--ink)', minHeight: 22, textAlign: 'center' }}>{statusLabel}</p>
 
