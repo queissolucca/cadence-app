@@ -115,7 +115,7 @@ export default function PorqueCadence({ fontClass = '' }) {
 
       {/* HERO */}
       <section className="hero wrap">
-        <div className="brand rise">cadence<span className="dot">.</span></div>
+        <div className="brand rise">cadence<span className="dot" aria-hidden="true"></span></div>
         <h1 className="rise">Se você já tentou outros apps de inglês. Por que o Cadence seria diferente?</h1>
         <p className="lead rise">Anos ou meses de app de inglês e você ainda trava numa conversa real. Por quê?</p>
         <div className="rise"><Cta /></div>
@@ -343,7 +343,7 @@ export default function PorqueCadence({ fontClass = '' }) {
         /* hero */
         .porque .hero{min-height:88vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:20px;padding:48px 0 44px}
         .porque .brand{font-weight:900;font-size:clamp(58px,15vw,150px);letter-spacing:-.055em;line-height:.86;color:var(--ink)}
-        .porque .brand .dot{color:var(--green)}
+        .porque .brand .dot{display:inline-block;width:.15em;height:.15em;border-radius:50%;background:var(--green);vertical-align:baseline;margin-left:.04em}
         .porque .hero h1{font-size:clamp(24px,4.4vw,40px);font-weight:800;letter-spacing:-.02em;line-height:1.14;margin:8px 0 0;max-width:20ch}
         .porque .hero .lead{font-size:clamp(15px,2.3vw,19px);color:var(--soft);max-width:44ch;margin:0;line-height:1.5;font-weight:500}
         .porque .scrollhint{margin-top:12px;color:var(--faint);font-size:12px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:6px;animation:pqBob 1.8s infinite}
