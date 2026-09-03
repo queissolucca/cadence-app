@@ -17,29 +17,42 @@ const Check = () => (
 export function OnboardingClient({ firstName = '' }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [done, setDone] = useState(false);
+  const [phase, setPhase] = useState('questions'); // 'questions' | 'terms' | 'done'
+  const [accepted, setAccepted] = useState(false);
   const [saving, setSaving] = useState(false);
   const total = STEPS.length;
+  const done = phase === 'done';
 
   const finish = async (finalAnswers) => {
     setSaving(true);
+    // As duas gravações são best-effort e independentes — mandamos em paralelo
+    // e seguimos pro pagamento de qualquer jeito (o aceite também fica
+    // registrado na sessão; se falhar aqui, o middleware/BD não bloqueia).
     try {
-      await fetch('/api/onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(finalAnswers),
-      });
+      await Promise.allSettled([
+        fetch('/api/onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(finalAnswers),
+        }),
+        fetch('/api/terms/accept', { method: 'POST' }),
+      ]);
     } catch {
-      /* best-effort — segue pro pagamento de qualquer jeito */
+      /* best-effort */
     } finally {
       setSaving(false);
-      setDone(true);
+      setPhase('done');
     }
   };
 
   const go = (next, finalAnswers) => {
-    if (next >= total) finish(finalAnswers);
-    else setStep(next);
+    if (next >= total) {
+      // Terminou as perguntas → step de Termos antes do aceite/pagamento.
+      setAnswers(finalAnswers);
+      setPhase('terms');
+    } else {
+      setStep(next);
+    }
   };
 
   const pick = (s, val) => {
@@ -53,6 +66,57 @@ export function OnboardingClient({ firstName = '' }) {
       setTimeout(() => go(step + 1, na), 180);
     }
   };
+
+  if (phase === 'terms') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <button
+          type="button"
+          onClick={() => setPhase('questions')}
+          style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--ink-soft)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0 0 14px' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+          voltar
+        </button>
+
+        <div style={{ fontSize: 40, textAlign: 'center' }}>📄</div>
+        <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, margin: '10px 0 0', color: 'var(--ink)', textAlign: 'center' }}>
+          Só falta um passo
+        </h2>
+        <p style={{ margin: '8px 0 0', color: 'var(--ink-soft)', fontSize: 14, lineHeight: 1.55, textAlign: 'center', maxWidth: 380, alignSelf: 'center' }}>
+          Antes de começar, dá uma olhada nos nossos Termos e Condições de Uso.
+        </p>
+
+        <label
+          style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginTop: 22, padding: '15px 16px', background: accepted ? 'var(--green-soft)' : 'var(--v2-card-bg)', border: `1.5px solid ${accepted ? 'var(--green)' : 'var(--line)'}`, borderRadius: 14, cursor: 'pointer' }}
+        >
+          <span
+            onClick={(e) => { e.preventDefault(); setAccepted((v) => !v); }}
+            style={{ width: 24, height: 24, borderRadius: 7, border: `2px solid ${accepted ? 'var(--green)' : 'var(--line)'}`, background: accepted ? 'var(--green)' : 'transparent', flexShrink: 0, display: 'grid', placeItems: 'center', marginTop: 1 }}
+          >
+            {accepted && <Check />}
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.5 }}>
+            Li e aceito os{' '}
+            <a href="/termos" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--green)', fontWeight: 700, textDecoration: 'underline' }}>
+              Termos e Condições de Uso
+            </a>
+            .
+          </span>
+          <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
+        </label>
+
+        <button
+          type="button"
+          onClick={() => finish(answers)}
+          disabled={!accepted || saving}
+          style={{ marginTop: 20, width: '100%', border: 'none', borderRadius: 14, padding: 15, fontSize: 15, fontWeight: 800, cursor: accepted && !saving ? 'pointer' : 'default', background: accepted ? 'var(--green)' : 'var(--line)', color: accepted ? '#fff' : 'var(--ink-soft)' }}
+        >
+          {saving ? 'Salvando…' : 'Aceitar e continuar'}
+        </button>
+      </div>
+    );
+  }
 
   if (done) {
     const goal = answers.dailyGoal || '';
