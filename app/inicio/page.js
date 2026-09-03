@@ -1,4 +1,7 @@
+import { Inter } from 'next/font/google';
 import PorqueCadence from '../../components/inicio/PorqueCadence';
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
 export const metadata = {
   title: 'Por que o Cadence?',
@@ -7,5 +10,5 @@ export const metadata = {
 };
 
 export default function CadenceLandingPage() {
-  return <PorqueCadence />;
+  return <PorqueCadence fontClass={inter.variable} />;
 }
