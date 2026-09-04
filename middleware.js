@@ -34,6 +34,11 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL(LEGACY_REDIRECTS[pathname], request.url));
   }
 
+  // /inicio é uma landing estática (public/inicio.html) — servida via rewrite.
+  if (pathname === '/inicio') {
+    return NextResponse.rewrite(new URL('/inicio.html', request.url));
+  }
+
   if (pathname === '/login') {
     if (user) {
       return NextResponse.redirect(new URL('/v2', request.url));

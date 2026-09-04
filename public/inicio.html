@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Cadence — destrave seu inglês falando</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<style>
+  :root{
+    --paper:#F6F9F4; --card:#FFFFFF; --ink:#14201A; --soft:#566057; --faint:#98A29A;
+    --line:#E7ECE3; --line2:#EEF1EC; --green:#2E9E5B; --green-d:#1C6B41; --green-soft:#E4F1E9;
+    --dark:#0F1A14; --amber:#C77A16; --gray:#8892A0; --graybg:#EDEEEC;
+    --shadow:0 1px 3px rgba(20,28,22,.05), 0 22px 54px rgba(20,28,22,.10);
+    --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+  svg{display:block;max-width:100%}
+
+  .gdot{display:inline-block;width:.62em;height:.62em;border-radius:50%;background:var(--green);vertical-align:baseline}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--green-d)}
+  .eyebrow .gdot{width:8px;height:8px}
+  .btn{display:inline-block;background:var(--green);color:#fff;text-decoration:none;font-weight:800;font-size:16px;padding:15px 30px;border-radius:15px;box-shadow:0 12px 26px rgba(46,158,91,.28);transition:transform .16s,box-shadow .16s;border:none;cursor:pointer;font-family:inherit}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(46,158,91,.34)}
+  .btnsub{font-size:12px;color:var(--faint);font-weight:600;margin-top:8px}
+
+  .readbar{position:fixed;top:0;left:0;height:4px;width:0;background:linear-gradient(90deg,var(--green),var(--green-d));z-index:200}
+
+  .topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px clamp(14px,3vw,26px);background:rgba(246,249,244,.82);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);border-bottom:1px solid var(--line)}
+  .topbar .lg{font-weight:900;font-size:19px;letter-spacing:-.03em}
+  .topbar .lg .gdot{width:.34em;height:.34em;margin-left:1px}
+  .topbar .acts{display:flex;align-items:center;gap:12px}
+  .topbar .login{font-size:14px;font-weight:700;text-decoration:none;color:var(--ink)}
+  .topbar .cta{background:var(--green-d);color:#fff;font-weight:800;font-size:14px;padding:10px 18px;border-radius:11px;text-decoration:none}
+  @media(max-width:520px){.topbar .login{display:none}}
+
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+  .zoom{will-change:transform,opacity;transform-origin:center}
+
+  /* hero */
+  .hero{text-align:center;padding:60px 0 26px}
+  .hero .bigdot{width:60px;height:60px;border-radius:50%;background:var(--green);margin:0 auto 22px;box-shadow:0 0 0 10px var(--green-soft);animation:beat 1.9s ease-in-out infinite}
+  @keyframes beat{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+  .hero h1{font-size:clamp(30px,5.4vw,58px);font-weight:900;letter-spacing:-.035em;line-height:1.04;margin:8px auto 0;max-width:20ch}
+  .hero .sub{margin:16px auto 0;font-size:clamp(14px,2vw,17px);color:var(--soft);max-width:46ch;line-height:1.5;font-weight:500}
+  .hero .rot{margin:16px 0 0;font-size:clamp(16px,2.4vw,21px);color:var(--soft);font-weight:600}
+  .rotor{line-height:1.3}
+  .rotor .slot{display:inline-block;height:1.3em;line-height:1.3em;overflow:hidden;vertical-align:bottom;color:var(--green-d);font-weight:800}
+  .rotor .slot span{display:block;height:1.3em;line-height:1.3em;animation:roll 9s infinite}
+  @keyframes roll{0%,13%{transform:translateY(0)}18%,31%{transform:translateY(-100%)}36%,49%{transform:translateY(-200%)}54%,67%{transform:translateY(-300%)}72%,100%{transform:translateY(-400%)}}
+  .hero .cta{margin-top:24px}
+
+  /* beat band */
+  .band{padding:22px 0 4px}
+  .serp{fill:none;stroke:var(--line);stroke-width:3;stroke-linecap:round}
+  .serpflow{fill:none;stroke:var(--green);stroke-width:3;stroke-linecap:round;stroke-dasharray:2 14;animation:flow 1.4s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-16}}
+  .runner{fill:var(--green)}
+
+  /* manifesto */
+  .manifesto{padding:13vh 0 6vh;text-align:center}
+  .manifesto .s{font-size:clamp(24px,4.4vw,46px);font-weight:900;letter-spacing:-.025em;line-height:1.28;max-width:20ch;margin:16px auto 0}
+  .acende span{color:var(--line);transition:color .2s}
+  .acende span.lit{color:var(--ink)}
+  .acende span.k.lit{color:var(--green-d)}
+  .beats{display:flex;gap:10px;justify-content:center;margin-top:24px}
+  .beats i{width:12px;height:12px;border-radius:50%;background:var(--line)}
+  .beats i.on{background:var(--green)}
+  .manifesto .cont{margin:26px auto 0;font-size:clamp(15px,2vw,18px);font-weight:700;color:var(--green-d);max-width:34ch;line-height:1.4}
+
+  /* section */
+  .sec{padding:9vh 0}
+  .sec .head{text-align:center;margin-bottom:34px}
+  .sec .head h2{font-size:clamp(28px,4.4vw,44px);font-weight:900;letter-spacing:-.03em;margin:12px 0 0}
+  .sec .head p{color:var(--soft);font-size:16px;margin:12px auto 0;max-width:44ch;line-height:1.5}
+
+  /* timeline */
+  .timeline{position:relative;max-width:720px;margin:0 auto;padding-left:44px}
+  .timeline .rail{position:absolute;left:15px;top:8px;bottom:8px;width:3px;background:var(--line);border-radius:3px;overflow:hidden}
+  .timeline .rail i{position:absolute;left:0;top:0;width:100%;height:0;background:var(--green);border-radius:3px}
+  .tstep{position:relative;padding:16px 0;transition:opacity .35s}
+  .tstep:not(.hit){opacity:.45}
+  .tstep .node{position:absolute;left:-37px;top:20px;width:18px;height:18px;border-radius:50%;background:var(--card);border:3px solid var(--line);transition:.3s}
+  .tstep.hit .node{border-color:var(--green);background:var(--green);box-shadow:0 0 0 6px var(--green-soft)}
+  .tstep b{font-size:19px;font-weight:800}
+  .tstep p{margin:4px 0 0;color:var(--soft);font-size:14.5px;line-height:1.5}
+
+  /* chat */
+  .chatwrap{max-width:440px;margin:0 auto}
+  .modes{display:inline-flex;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:4px;gap:4px;margin-bottom:16px}
+  .modes button{border:none;background:transparent;font-family:inherit;font-weight:700;font-size:13.5px;padding:9px 18px;border-radius:999px;cursor:pointer;color:var(--soft)}
+  .modes button.on{background:var(--green);color:#fff}
+  .chatcard{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+  .chathead{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line2)}
+  .chathead .cavatar{width:32px;height:32px;border-radius:50%;background:var(--green);display:grid;place-items:center;color:#fff}
+  .chathead b{font-size:14px}.chathead .st{font-size:11.5px;color:var(--soft)}
+  .eq{display:flex;align-items:center;gap:4px;margin-left:auto;height:22px}
+  .eq span{width:4px;background:var(--green);border-radius:3px;animation:eqb .9s ease-in-out infinite}
+  @keyframes eqb{0%,100%{height:5px}50%{height:20px}}
+  .chatbody{padding:16px;display:flex;flex-direction:column;gap:8px;min-height:210px}
+  .bub{max-width:86%;font-size:13.5px;line-height:1.4;padding:9px 13px;border-radius:14px}
+  .bub.c{background:var(--paper);border:1px solid var(--line);border-bottom-left-radius:5px;align-self:flex-start}
+  .bub.y{background:var(--green-soft);border-bottom-right-radius:5px;align-self:flex-end}
+  .bin{animation:bin .3s ease both}@keyframes bin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .typing{display:inline-flex;gap:4px;align-self:flex-start;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:11px 13px}
+  .typing i{width:6px;height:6px;border-radius:50%;background:var(--faint);animation:td 1s infinite}
+  .typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+  @keyframes td{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(-4px);opacity:1}}
+  .chatfoot{border-top:1px solid var(--line2);padding:11px 14px;display:flex;align-items:center;gap:10px;color:var(--faint);font-size:13px}
+  .chatfoot .inp{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:9px 14px}
+  .chatfoot .mic{width:34px;height:34px;border-radius:50%;background:var(--green);display:grid;place-items:center;color:#fff;flex-shrink:0}
+
+  /* ============ STORYTELLING SEM/COM ============ */
+  .story{position:relative;height:440vh}
+  .story .sticky{position:sticky;top:0;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:60px 0 30px}
+  .story .sh{text-align:center;margin-bottom:22px}
+  .story .sh h2{font-size:clamp(26px,4.2vw,42px);font-weight:900;letter-spacing:-.03em;margin:10px 0 0}
+  .story .sh p{color:var(--soft);font-size:15.5px;margin:10px auto 0;max-width:40ch}
+  .stagebar{display:flex;gap:8px;justify-content:center;margin-top:16px}
+  .stagebar .sl{font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:6px 14px;transition:.3s}
+  .stagebar .sl.on{color:#fff;background:var(--green);border-color:var(--green)}
+  .story-grid{display:grid;grid-template-columns:1fr 46px 1fr;gap:14px;max-width:960px;margin:26px auto 0;width:100%;align-items:stretch}
+  @media(max-width:820px){.story-grid{grid-template-columns:1fr;gap:16px}.story{height:auto}.story .sticky{position:static;min-height:0;padding:6vh 0}.thread{display:none}.snap{position:relative!important;opacity:1!important;transform:none!important}.col{min-height:0!important}.snapwrap{position:relative!important;min-height:0!important}}
+  .col{position:relative;border-radius:20px;padding:22px;min-height:340px}
+  .col.sem{background:var(--graybg);border:1px solid var(--line)}
+  .col.com{background:var(--card);border:1px solid var(--green-soft);box-shadow:var(--shadow)}
+  .colhead{display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px;margin-bottom:6px}
+  .col.sem .colhead{color:var(--gray)}
+  .col.com .colhead{color:var(--green-d)}
+  .colsub{font-size:12px;font-weight:600;margin-bottom:14px}
+  .col.sem .colsub{color:var(--gray)}
+  .col.com .colsub{color:var(--soft)}
+  .snapwrap{position:relative;min-height:230px}
+  .snap{position:absolute;inset:0;opacity:0;transform:translateY(14px) scale(.98);transition:opacity .5s,transform .55s cubic-bezier(.2,.7,.2,1)}
+  .snap.on{opacity:1;transform:none}
+  .mini{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:11px 13px;font-size:13.5px;line-height:1.4;margin-bottom:8px}
+  .col.sem .mini{background:#fff}
+  .mini.you{background:var(--green-soft);border-color:transparent}
+  .mini.tap{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--gray)}
+  .cady{display:flex;gap:9px;align-items:flex-start;margin-top:8px}
+  .cady .cv{width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800;flex-shrink:0}
+  .cady .cx{background:var(--green-soft);border-radius:12px;padding:9px 12px;font-size:13px;line-height:1.4}
+  .fix{color:var(--green-d);font-weight:800}
+  .wrong{color:#B4483F;font-weight:700}
+  .cap{font-size:12px;margin-top:12px;font-weight:600}
+  .col.sem .cap{color:var(--gray)}
+  .col.com .cap{color:var(--green-d)}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;border-radius:999px;padding:4px 10px;margin-bottom:8px}
+  .badge.g{background:var(--green-soft);color:var(--green-d)}
+  .badge.x{background:#F3E3E3;color:#B4483F}
+  .badge.n{background:#E7E9E6;color:var(--gray)}
+  /* thread (fio que se desenha + pontos correndo) */
+  .thread{position:relative}
+  .thread .tline{position:absolute;left:50%;top:6px;bottom:6px;transform:translateX(-50%);width:3px;background:var(--line);border-radius:3px;overflow:hidden}
+  .thread .tline i{position:absolute;left:0;top:0;width:100%;height:0;background:var(--green);border-radius:3px}
+  .thread .tnode{position:absolute;left:50%;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:var(--card);border:3px solid var(--line);transition:.3s}
+  .thread .tnode.on{border-color:var(--green);background:var(--green);box-shadow:0 0 0 5px var(--green-soft)}
+  .thread .trun{position:absolute;left:50%;margin-left:-4px;top:0;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 9px rgba(46,158,91,.7);animation:run 3s linear infinite}
+  @keyframes run{0%{top:0;opacity:0}8%{opacity:1}92%{opacity:1}100%{top:100%;opacity:0}}
+  .deadnote{position:absolute;left:10px;top:12px;font-size:20px;color:var(--gray);opacity:.5}
+
+  /* CTA block */
+  .ctablock{text-align:center;padding:6vh 0 2vh}
+
+  /* holofote (dark) */
+  .spot{position:relative;border-radius:22px;background:var(--dark);color:#fff;overflow:hidden;padding:clamp(40px,7vw,72px);text-align:center}
+  .spot .glow{position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(46,158,91,.5),transparent 60%);transform:translate(-50%,-50%);pointer-events:none;left:50%;top:40%}
+  .spot h2{position:relative;font-size:clamp(26px,4.6vw,44px);font-weight:900;letter-spacing:-.03em;margin:0 auto;max-width:20ch;line-height:1.12}
+  .spot h2 .g{color:#7FD6A2}
+  .spot .cta{position:relative;margin-top:24px}
+
+  /* esteira depoimentos */
+  .marqmask{position:relative;overflow:hidden}
+  .marqmask::before,.marqmask::after{content:"";position:absolute;top:0;bottom:0;width:70px;z-index:2;pointer-events:none}
+  .marqmask::before{left:0;background:linear-gradient(90deg,var(--paper),transparent)}
+  .marqmask::after{right:0;background:linear-gradient(270deg,var(--paper),transparent)}
+  .marquee{display:flex;gap:16px;width:max-content;animation:mq 42s linear infinite}
+  .marquee.r2{animation-duration:52s;animation-direction:reverse;margin-top:16px}
+  .marquee:hover{animation-play-state:paused}
+  @keyframes mq{to{transform:translateX(-50%)}}
+  .tcard{white-space:normal;width:320px;flex-shrink:0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+  .tcard .stars{color:#E0A63C;font-size:13px;letter-spacing:2px}
+  .tcard p{font-size:14px;line-height:1.5;margin:9px 0 12px}
+  .tcard .who{display:flex;align-items:center;gap:10px}
+  .tcard .av{width:34px;height:34px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px}
+  .tcard .who b{font-size:13px}.tcard .who span{font-size:11.5px;color:var(--faint)}
+
+  /* time */
+  .team{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:760px){.team{grid-template-columns:1fr}}
+  .member{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:24px;text-align:center}
+  .member .photo{width:88px;height:88px;border-radius:50%;margin:0 auto;display:grid;place-items:center;color:#fff;font-weight:900;font-size:26px}
+  .member h4{margin:14px 0 2px;font-size:17px;font-weight:800}
+  .member .role{font-size:12.5px;color:var(--green-d);font-weight:700}
+  .member .bio{font-size:13px;color:var(--soft);line-height:1.5;margin:10px 0 14px}
+  .member .social{display:flex;gap:8px;justify-content:center}
+  .member .social a{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);display:grid;place-items:center;color:var(--soft);text-decoration:none;transition:.2s}
+  .member .social a:hover{border-color:var(--green);color:var(--green-d);background:var(--green-soft)}
+
+  /* rodapé */
+  .sitefoot{background:var(--dark);color:#fff;margin-top:60px}
+  .sitefoot .in{max-width:1080px;margin:0 auto;padding:48px 22px 30px;display:flex;flex-wrap:wrap;gap:34px;justify-content:space-between}
+  .sitefoot .brand{font-size:28px;font-weight:900;letter-spacing:-.03em}
+  .sitefoot .brand .gdot{width:.32em;height:.32em;background:#7FD6A2}
+  .sitefoot .tag{color:rgba(255,255,255,.6);font-size:13px;margin:8px 0 14px;max-width:30ch;line-height:1.5}
+  .sitefoot .socs{display:flex;gap:10px}
+  .sitefoot .socs a{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.08);display:grid;place-items:center;color:#fff;text-decoration:none}
+  .sitefoot .socs a:hover{background:rgba(255,255,255,.18)}
+  .sitefoot .cols{display:flex;gap:44px;flex-wrap:wrap}
+  .sitefoot .col2 h5{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);margin:0 0 12px}
+  .sitefoot .col2 a{display:block;color:rgba(255,255,255,.85);text-decoration:none;font-size:13.5px;margin-bottom:10px}
+  .sitefoot .col2 a:hover{color:#fff}
+  .sitefoot .bottom{border-top:1px solid rgba(255,255,255,.1);padding:16px 22px;text-align:center;font-size:12px;color:rgba(255,255,255,.5)}
+  .foot{text-align:center;color:var(--faint);font-size:12px;padding:20px 0 40px;font-family:ui-monospace,monospace}
+
+  @media (prefers-reduced-motion:reduce){
+    .hero .bigdot,.serpflow,.marquee,.eq span,.rotor .slot span,.thread .trun{animation:none!important}
+    .runner{display:none}
+  }
+</style>
+
+<div class="readbar" id="readbar"></div>
+
+<header class="topbar">
+  <span class="lg">cadence<span class="gdot"></span></span>
+  <div class="acts"><a class="login" href="/login">já tenho conta</a><a class="cta" href="/inicio/onboarding">criar conta</a></div>
+</header>
+
+<!-- HERO -->
+<section class="hero wrap">
+  <div class="bigdot reveal"></div>
+  <div class="eyebrow reveal"><span class="gdot"></span> cadência diária</div>
+  <h1 class="reveal">Se você já tentou outros apps de inglês. Por que o Cadence seria diferente?</h1>
+  <p class="sub reveal">Anos ou meses de app de inglês e você ainda trava numa conversa real. Por quê?</p>
+  <p class="rot reveal rotor">quero <span class="slot"><span>viajar</span><span>trabalhar fora</span><span>ver séries sem legenda</span><span>me virar lá fora</span><span>viajar</span></span> em inglês.</p>
+  <div class="reveal"><a class="btn cta" href="/inicio/onboarding">Destravar meu inglês agora</a><div class="btnsub">Teste sem cadastro. Depois crie sua conta.</div></div>
+</section>
+
+<!-- BEAT BAND -->
+<div class="band wrap" aria-hidden="true">
+  <svg viewBox="0 0 1000 120" preserveAspectRatio="xMidYMid meet">
+    <path id="serpPath" class="serp" d="M0,60 C120,10 180,10 300,60 S480,110 600,60 S780,10 900,60 S1000,80 1000,60"/>
+    <path class="serpflow" d="M0,60 C120,10 180,10 300,60 S480,110 600,60 S780,10 900,60 S1000,80 1000,60"/>
+    <circle class="runner" r="7"><animateMotion dur="6s" repeatCount="indefinite" begin="0s"><mpath href="#serpPath"/></animateMotion></circle>
+    <circle class="runner" r="6"><animateMotion dur="6s" repeatCount="indefinite" begin="1.2s"><mpath href="#serpPath"/></animateMotion></circle>
+    <circle class="runner" r="7"><animateMotion dur="6s" repeatCount="indefinite" begin="2.4s"><mpath href="#serpPath"/></animateMotion></circle>
+    <circle class="runner" r="5"><animateMotion dur="6s" repeatCount="indefinite" begin="3.6s"><mpath href="#serpPath"/></animateMotion></circle>
+    <circle class="runner" r="6"><animateMotion dur="6s" repeatCount="indefinite" begin="4.8s"><mpath href="#serpPath"/></animateMotion></circle>
+  </svg>
+</div>
+
+<!-- PROVOCAÇÃO -->
+<section class="wrap" style="text-align:center;padding:8vh 0 0">
+  <p class="reveal" style="font-size:clamp(21px,3.2vw,32px);font-weight:900;letter-spacing:-.025em;max-width:20ch;margin:0 auto;line-height:1.18">Para você que <span style="color:var(--green-d)">não aprendeu inglês na infância</span>.</p>
+  <p class="reveal" style="font-size:clamp(15px,2vw,18px);color:var(--soft);max-width:36ch;margin:14px auto 0;line-height:1.5;font-weight:500">Com o Cadence, você finalmente vai sentir o alívio de falar inglês.</p>
+</section>
+
+<!-- MANIFESTO -->
+<section class="manifesto wrap">
+  <div class="eyebrow reveal"><span class="gdot"></span> o método</div>
+  <p class="s acende" id="manifesto"></p>
+  <div class="beats" id="beats"><i></i><i></i><i></i><i></i><i></i></div>
+  <p class="cont reveal">Continue com cadência e você finalmente destravará seu inglês.</p>
+</section>
+
+<!-- TIMELINE -->
+<section class="sec wrap">
+  <div class="head">
+    <div class="eyebrow reveal" style="justify-content:center"><span class="gdot"></span> como funciona</div>
+    <h2 class="reveal">Cada ponto puxa o próximo.</h2>
+    <p class="reveal">Um ciclo curto que se repete todo dia, até a fala virar fluência.</p>
+  </div>
+  <div class="timeline" id="timeline">
+    <div class="rail"><i id="railfill"></i></div>
+    <div class="tstep"><span class="node"></span><b>Você fala (ou escreve)</b><p>Toca no microfone ou digita. Conversa livre ou uma lição de 1 a 2 minutos.</p></div>
+    <div class="tstep"><span class="node"></span><b>A Cady corrige você na hora</b><p>Ela ajusta no momento, mostra o jeito nativo e o porquê.</p></div>
+    <div class="tstep"><span class="node"></span><b>Revisão inteligente e automatizada</b><p>O que você errou é mapeado e guardado automaticamente, feito e memorizado pela Cady, com inteligência sobre os seus erros.</p></div>
+    <div class="tstep"><span class="node"></span><b>Você repete no tempo certo</b><p>A repetição espaçada traz de volta só o que precisa fixar.</p></div>
+    <div class="tstep"><span class="node"></span><b>A fala destrava</b><p>Ponto após ponto, a cadência vira fluência.</p></div>
+  </div>
+</section>
+
+<!-- DIFERENCIAIS (pinned + fio unindo) -->
+<style>
+  .dtrack{position:relative;height:640vh}
+  .dsticky{position:sticky;top:0;min-height:100vh;display:flex;align-items:center;padding:50px 0;overflow:hidden}
+  .dbgflow{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.45;z-index:0}
+  .dgrid{position:relative;z-index:1;display:grid;grid-template-columns:230px 1fr;gap:36px;align-items:center;width:100%;max-width:1080px;margin:0 auto;padding:0 22px}
+  .dnav{position:relative;padding-left:34px}
+  .drail{position:absolute;left:9px;top:6px;bottom:6px;width:3px;background:var(--line);border-radius:3px;overflow:hidden}
+  .drail i{position:absolute;left:0;top:0;width:100%;height:0;background:var(--green);border-radius:3px}
+  .dnode{position:absolute;left:9px;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;background:var(--card);border:3px solid var(--line);transition:.3s;z-index:2}
+  .dnode.on{border-color:var(--green);background:var(--green);box-shadow:0 0 0 4px var(--green-soft)}
+  .drun{position:absolute;left:9px;margin-left:-3.5px;top:0;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(46,158,91,.7);animation:run 3.2s linear infinite;z-index:1}
+  .dlist{list-style:none;margin:0;padding:0}
+  .ditem{padding:11px 0;cursor:pointer;transition:opacity .3s;opacity:.42}
+  .ditem.on{opacity:1}
+  .ditem .dn{font-family:ui-monospace,monospace;font-size:11px;font-weight:700;color:var(--green-d);letter-spacing:.06em}
+  .ditem b{display:block;font-size:15px;font-weight:800;margin-top:1px}
+  .dpanel{position:relative;min-height:360px}
+  .dscreen{position:absolute;inset:0;opacity:0;transform:translateY(16px) scale(.99);transition:opacity .5s,transform .55s cubic-bezier(.2,.7,.2,1);pointer-events:none;display:grid;grid-template-columns:1fr 290px;gap:26px;align-items:center}
+  .dscreen.on{opacity:1;transform:none;pointer-events:auto}
+  .dscreen .deye{font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--green-d)}
+  .dscreen h3{font-size:clamp(24px,3.2vw,36px);font-weight:900;letter-spacing:-.025em;line-height:1.08;margin:10px 0 0}
+  .dscreen p{font-size:15px;color:var(--soft);line-height:1.6;margin:14px 0 0;max-width:46ch}
+  .dimg{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:16px}
+  .dimg .orb{width:60px;height:60px;border-radius:50%;background:var(--green);display:grid;place-items:center;color:#fff;font-size:24px;box-shadow:0 0 0 8px var(--green-soft);margin:4px auto 12px}
+  .dimg .row{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:13px;line-height:1.4;margin-bottom:8px}
+  .dimg .row.you{background:var(--green-soft);border-color:transparent}
+  .dimg .tag{display:inline-block;background:var(--green-soft);color:var(--green-d);font-size:11px;font-weight:800;border-radius:999px;padding:4px 10px;margin-bottom:8px}
+  .dimg .lvls{display:flex;gap:6px}
+  .dimg .lv{flex:1;text-align:center;font-size:11.5px;font-weight:800;border:1.5px solid var(--line);border-radius:9px;padding:10px 4px;color:var(--faint)}
+  .dimg .lv.on{border-color:var(--green);background:var(--green-soft);color:var(--green-d)}
+  .dimg.price{text-align:center}
+  .dimg .old{font-size:12.5px;color:var(--faint);text-decoration:line-through;margin-top:4px}
+  .dimg .big{font-size:28px;font-weight:900;color:var(--green-d);letter-spacing:-.02em;margin-top:2px}
+  .wrong2{color:#B4483F;font-weight:700}
+  @media(max-width:820px){.dtrack{height:auto}.dsticky{position:static;min-height:0;padding:5vh 0}.dgrid{grid-template-columns:1fr;gap:22px}.dnav{display:none}.dpanel{min-height:0;display:grid;gap:26px}.dscreen{position:relative;inset:auto;opacity:1;transform:none}}
+  @media(max-width:680px){.dscreen{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion:reduce){.drun{animation:none}.dbgflow{display:none}}
+</style>
+
+<section class="sec wrap" style="padding-bottom:2vh">
+  <div class="head">
+    <div class="eyebrow reveal" style="justify-content:center"><span class="gdot"></span> os diferenciais</div>
+    <h2 class="reveal">Tudo ligado pela cadência.</h2>
+    <p class="reveal">Um fio conecta cada diferencial. Role e veja tudo se unir.</p>
+  </div>
+</section>
+
+<section class="dtrack" id="dtrack">
+  <div class="dsticky">
+    <svg class="dbgflow" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <path id="dflowPath" d="M-40,130 C180,10 320,300 520,190 S840,40 1040,180" fill="none" stroke="var(--green-soft)" stroke-width="2.5"/>
+      <path d="M-40,360 C200,260 340,470 560,360 S880,240 1040,380" fill="none" stroke="var(--green-soft)" stroke-width="2.5"/>
+      <circle r="5" fill="var(--green)" opacity=".55"><animateMotion dur="7s" repeatCount="indefinite" begin="0s"><mpath href="#dflowPath"/></animateMotion></circle>
+      <circle r="4" fill="var(--green)" opacity=".55"><animateMotion dur="7s" repeatCount="indefinite" begin="2.3s"><mpath href="#dflowPath"/></animateMotion></circle>
+      <circle r="5" fill="var(--green)" opacity=".55"><animateMotion dur="7s" repeatCount="indefinite" begin="4.6s"><mpath href="#dflowPath"/></animateMotion></circle>
+    </svg>
+
+    <div class="dgrid">
+      <div class="dnav">
+        <div class="drail"><i id="drailfill"></i></div>
+        <span class="dnode" style="top:8.3%"></span><span class="dnode" style="top:25%"></span><span class="dnode" style="top:41.7%"></span><span class="dnode" style="top:58.3%"></span><span class="dnode" style="top:75%"></span><span class="dnode" style="top:91.7%"></span>
+        <span class="drun" style="animation-delay:0s"></span><span class="drun" style="animation-delay:1.1s"></span><span class="drun" style="animation-delay:2.2s"></span>
+        <ul class="dlist">
+          <li class="ditem on" data-i="0"><span class="dn">01</span><b>Conversa de verdade</b></li>
+          <li class="ditem" data-i="1"><span class="dn">02</span><b>Memória personalizada</b></li>
+          <li class="ditem" data-i="2"><span class="dn">03</span><b>Correção assertiva</b></li>
+          <li class="ditem" data-i="3"><span class="dn">04</span><b>Desconforto que ensina</b></li>
+          <li class="ditem" data-i="4"><span class="dn">05</span><b>Feito pra você</b></li>
+          <li class="ditem" data-i="5"><span class="dn">06</span><b>Acessível de verdade</b></li>
+        </ul>
+      </div>
+
+      <div class="dpanel">
+        <div class="dscreen on" data-i="0">
+          <div class="dtxt"><span class="deye">01 · Conversa de verdade</span><h3>Conversa de verdade, falando.</h3><p>Outros apps te fazem repetir frase pronta e tocar em palavrinhas na tela. No Cadence você fala com a Cady por voz, e ela responde na hora, como um professor real. Sem roteiro, sem travar esperando a próxima tela.</p></div>
+          <div class="dimg"><div class="orb">🎙️</div><div class="row">Hi Lucca! How was your day?</div><div class="row you">It was good! I went to the gym.</div></div>
+        </div>
+        <div class="dscreen" data-i="1">
+          <div class="dtxt"><span class="deye">02 · Memória personalizada</span><h3>Ela lembra de você.</h3><p>A maioria dos apps trata todo mundo igual. A Cady lembra da sua cidade, do seu trabalho, do seu objetivo, do que você errou ontem, e usa isso pra puxar assunto e personalizar cada conversa. É a diferença entre um curso genérico e um professor que te conhece.</p></div>
+          <div class="dimg"><span class="tag">🧠 lembra de você</span><div class="row" style="font-size:11.5px;color:var(--soft)">São Paulo · dev · meta: trabalhar fora</div><div class="row">Still aiming for that role abroad? Let’s practice interview English.</div></div>
+        </div>
+        <div class="dscreen" data-i="2">
+          <div class="dtxt"><span class="deye">03 · Correção assertiva</span><h3>Correção na hora, e com o porquê.</h3><p>Nada de só “certo” ou “errado” no fim do exercício. A Cady te ajusta no momento em que você erra, mostra como um nativo diria e explica o motivo. É assim que a correção gruda, em vez de escorrer.</p></div>
+          <div class="dimg"><div class="row you">Yesterday I <span class="wrong2">go</span> to a party.</div><div class="row">Quick fix: <span class="fix">“I went”</span>, not “I go”. Já aconteceu 👌</div></div>
+        </div>
+        <div class="dscreen" data-i="3">
+          <div class="dtxt"><span class="deye">04 · Desconforto que ensina</span><h3>Vai te tirar da zona de conforto (de propósito).</h3><p>O Cadence não é o app fofo que te dá parabéns por clicar certo. Vão ter vários momentos em que você tenta, erra e se sente desconfortável, e é exatamente aí que o aprendizado acontece. Você erra, a Cady corrige, você aprende a falar do jeito certo, e da próxima vez sai natural. Desconforto é sinal de que você está evoluindo de verdade.</p></div>
+          <div class="dimg"><div class="row you">I… uh… hmm…</div><div class="row">Take your time. Try: “I went out”. 💪</div><span class="tag">✅ desconforto vira domínio</span></div>
+        </div>
+        <div class="dscreen" data-i="4">
+          <div class="dtxt"><span class="deye">05 · Feito pra você</span><h3>Pra quem é intermediário e quer, enfim, destravar.</h3><p>Pra ser 100% sincero: o Cadence não é pra quem está começando do absoluto zero, pelo menos nesta fase inicial. Ele foi desenhado pra quem já arranha o inglês, entende boa parte das coisas, mas ainda trava na hora de falar, e quer finalmente soltar a língua. Se é o seu caso, é exatamente pra você.</p></div>
+          <div class="dimg"><div class="lvls"><div class="lv">Iniciante</div><div class="lv on">Você</div><div class="lv">Avançado</div></div><div class="row" style="margin-top:10px;font-size:12px;color:var(--soft)">🎯 já entende, mas ainda trava na fala</div></div>
+        </div>
+        <div class="dscreen" data-i="5">
+          <div class="dtxt"><span class="deye">06 · Acessível de verdade</span><h3>Um professor particular por menos de R$1 por dia.</h3><p>Aula particular de inglês custa caro e depende da agenda do professor. O Cadence te dá alguém pra conversar a qualquer hora, quantas vezes quiser, por uma fração do preço. O professor que te conhece, no seu bolso, sempre disponível.</p></div>
+          <div class="dimg price"><span class="tag">aula particular</span><div class="old">R$ 80 por aula</div><div class="big">menos de R$ 1<span style="font-size:14px;color:var(--soft)"> / dia</span></div><div class="row" style="text-align:center;font-size:12px;color:var(--soft);margin-top:8px">fale quando quiser, quantas vezes quiser</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CHAT (imagem 1) -->
+<section class="sec wrap">
+  <div class="head">
+    <div class="eyebrow reveal" style="justify-content:center"><span class="gdot"></span> a Cady em ação</div>
+    <h2 class="reveal">Falando ou escrevendo. Você escolhe.</h2>
+  </div>
+  <div class="chatwrap reveal">
+    <div style="text-align:center"><div class="modes" id="modes"><button class="on" data-m="voz">🎙️ Falando</button><button data-m="texto">⌨️ Escrevendo</button></div></div>
+    <div class="chatcard zoom">
+      <div class="chathead"><span class="cavatar">C</span><div><b>Cady</b><div class="st" id="cst">falando…</div></div><div class="eq" id="eq"><span style="animation-delay:0s"></span><span style="animation-delay:.15s"></span><span style="animation-delay:.3s"></span><span style="animation-delay:.15s"></span><span style="animation-delay:.05s"></span></div></div>
+      <div class="chatbody" id="chatbody"></div>
+      <div class="chatfoot" id="chatfoot"><span class="mic">🎤</span><span>toque e fale com a Cady</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- STORYTELLING SEM/COM -->
+<section class="story" id="storytrack">
+  <div class="sticky wrap">
+    <div class="sh">
+      <div class="eyebrow" style="justify-content:center"><span class="gdot"></span> mesmos 3 meses</div>
+      <h2>Dois caminhos. Só um destrava.</h2>
+      <p>Os dois têm cadência. Só uma é inteligente e te faz aprender de verdade.</p>
+      <div class="stagebar" id="stagebar">
+        <span class="sl on">Dia 1</span><span class="sl">Mês 1</span><span class="sl">Mês 2</span><span class="sl">Mês 3</span>
+      </div>
+    </div>
+
+    <div class="story-grid">
+      <!-- SEM CADENCE -->
+      <div class="col sem zoom">
+        <div class="deadnote">✕</div>
+        <div class="colhead">😮‍💨 Sem Cadence</div>
+        <div class="colsub">no app do passarinho, clicando botões</div>
+        <div class="snapwrap">
+          <div class="snap on">
+            <span class="badge n">🔘 toque na tradução</span>
+            <div class="mini tap">🟢 “apple” = “maçã” &nbsp; ✔ +10 XP</div>
+            <div class="mini tap">🔥 ofensiva: 1 dia</div>
+            <div class="cap">Cadência? Tem. Inteligente? Zero. Só apertou o botão verde.</div>
+          </div>
+          <div class="snap">
+            <span class="badge n">🦉 “não perca sua ofensiva!”</span>
+            <div class="mini tap">✅ Fase 12 · 💎 340 gemas</div>
+            <div class="mini tap">🔥 ofensiva: 30 dias</div>
+            <div class="cap">30 dias de toque-toque. Frases faladas em voz alta: zero.</div>
+          </div>
+          <div class="snap">
+            <span class="badge n">🏆 liga diamante</span>
+            <div class="mini tap">✅ Fase 28 · 🔥 60 dias</div>
+            <div class="mini tap">💌 “volte já! sentimos sua falta 🥺”</div>
+            <div class="cap">Virou PhD em apertar botão. Numa conversa real, congela.</div>
+          </div>
+          <div class="snap">
+            <span class="badge x">✕ o mesmo erro</span>
+            <div class="mini">Tenta falar: “I go to work <span class="wrong">at</span> Monday.”</div>
+            <div class="cap">3 meses, ofensiva linda… e o MESMO erro do Dia 1. Cadência burra não ensina.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- THREAD (fio que se desenha + pontos correndo) -->
+      <div class="thread" id="thread" aria-hidden="true">
+        <div class="tline"><i id="tfill"></i></div>
+        <span class="tnode" style="top:12%"></span>
+        <span class="tnode" style="top:37%"></span>
+        <span class="tnode" style="top:62%"></span>
+        <span class="tnode" style="top:87%"></span>
+        <span class="trun" style="animation-delay:0s"></span>
+        <span class="trun" style="animation-delay:1s"></span>
+        <span class="trun" style="animation-delay:2s"></span>
+      </div>
+
+      <!-- COM CADENCE -->
+      <div class="col com zoom">
+        <div class="colhead"><span class="gdot" style="width:12px;height:12px"></span> Com Cadence</div>
+        <div class="colsub">falando com a Cady, todo dia</div>
+        <div class="snapwrap">
+          <div class="snap on">
+            <span class="badge g">🎙️ Dia 1</span>
+            <div class="mini you">“I go to work <span class="wrong">at</span> Monday.”</div>
+            <div class="cady"><span class="cv">C</span><span class="cx">Quase! É <span class="fix">on Monday</span> 👌 bora de novo.</span></div>
+            <div class="cap">Errou, ficou desconfortável, tentou de novo. É assim que gruda.</div>
+          </div>
+          <div class="snap">
+            <span class="badge g">💚 Mês 1</span>
+            <div class="mini you">“I went to work <span class="fix">on</span> Monday.”</div>
+            <div class="cady"><span class="cv">C</span><span class="cx">Isso! 📌 Guardei que você travava nisso. Vou te cobrar depois 😏</span></div>
+            <div class="cap">Ela memoriza o seu erro e traz de volta na hora certa.</div>
+          </div>
+          <div class="snap">
+            <span class="badge g">🚀 Mês 2</span>
+            <div class="mini you">“I’ve been studying <span class="fix">since</span> March.”</div>
+            <div class="cady"><span class="cv">C</span><span class="cx">Present perfect na veia! Tá voando 🚀</span></div>
+            <div class="cap">Já solta frase que nem tentava antes.</div>
+          </div>
+          <div class="snap">
+            <span class="badge g">🎉 Mês 3</span>
+            <div class="mini you">“See you <span class="fix">on</span> Friday <span class="fix">at</span> 6. <span class="fix">In</span> the morning we talk.”</div>
+            <div class="cady"><span class="cv">C</span><span class="cx">BOA DEMAIS! Lembra que você VIVIA errando <b>at/on/in</b>? Agora manda ver. Aprendeu de verdade! 🎉</span></div>
+            <div class="cap">Cadência inteligente: você erra, persiste, ela corrige e você aprende pra valer.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TEXTO QUE ACENDE + CTA -->
+<section class="manifesto wrap" style="padding-top:9vh">
+  <p class="s acende" id="acende2"></p>
+  <div class="ctablock reveal"><a class="btn cta" href="/inicio/onboarding">Destravar meu inglês agora</a><div class="btnsub">Teste sem cadastro. Depois crie sua conta.</div></div>
+</section>
+
+<!-- FEEDBACKS (imagem 3) -->
+<section class="sec">
+  <div class="wrap head">
+    <div class="eyebrow reveal" style="justify-content:center"><span class="gdot"></span> quem mantém a cadência</div>
+    <h2 class="reveal">Gente destravando o inglês.</h2>
+  </div>
+  <div class="marqmask">
+    <div class="marquee" id="mqA"></div>
+    <div class="marquee r2" id="mqB"></div>
+  </div>
+</section>
+
+<!-- HOLOFOTE (imagem 2) -->
+<section class="sec wrap">
+  <div class="spot reveal" id="spot"><div class="glow" id="spotglow"></div>
+    <h2>Outros apps te deixam bom em usar o app. O Cadence te deixa bom em <span class="g">falar inglês</span>.</h2>
+    <a class="btn cta" href="/inicio/onboarding">Destravar meu inglês agora</a>
+  </div>
+</section>
+
+<!-- TIME -->
+<section class="sec wrap">
+  <div class="head">
+    <div class="eyebrow reveal" style="justify-content:center"><span class="gdot"></span> quem faz</div>
+    <h2 class="reveal">O time por trás do Cadence.</h2>
+  </div>
+  <div class="team">
+    <div class="member reveal">
+      <div class="photo" style="background:linear-gradient(135deg,#2E9E5B,#1C6B41)">LA</div>
+      <h4>Lucca Arashiro</h4><div class="role">Fundador &amp; product</div>
+      <div class="bio">Toca o Cadence de ponta a ponta: produto, IA e a experiência de destravar a fala.</div>
+      <div class="social">
+        <a href="#" aria-label="LinkedIn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.77-2.05C20.4 8.65 22 10.6 22 14v7h-4v-6.2c0-1.48-.03-3.38-2.06-3.38-2.06 0-2.38 1.6-2.38 3.27V21H9z"/></svg></a>
+        <a href="mailto:lucca@cadenceenglish.app" aria-label="Email"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></a>
+      </div>
+    </div>
+    <div class="member reveal">
+      <div class="photo" style="background:linear-gradient(135deg,#4F46E5,#7C74F0)">+</div>
+      <h4>Nome do membro</h4><div class="role">Cargo</div>
+      <div class="bio">Espaço pra apresentar mais alguém do time e o que a pessoa faz.</div>
+      <div class="social">
+        <a href="#" aria-label="LinkedIn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.77-2.05C20.4 8.65 22 10.6 22 14v7h-4v-6.2c0-1.48-.03-3.38-2.06-3.38-2.06 0-2.38 1.6-2.38 3.27V21H9z"/></svg></a>
+        <a href="mailto:oi@cadenceenglish.app" aria-label="Email"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></a>
+      </div>
+    </div>
+    <div class="member reveal">
+      <div class="photo" style="background:linear-gradient(135deg,#C77A16,#E0A63C)">+</div>
+      <h4>Nome do membro</h4><div class="role">Cargo</div>
+      <div class="bio">Mais um card pronto pra receber foto, nome, função e contatos.</div>
+      <div class="social">
+        <a href="#" aria-label="LinkedIn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.77-2.05C20.4 8.65 22 10.6 22 14v7h-4v-6.2c0-1.48-.03-3.38-2.06-3.38-2.06 0-2.38 1.6-2.38 3.27V21H9z"/></svg></a>
+        <a href="mailto:oi@cadenceenglish.app" aria-label="Email"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RODAPÉ -->
+<footer class="sitefoot">
+  <div class="in">
+    <div>
+      <div class="brand">cadence<span class="gdot"></span></div>
+      <div class="tag">Você já entende inglês. Hora de soltar a fala.</div>
+      <div class="socs">
+        <a href="#" aria-label="Instagram"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></a>
+        <a href="#" aria-label="TikTok"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3c.3 2 1.6 3.6 3.6 3.9v2.6c-1.3 0-2.5-.3-3.6-.9v5.9a5.6 5.6 0 1 1-5.6-5.6c.3 0 .6 0 .9.1v2.7a2.9 2.9 0 1 0 2 2.8V3z"/></svg></a>
+        <a href="#" aria-label="YouTube"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23 12s0-3.5-.45-5.2a2.6 2.6 0 0 0-1.83-1.84C18.94 4.5 12 4.5 12 4.5s-6.94 0-8.72.46A2.6 2.6 0 0 0 1.45 6.8C1 8.5 1 12 1 12s0 3.5.45 5.2a2.6 2.6 0 0 0 1.83 1.84C5.06 19.5 12 19.5 12 19.5s6.94 0 8.72-.46a2.6 2.6 0 0 0 1.83-1.84C23 15.5 23 12 23 12zM9.8 15.3V8.7l5.7 3.3z"/></svg></a>
+        <a href="#" aria-label="X"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h3l-7 8 8.5 12h-6.8l-4.7-6.6L5 22H2l7.5-8.6L1.5 2h6.9l4.3 6.1zM16.8 20h1.7L7.3 4H5.5z"/></svg></a>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="col2"><h5>Produto</h5><a href="/login">Entrar</a><a href="/inicio/onboarding">Criar conta</a><a href="/pagamento">Planos</a></div>
+      <div class="col2"><h5>Legal</h5><a href="/termos">Termos e Condições</a><a href="/privacy">Política de Privacidade</a></div>
+      <div class="col2"><h5>Contato</h5><a href="mailto:oi@cadenceenglish.app">oi@cadenceenglish.app</a></div>
+    </div>
+  </div>
+  <div class="bottom">© 2026 Cadence English App · Todos os direitos reservados.</div>
+</footer>
+
+<div class="foot">conceito · storytelling sem/com cadence · protótipo interativo</div>
+
+<script>
+(function(){
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const scrollFns=[];
+  const io=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}})},{threshold:.16,rootMargin:'0px 0px -6% 0px'});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+  function vp(el,a,b){const r=el.getBoundingClientRect(),vh=innerHeight;a=a||.9;b=b||.35;return Math.max(0,Math.min(1,(vh*a-r.top)/(vh*(a-b))));}
+
+  const readbar=document.getElementById('readbar');
+  scrollFns.push(()=>{const h=document.documentElement;readbar.style.width=Math.max(0,Math.min(1,h.scrollTop/(h.scrollHeight-h.clientHeight||1)))*100+'%';});
+
+  /* texto que acende (genérico) */
+  function acende(id,sentence,keys,beatsSel){
+    const el=document.getElementById(id);if(!el)return;const kset=new Set(keys);
+    el.innerHTML=sentence.split(' ').map(w=>'<span class="'+(kset.has(w)?'k':'')+'">'+w+' </span>').join('');
+    const words=[...el.querySelectorAll('span')];const beats=beatsSel?[...document.querySelectorAll(beatsSel)]:[];
+    const host=el.closest('section');
+    scrollFns.push(()=>{const p=vp(host,.9,.4);const n=Math.round(p*words.length);words.forEach((w,i)=>w.classList.toggle('lit',i<n));beats.forEach((b,i)=>b.classList.toggle('on',p>=(i+0.5)/beats.length));});
+  }
+  acende('manifesto','Cadência: pontos que se repetem, todo dia, com disciplina, até a fala virar fluência.',['Cadência:','pontos','disciplina,','fluência.'],'#beats i');
+  acende('acende2','Fale hoje. Erre. Corrija. Aprenda. Volte amanhã.',['Fale','Corrija.','Aprenda.'],null);
+
+  /* timeline */
+  (function(){const tl=document.getElementById('timeline');const fill=document.getElementById('railfill');const steps=[...tl.querySelectorAll('.tstep')];scrollFns.push(()=>{const p=vp(tl,.85,.4);fill.style.height=p*100+'%';steps.forEach((s,i)=>s.classList.toggle('hit',p>=(i+0.35)/steps.length));});})();
+
+  /* zoom */
+  const zooms=[...document.querySelectorAll('.zoom')];
+  if(!reduce)scrollFns.push(()=>{const vh=innerHeight,c=vh/2;zooms.forEach(z=>{const r=z.getBoundingClientRect();const t=Math.min(Math.abs((r.top+r.height/2)-c)/(vh*0.85),1);z.style.transform='scale('+(1-t*0.07).toFixed(3)+')';z.style.opacity=(1-t*0.3).toFixed(3);});});
+
+  /* chat vivo */
+  (function(){const body=document.getElementById('chatbody');const eq=document.getElementById('eq');const cst=document.getElementById('cst');const foot=document.getElementById('chatfoot');const modes=document.getElementById('modes');
+    const S=[{w:'c',t:'Hi Lucca! Ready to practice?'},{w:'y',t:'Yes! But I always... how do I say... travar.'},{w:'c',t:'“I get stuck.” Try it: I get stuck sometimes.'},{w:'y',t:'I get stuck sometimes!'},{w:'c',t:'Perfect. That’s the cadence. 💚'}];
+    let i=0;
+    function setMode(m){[...modes.children].forEach(b=>b.classList.toggle('on',b.dataset.m===m));if(m==='voz'){eq.style.display='';cst.textContent='falando…';foot.innerHTML='<span class="mic">🎤</span><span>toque e fale com a Cady</span>';}else{eq.style.display='none';cst.textContent='digitando…';foot.innerHTML='<span class="inp">digite sua resposta…</span><span class="mic">➤</span>';}}
+    modes.addEventListener('click',e=>{const b=e.target.closest('button');if(b)setMode(b.dataset.m);});
+    function typing(){const d=document.createElement('div');d.className='typing bin';d.innerHTML='<i></i><i></i><i></i>';body.appendChild(d);return d;}
+    function add(m){const d=document.createElement('div');d.className='bub bin '+m.w;d.textContent=m.t;body.appendChild(d);}
+    function step(){const m=S[i];if(m.w==='c'){const t=typing();setTimeout(()=>{t.remove();add(m);nx();},1150);}else{add(m);nx();}function nx(){i++;if(i>=S.length){setTimeout(()=>{body.innerHTML='';i=0;setTimeout(step,800);},5200);}else setTimeout(step,1350);}}
+    setMode('voz');
+    if(reduce){S.forEach(add);}else{const o=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){step();o.disconnect();}})},{threshold:.4});o.observe(body);}
+  })();
+
+  /* storytelling pinned + fio */
+  (function(){const track=document.getElementById('storytrack');if(!track)return;const stages=4;
+    const semSnaps=[...document.querySelectorAll('.col.sem .snap')];
+    const comSnaps=[...document.querySelectorAll('.col.com .snap')];
+    const nodes=[...document.querySelectorAll('#thread .tnode')];
+    const tfill=document.getElementById('tfill');
+    const labels=[...document.querySelectorAll('#stagebar .sl')];
+    let cur=-1;
+    scrollFns.push(()=>{const r=track.getBoundingClientRect(),vh=innerHeight,total=r.height-vh;if(total<=0)return;
+      const p=Math.max(0,Math.min(1,(-r.top)/total));
+      tfill.style.height=p*100+'%';
+      const idx=Math.min(stages-1,Math.floor(p*stages*0.999));
+      if(idx!==cur){cur=idx;
+        semSnaps.forEach((s,i)=>s.classList.toggle('on',i===idx));
+        comSnaps.forEach((s,i)=>s.classList.toggle('on',i===idx));
+        nodes.forEach((n,i)=>n.classList.toggle('on',i<=idx));
+        labels.forEach((l,i)=>l.classList.toggle('on',i===idx));
+      }
+    });
+  })();
+
+  /* diferenciais pinned + fio */
+  (function(){const track=document.getElementById('dtrack');if(!track)return;const N=6;
+    const items=[...track.querySelectorAll('.ditem')];
+    const screens=[...track.querySelectorAll('.dscreen')];
+    const nodes=[...track.querySelectorAll('.dnode')];
+    const fill=document.getElementById('drailfill');
+    let cur=-1;
+    scrollFns.push(()=>{const r=track.getBoundingClientRect(),vh=innerHeight,total=r.height-vh;if(total<=0)return;
+      const p=Math.max(0,Math.min(1,(-r.top)/total));fill.style.height=p*100+'%';
+      const idx=Math.min(N-1,Math.floor(p*N*0.999));
+      if(idx!==cur){cur=idx;items.forEach((it,i)=>it.classList.toggle('on',i===idx));screens.forEach((s,i)=>s.classList.toggle('on',i===idx));nodes.forEach((n,i)=>n.classList.toggle('on',i<=idx));}});
+    items.forEach(it=>it.addEventListener('click',()=>{const i=+it.dataset.i,vh=innerHeight,total=track.offsetHeight-vh;window.scrollTo({top:track.offsetTop+((i+0.5)/N)*total,behavior:'smooth'});}));
+  })();
+
+  /* holofote */
+  (function(){const spot=document.getElementById('spot'),g=document.getElementById('spotglow');spot.addEventListener('pointermove',e=>{const r=spot.getBoundingClientRect();g.style.left=(e.clientX-r.left)+'px';g.style.top=(e.clientY-r.top)+'px';});})();
+
+  /* feedbacks */
+  (function(){const A=[
+    {q:'Falo todo dia no busão. Em 3 semanas parei de travar nas reuniões em inglês.',n:'Rafa',c:'São Paulo'},
+    {q:'A parte de ela lembrar da minha vida é surreal. Parece papo com um amigo que corrige.',n:'Ju',c:'Rio de Janeiro'},
+    {q:'10 minutinhos por dia e o XP me puxa de volta. Melhor que qualquer app que já testei.',n:'Marcos',c:'Recife'},
+    {q:'Sempre travava na hora de falar. Agora solto as frases sem pensar tanto.',n:'Bia',c:'Osasco'},
+    {q:'A correção na hora fixou de vez o passado dos verbos. Uso no trajeto pro trabalho.',n:'Diego',c:'São Bernardo do Campo'}];
+    const B=[
+    {q:'As missões da semana me viciaram. Nunca fui tão constante estudando qualquer coisa.',n:'Thiago',c:'Campinas'},
+    {q:'Consegui a promoção que dependia do inglês. As simulações de reunião ajudaram demais.',n:'Carol',c:'Aracaju'},
+    {q:'Melhor que professor particular pra mim: cabe no meu horário e no meu bolso.',n:'Felipe',c:'Niterói'},
+    {q:'A voz é natural mesmo, não parece robô. Dá vontade de continuar a conversa.',n:'Amanda',c:'Sorocaba'},
+    {q:'Eu tinha vergonha de falar. Com a Cady eu erro à vontade e aprendo rindo.',n:'Renato',c:'Caruaru'}];
+    function card(t){return '<div class="tcard"><div class="stars">★★★★★</div><p>“'+t.q+'”</p><div class="who"><span class="av">'+t.n[0]+'</span><div><b>'+t.n+'</b><br><span>'+t.c+'</span></div></div></div>';}
+    function fill(el,arr){const html=arr.map(card).join('');el.innerHTML=html+html;}
+    fill(document.getElementById('mqA'),A);fill(document.getElementById('mqB'),B);})();
+
+  let ticking=false;function onScroll(){if(!ticking){ticking=true;requestAnimationFrame(()=>{scrollFns.forEach(f=>f());ticking=false;});}}
+  window.addEventListener('scroll',onScroll,{passive:true});window.addEventListener('resize',onScroll);onScroll();
+})();
+</script>
+</body>
+</html>
