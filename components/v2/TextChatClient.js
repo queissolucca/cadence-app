@@ -15,14 +15,14 @@ function deriveTitle(messages) {
 // Conversa aberta por TEXTO — a Cady via Claude (Haiku, barato). Corrige inline,
 // salva na Revisão sozinha (tool server-side), e conta streak/histórico igual à
 // conversa por voz. Alternativa ao microfone dentro da mesma aba.
-export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit, cardDrill }) {
+export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit, cardDrill, openingGreeting }) {
   const name = firstName || '';
   const resuming = Array.isArray(initialMessages) && initialMessages.length > 0;
   const greeting = cardDrill
     ? `Quick practice with "${cardDrill.term}"${cardDrill.example ? ` — like: "${cardDrill.example}"` : ''}. Write a sentence using it, something from your own life!`
     : unit
       ? `Alright ${name || 'there'}! Let's nail ${unit.focus}. Here's an example — ${unit.example} Now your turn: write one like that!`
-      : `Hi ${name || 'there'}! I'm Cady. What do you wanna talk about today?`;
+      : (openingGreeting || `Hi ${name || 'there'}! I'm Cady. What do you wanna talk about today?`);
   const [messages, setMessages] = useState(
     resuming
       ? initialMessages.map((m) => ({ role: m.role === 'you' ? 'you' : 'coach', text: m.text }))

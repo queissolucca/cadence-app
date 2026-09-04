@@ -1,5 +1,5 @@
-import { ThemeProviderV2 } from '../../../components/v2/ThemeProviderV2';
-import { DemoOnboarding } from '../../../components/v2/DemoOnboarding';
+import { ThemeProviderV2 } from '../../components/v2/ThemeProviderV2';
+import { DemoOnboarding } from '../../components/v2/DemoOnboarding';
 
 // Onboarding pré-cadastro: a pessoa experimenta a Cady (falando ou escrevendo)
 // antes de criar a conta. Público (sem login).

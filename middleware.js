@@ -8,9 +8,10 @@ import { updateSession } from './lib/supabase/middleware';
 // certo, então esses paths viraram alias de verdade em vez de silenciosamente
 // dependerem de JS no cliente.
 const LEGACY_REDIRECTS = {
-  '/': '/v2',
-  '/cadence': '/inicio',
-  '/cadence/onboarding': '/inicio/onboarding',
+  '/cadence': '/',
+  '/cadence/onboarding': '/experimentar',
+  '/inicio': '/',
+  '/inicio/onboarding': '/experimentar',
   '/v2/login': '/login',
 };
 
@@ -34,9 +35,10 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL(LEGACY_REDIRECTS[pathname], request.url));
   }
 
-  // /inicio é uma landing estática (public/inicio.html) — servida via rewrite.
-  if (pathname === '/inicio') {
-    return NextResponse.rewrite(new URL('/inicio.html', request.url));
+  // A raiz do site é a landing estática (public/home.html) — servida via rewrite,
+  // sem mudar a URL. (Usuários logados que quiserem o app clicam em "Entrar".)
+  if (pathname === '/') {
+    return NextResponse.rewrite(new URL('/home.html', request.url));
   }
 
   if (pathname === '/login') {

@@ -128,7 +128,21 @@
   .stagebar .sl{font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:6px 14px;transition:.3s}
   .stagebar .sl.on{color:#fff;background:var(--green);border-color:var(--green)}
   .story-grid{display:grid;grid-template-columns:1fr 46px 1fr;gap:14px;max-width:960px;margin:26px auto 0;width:100%;align-items:stretch}
-  @media(max-width:820px){.story-grid{grid-template-columns:1fr;gap:16px}.story{height:auto}.story .sticky{position:static;min-height:0;padding:6vh 0}.thread{display:none}.snap{position:relative!important;opacity:1!important;transform:none!important}.col{min-height:0!important}.snapwrap{position:relative!important;min-height:0!important}}
+  /* mobile: MANTÉM pinned (dinâmico), empilha Sem/Com compactos */
+  @media(max-width:820px){
+    .story-grid{grid-template-columns:1fr;gap:12px;padding:0 4px}
+    .thread{display:none}
+    .story .sticky{padding:60px 0 22px}
+    .story .sh{margin-bottom:12px}
+    .story .sh h2{font-size:24px}
+    .story .sh p{display:none}
+    .col{min-height:auto;padding:15px}
+    .colhead{font-size:14px}
+    .colsub{margin-bottom:8px}
+    .snapwrap{min-height:180px}
+    .mini,.cady .cx{font-size:12.5px}
+    .cap{font-size:11.5px;margin-top:8px}
+  }
   .col{position:relative;border-radius:20px;padding:22px;min-height:340px}
   .col.sem{background:var(--graybg);border:1px solid var(--line)}
   .col.com{background:var(--card);border:1px solid var(--green-soft);box-shadow:var(--shadow)}
@@ -231,7 +245,7 @@
 
 <header class="topbar">
   <span class="lg">cadence<span class="gdot"></span></span>
-  <div class="acts"><a class="login" href="/login">já tenho conta</a><a class="cta" href="/inicio/onboarding">criar conta</a></div>
+  <div class="acts"><a class="login" href="/login">já tenho conta</a><a class="cta" href="/experimentar">criar conta</a></div>
 </header>
 
 <!-- HERO -->
@@ -241,7 +255,7 @@
   <h1 class="reveal">Se você já tentou outros apps de inglês. Por que o Cadence seria diferente?</h1>
   <p class="sub reveal">Anos ou meses de app de inglês e você ainda trava numa conversa real. Por quê?</p>
   <p class="rot reveal rotor">quero <span class="slot"><span>viajar</span><span>trabalhar fora</span><span>ver séries sem legenda</span><span>me virar lá fora</span><span>viajar</span></span> em inglês.</p>
-  <div class="reveal"><a class="btn cta" href="/inicio/onboarding">Destravar meu inglês agora</a><div class="btnsub">Teste sem cadastro. Depois crie sua conta.</div></div>
+  <div class="reveal"><a class="btn cta" href="/experimentar">Destravar meu inglês agora</a><div class="btnsub">Teste sem cadastro. Depois crie sua conta.</div></div>
 </section>
 
 <!-- BEAT BAND -->
@@ -323,8 +337,17 @@
   .dimg .old{font-size:12.5px;color:var(--faint);text-decoration:line-through;margin-top:4px}
   .dimg .big{font-size:28px;font-weight:900;color:var(--green-d);letter-spacing:-.02em;margin-top:2px}
   .wrong2{color:#B4483F;font-weight:700}
-  @media(max-width:820px){.dtrack{height:auto}.dsticky{position:static;min-height:0;padding:5vh 0}.dgrid{grid-template-columns:1fr;gap:22px}.dnav{display:none}.dpanel{min-height:0;display:grid;gap:26px}.dscreen{position:relative;inset:auto;opacity:1;transform:none}}
-  @media(max-width:680px){.dscreen{grid-template-columns:1fr}}
+  /* mobile: MANTÉM pinned (dinâmico), só empilha em 1 coluna e compacta */
+  @media(max-width:820px){
+    .dsticky{padding:74px 0 34px}
+    .dgrid{grid-template-columns:1fr;gap:0;padding:0 20px}
+    .dnav{display:none}
+    .dpanel{min-height:440px}
+    .dscreen{grid-template-columns:1fr;gap:16px;align-content:center}
+    .dscreen h3{font-size:23px}
+    .dscreen p{font-size:14px}
+    .dimg{max-width:340px}
+  }
   @media (prefers-reduced-motion:reduce){.drun{animation:none}.dbgflow{display:none}}
 </style>
 
@@ -502,7 +525,7 @@
 <!-- TEXTO QUE ACENDE + CTA -->
 <section class="manifesto wrap" style="padding-top:9vh">
   <p class="s acende" id="acende2"></p>
-  <div class="ctablock reveal"><a class="btn cta" href="/inicio/onboarding">Destravar meu inglês agora</a><div class="btnsub">Teste sem cadastro. Depois crie sua conta.</div></div>
+  <div class="ctablock reveal"><a class="btn cta" href="/experimentar">Destravar meu inglês agora</a><div class="btnsub">Teste sem cadastro. Depois crie sua conta.</div></div>
 </section>
 
 <!-- FEEDBACKS (imagem 3) -->
@@ -521,7 +544,7 @@
 <section class="sec wrap">
   <div class="spot reveal" id="spot"><div class="glow" id="spotglow"></div>
     <h2>Outros apps te deixam bom em usar o app. O Cadence te deixa bom em <span class="g">falar inglês</span>.</h2>
-    <a class="btn cta" href="/inicio/onboarding">Destravar meu inglês agora</a>
+    <a class="btn cta" href="/experimentar">Destravar meu inglês agora</a>
   </div>
 </section>
 
@@ -555,7 +578,7 @@
       </div>
     </div>
     <div class="cols">
-      <div class="col2"><h5>Produto</h5><a href="/login">Entrar</a><a href="/inicio/onboarding">Criar conta</a></div>
+      <div class="col2"><h5>Produto</h5><a href="/login">Entrar</a><a href="/experimentar">Criar conta</a></div>
       <div class="col2"><h5>Legal</h5><a href="/termos">Termos e Condições</a><a href="/privacy">Política de Privacidade</a></div>
     </div>
   </div>

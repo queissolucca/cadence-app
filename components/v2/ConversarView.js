@@ -27,7 +27,7 @@ function buildResumeContext(messages, topic) {
 // Aba Conversar com histórico ao lado (estilo LLM). Painel esquerdo = galeria
 // de agentes + lista de conversas salvas; painel direito = a conversa ao vivo,
 // ou o transcript de uma conversa passada quando o usuário revisita um tema.
-export function ConversarView({ firstName, memoryText }) {
+export function ConversarView({ firstName, memoryText, openingGreeting }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null); // resumo em visualização, ou null = ao vivo
@@ -226,6 +226,7 @@ export function ConversarView({ firstName, memoryText }) {
                 initialMessages={resume?.messages}
                 resumeId={resume?.id}
                 resumeTopic={resume?.topic}
+                openingGreeting={openingGreeting}
               />
             ) : (
               <ConversationClient
@@ -237,6 +238,7 @@ export function ConversarView({ firstName, memoryText }) {
                 resumeMessages={resume?.messages}
                 resumeId={resume?.id}
                 memoryText={memoryText}
+                openingGreeting={openingGreeting}
               />
             )}
           </div>

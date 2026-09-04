@@ -14,7 +14,7 @@ function deriveTitle(messages) {
   return `Conversa · ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
 }
 
-function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill }) {
+function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting }) {
   const isReview = Array.isArray(reviewItems) && reviewItems.length > 0;
   const isCard = !!(cardDrill && cardDrill.term); // drill relâmpago de 1 card da Revisão
   const [starting, setStarting] = useState(false);
@@ -177,7 +177,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
             ? `Alright ${name}, let's run through the ${reviewItems.length} ${reviewItems.length === 1 ? 'thing' : 'things'} you saved. First up — ${reviewItems[0].term}. Give me a fresh sentence using it!`
             : resumeContext
               ? `Hey ${name}! Let's pick up right where we left off.`
-              : `Hi ${name}! I'm Cady, your English teacher! How's it going?`;
+              : (openingGreeting || `Hi ${name}! I'm Cady, your English teacher! How's it going?`);
       await conversation.startSession({
         signedUrl,
         dynamicVariables: {
@@ -198,7 +198,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     } finally {
       setStarting(false);
     }
-  }, [conversation, firstName, agent, resumeContext, unit, isReview, reviewItems, memoryText, isCard, cardDrill]);
+  }, [conversation, firstName, agent, resumeContext, unit, isReview, reviewItems, memoryText, isCard, cardDrill, openingGreeting]);
 
   const stop = useCallback(async () => {
     try {
@@ -393,10 +393,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   );
 }
 
-export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill }) {
+export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting }) {
   return (
     <ConversationProvider>
-      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} memoryText={memoryText} cardDrill={cardDrill} />
+      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} memoryText={memoryText} cardDrill={cardDrill} openingGreeting={openingGreeting} />
     </ConversationProvider>
   );
 }
