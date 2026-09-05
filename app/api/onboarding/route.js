@@ -25,6 +25,7 @@ export async function POST(request) {
   const row = {
     user_id: user.id,
     age: str(body.age, 40),
+    gender: str(body.gender, 40),
     level: str(body.level, 200),
     reasons: arr(body.reasons),
     challenges: arr(body.challenges),

@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 const STEPS = [
   { id: 'age', q: 'Quantos anos você tem?', type: 'single', cols: 2, options: ['Menos que 18', '19 a 24', '25 a 30', '31 a 35', '36 a 40', '41 a 45', '46 a 50', '51 a 55', '56 a 60', '60+'] },
+  { id: 'gender', q: 'Qual seu gênero?', type: 'single', cols: 2, options: ['Masculino', 'Feminino', 'Prefiro não dizer', 'Outro'] },
   { id: 'level', q: 'Qual seu nível de inglês?', type: 'single', cols: 1, options: ['Sei algumas poucas palavras.', 'Posso usar frases simples.', 'Posso ter conversas curtas.', 'Posso discutir sobre diferentes tópicos.', 'Posso falar fluentemente.'] },
   { id: 'reasons', q: 'Por que quer melhorar seu inglês?', sub: 'Pode escolher mais de uma.', type: 'multi', cols: 1, options: ['Avançar na minha carreira.', 'Me preparar para viagens.', 'Estudar fora do país.', 'Conversar com amigos e familiares.', 'Assistir séries e filmes sem legenda.', 'Aprender um novo idioma.', 'Outro.'] },
   { id: 'challenges', q: 'Qual seu principal desafio com o inglês?', sub: 'Pode escolher mais de uma.', type: 'multi', cols: 1, options: ['Às vezes não encontro as palavras.', 'Fico tímido(a) ou nervoso(a).', 'Não tenho tempo para praticar.', 'Não tenho ninguém para praticar.', 'Minha pronúncia não é muito boa.', 'Tenho muitos erros gramaticais.', 'Não entendo o que as pessoas falam.'] },
@@ -125,13 +126,13 @@ export function OnboardingClient({ firstName = '' }) {
         <div style={{ fontSize: 46 }}>🎉</div>
         <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)' }}>Tudo pronto{firstName ? `, ${firstName}` : ''}!</h2>
         <p style={{ margin: 0, color: 'var(--ink-soft)', fontSize: 14, maxWidth: 340, lineHeight: 1.5 }}>
-          Montamos seu plano com base nas suas respostas. Falta pouco pra você começar!
+          Montamos seu plano com base nas suas respostas. Agora é só desbloquear o Cadence e começar.
         </p>
         {goal && (
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--green-dark, var(--green))', background: 'var(--green-soft)', borderRadius: 999, padding: '5px 12px', marginTop: 4 }}>🎯 {goal}</span>
         )}
-        <a href="/v2/onboarding" style={{ marginTop: 12, background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 14, padding: '15px 30px', fontWeight: 800, fontSize: 15, cursor: 'pointer', textDecoration: 'none' }}>
-          Continuar →
+        <a href="/pagamento" style={{ marginTop: 12, background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 14, padding: '15px 30px', fontWeight: 800, fontSize: 15, cursor: 'pointer', textDecoration: 'none' }}>
+          Desbloquear o Cadence →
         </a>
       </div>
     );

@@ -49,19 +49,19 @@ export async function middleware(request) {
   }
 
   // Funil pós-cadastro, em ORDEM fixa (pagamento é o ÚLTIMO passo):
-  //   1) /onboarding      → perguntas (idade, nível, motivos, desafios, meta) + termos
-  //   2) /v2/onboarding   → nome + diagnóstico ("norte inicial")
-  //   3) /pagamento       → paga só depois de já ter preenchido tudo
+  //   1) /onboarding      → perguntas (idade, gênero, nível, motivos, desafios, meta) + termos
+  //   2) /pagamento       → paga depois de já ter preenchido tudo
+  //   3) /v2/onboarding   → só o nome (último passo, depois de pagar)
   //   4) /v2              → app liberado
   // Requer as migrations 0026 (profiles.onboarded_at + tabela onboarding).
   async function nextStep() {
     const [{ data: paidRow }, { data: profile }] = await Promise.all([
       supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle(),
-      supabase.from('profiles').select('onboarded_at, baseline_question').eq('id', user.id).maybeSingle(),
+      supabase.from('profiles').select('onboarded_at, full_name').eq('id', user.id).maybeSingle(),
     ]);
     if (!profile?.onboarded_at) return '/onboarding';
-    if (!profile?.baseline_question) return '/v2/onboarding';
     if (!paidRow) return '/pagamento';
+    if (!profile?.full_name || !profile.full_name.trim()) return '/v2/onboarding';
     return null; // tudo pronto → app
   }
 
