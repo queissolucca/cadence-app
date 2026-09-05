@@ -123,8 +123,25 @@ export async function POST(request) {
   const email = (deepFindEmail(body) || '').toLowerCase().trim();
   const kind = classifyEvent(event);
 
-  // Libera / renova acesso (expires_at = agora + 3 meses).
-  if (kind === 'grant' || (!event && looksPaid(body))) {
+  // Revoga acesso (reembolso / disputa): expira agora. Checado ANTES do grant.
+  if (kind === 'revoke') {
+    if (email) {
+      try { await admin.from('paid_emails').update({ expires_at: new Date().toISOString() }).eq('email', email); } catch { /* best-effort */ }
+      const status = event.includes('refunded') ? 'refunded' : 'disputed';
+      try { await admin.from('orders').update({ status, updated_at: new Date().toISOString() }).eq('email', email); } catch { /* best-effort */ }
+    }
+    return NextResponse.json({ ok: true, revoked: email || null });
+  }
+
+  // Cancelamento de assinatura: NÃO revoga agora — o acesso vale até expires_at.
+  if (kind === 'cancel') {
+    if (email) { try { await admin.from('orders').update({ status: 'canceled', updated_at: new Date().toISOString() }).eq('email', email); } catch { /* best-effort */ } }
+    return NextResponse.json({ ok: true, note: 'subscription_cancelled_access_until_expiry' });
+  }
+
+  // Libera / renova acesso (expires_at = agora + 3 meses). Cobre tanto os eventos
+  // de checkout quanto o PIX do link estático (qualquer payload que "pareça pago").
+  if (kind === 'grant' || looksPaid(body)) {
     if (!email) return NextResponse.json({ ok: true, note: 'no_email_found' });
     const rawAmount = deepFindAmount(body);
     const amount = typeof rawAmount === 'number' ? Math.round(rawAmount) / 100 : null; // centavos → reais
@@ -139,22 +156,6 @@ export async function POST(request) {
 
     try { await admin.from('orders').update({ status: 'paid', updated_at: new Date().toISOString() }).eq('email', email).eq('status', 'pending'); } catch { /* best-effort */ }
     return NextResponse.json({ ok: true, marked: email, amount, method });
-  }
-
-  // Revoga acesso (reembolso / disputa): expira agora.
-  if (kind === 'revoke') {
-    if (email) {
-      try { await admin.from('paid_emails').update({ expires_at: new Date().toISOString() }).eq('email', email); } catch { /* best-effort */ }
-      const status = event.includes('refunded') ? 'refunded' : 'disputed';
-      try { await admin.from('orders').update({ status, updated_at: new Date().toISOString() }).eq('email', email); } catch { /* best-effort */ }
-    }
-    return NextResponse.json({ ok: true, revoked: email || null });
-  }
-
-  // Cancelamento de assinatura: NÃO revoga agora — o acesso vale até expires_at.
-  if (kind === 'cancel') {
-    if (email) { try { await admin.from('orders').update({ status: 'canceled', updated_at: new Date().toISOString() }).eq('email', email); } catch { /* best-effort */ } }
-    return NextResponse.json({ ok: true, note: 'subscription_cancelled_access_until_expiry' });
   }
 
   return NextResponse.json({ ok: true, note: 'unhandled_event', event });
