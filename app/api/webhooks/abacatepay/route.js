@@ -93,13 +93,18 @@ export async function POST(request) {
     const rawAmount = deepFindAmount(body);
     const amount = typeof rawAmount === 'number' ? Math.round(rawAmount) / 100 : null; // AbacatePay = centavos
     const method = deepFindMethod(body);
-    const row = { email, provider: 'abacatepay' };
+    // Acesso de 3 meses: paid_at = agora, expires_at = agora + 3 meses. Uma
+    // renovação reescreve os dois (estende +3 meses a partir do pagamento).
+    const now = new Date();
+    const expires = new Date(now);
+    expires.setMonth(expires.getMonth() + 3);
+    const row = { email, provider: 'abacatepay', paid_at: now.toISOString(), expires_at: expires.toISOString() };
     if (amount != null) row.amount = amount;
     if (method) row.method = method;
 
     const admin = createAdminClient();
-    // Tenta com as colunas novas (amount/method/provider); se a migration 0024
-    // não rodou, cai pro upsert só com email.
+    // Tenta com as colunas novas (amount/method/provider/expires_at); se alguma
+    // migration não rodou, cai pro upsert só com email (mantém pago, sem expiry).
     let res = await admin.from('paid_emails').upsert(row, { onConflict: 'email' });
     if (res.error) res = await admin.from('paid_emails').upsert({ email }, { onConflict: 'email' });
     if (res.error) return NextResponse.json({ error: 'save_failed', details: res.error.message }, { status: 500 });

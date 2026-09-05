@@ -55,12 +55,18 @@ export async function middleware(request) {
   //   4) /v2              → app liberado
   // Requer as migrations 0026 (profiles.onboarded_at + tabela onboarding).
   async function nextStep() {
-    const [{ data: paidRow }, { data: profile }] = await Promise.all([
-      supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle(),
-      supabase.from('profiles').select('onboarded_at, full_name').eq('id', user.id).maybeSingle(),
-    ]);
+    const profileP = supabase.from('profiles').select('onboarded_at, full_name').eq('id', user.id).maybeSingle();
+    // Pago E dentro da validade (3 meses). Fallback: se a coluna expires_at
+    // ainda não existir (migration 0030), busca só o email e trata como válido.
+    let paid = await supabase.from('paid_emails').select('email, expires_at').eq('email', user.email).maybeSingle();
+    if (paid.error) paid = await supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle();
+    const paidRow = paid.data;
+    const { data: profile } = await profileP;
+
     if (!profile?.onboarded_at) return '/onboarding';
-    if (!paidRow) return '/pagamento';
+    // expires_at null/ausente = acesso sem expiração (grandfathered).
+    const active = !!paidRow && (!paidRow.expires_at || new Date(paidRow.expires_at) > new Date());
+    if (!active) return '/pagamento';
     if (!profile?.full_name || !profile.full_name.trim()) return '/v2/onboarding';
     return null; // tudo pronto → app
   }

@@ -22,6 +22,18 @@ export default async function PagamentoPage() {
 
   const paymentLinkUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK_URL;
 
+  // Renovação: se o email já pagou mas o acesso de 3 meses venceu, a tela vira
+  // "acesso expirado — renove" em vez de "acesso pendente".
+  let expired = false;
+  if (user?.email) {
+    const { data: paidRow } = await supabase
+      .from('paid_emails')
+      .select('expires_at')
+      .eq('email', user.email)
+      .maybeSingle();
+    if (paidRow?.expires_at && new Date(paidRow.expires_at) <= new Date()) expired = true;
+  }
+
   return (
     <ThemeProviderV2>
       <div className="v2-bg" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: 'var(--font-ui-v2)' }}>
@@ -31,12 +43,14 @@ export default async function PagamentoPage() {
           </div>
           <Card>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              {user ? 'acesso pendente' : 'último passo'}
+              {expired ? 'acesso expirado' : user ? 'acesso pendente' : 'último passo'}
             </span>
             <p style={{ margin: '10px 0 4px', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
-              {user
-                ? 'ainda não encontramos um pagamento aprovado pra este email'
-                : 'destrave seu inglês com a Cady, sua professora de IA'}
+              {expired
+                ? 'seu acesso de 3 meses acabou — renove pra continuar destravando'
+                : user
+                  ? 'ainda não encontramos um pagamento aprovado pra este email'
+                  : 'destrave seu inglês com a Cady, sua professora de IA'}
             </p>
             {user?.email && (
               <p style={{ margin: '0 0 16px', fontSize: 13.5, color: 'var(--ink-soft)' }}>
