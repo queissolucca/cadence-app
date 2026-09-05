@@ -14,12 +14,10 @@ export default async function OnboardingPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const onb = await supabase.from('onboarding').select('user_id').eq('user_id', user.id).maybeSingle();
-  if (!onb.error && onb.data) {
-    const { data: paid } = await supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle();
-    redirect(paid ? '/v2' : '/pagamento');
-  }
-
+  // Sem redirect próprio aqui: o middleware é a única autoridade da ordem do
+  // funil (onboarding → pagamento → nome → app). Antes esta página tinha um
+  // atalho que checava a TABELA onboarding e pulava pro /pagamento, o que
+  // conflitava com o gate por profiles.onboarded_at e furava o fluxo.
   const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
   const firstName = (profile?.full_name || '').trim().split(/\s+/)[0] || '';
 
