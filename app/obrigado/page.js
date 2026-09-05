@@ -1,5 +1,6 @@
 import { ThemeProviderV2 } from '../../components/v2/ThemeProviderV2';
 import { ObrigadoPoller } from './ObrigadoPoller';
+import { CadenceLogo } from '../../components/v2/CadenceLogo';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Pagamento — Cadence' };
@@ -12,7 +13,7 @@ export default function ObrigadoPage() {
       <div className="v2-bg" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: 'var(--font-ui-v2)' }}>
         <div style={{ width: '100%', maxWidth: 380 }}>
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--ink)' }}>cadence</span>
+            <CadenceLogo word={28} />
           </div>
           <ObrigadoPoller />
         </div>

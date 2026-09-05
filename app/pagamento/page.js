@@ -2,6 +2,7 @@ import { createClient } from '../../lib/supabase/server';
 import { Card } from '../../components/ui';
 import { ThemeProviderV2 } from '../../components/v2/ThemeProviderV2';
 import { TrocarLoginButton } from './TrocarLoginButton';
+import { CadenceLogo } from '../../components/v2/CadenceLogo';
 
 const btnStyle = {
   border: 'none', borderRadius: 12, padding: '13px 16px', fontWeight: 700,
@@ -41,7 +42,7 @@ export default async function PagamentoPage() {
       <div className="v2-bg" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: 'var(--font-ui-v2)' }}>
         <div style={{ width: '100%', maxWidth: 380 }}>
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--ink)' }}>cadence</span>
+            <CadenceLogo word={28} />
           </div>
           <Card>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>

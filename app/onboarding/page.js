@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { ThemeProviderV2 } from '../../components/v2/ThemeProviderV2';
 import { OnboardingClient } from '../../components/v2/OnboardingClient';
+import { CadenceLogo } from '../../components/v2/CadenceLogo';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +27,7 @@ export default async function OnboardingPage() {
       <div className="v2-bg" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: 'var(--font-ui-v2)' }}>
         <div style={{ width: '100%', maxWidth: 520 }}>
           <div style={{ textAlign: 'center', marginBottom: 18 }}>
-            <span style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--ink)' }}>cadence</span>
+            <CadenceLogo word={26} />
           </div>
           <div className="v2-card">
             <OnboardingClient firstName={firstName} />

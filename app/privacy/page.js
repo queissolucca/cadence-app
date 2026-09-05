@@ -1,3 +1,5 @@
+import { CadenceLogo } from '../../components/v2/CadenceLogo';
+
 export const metadata = {
   title: 'Política de Privacidade — cadence',
 };
@@ -8,7 +10,7 @@ export default function PrivacyPage() {
       <div className="app-card">
         <div className="screen" style={{ gap: 18 }}>
           <div>
-            <div className="logo">cadence</div>
+            <CadenceLogo word={26} style={{ alignItems: 'flex-start' }} />
             <p className="subtitle">Política de Privacidade</p>
           </div>
 

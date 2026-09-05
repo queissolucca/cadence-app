@@ -1,5 +1,6 @@
 import { ThemeProviderV2 } from '../../components/v2/ThemeProviderV2';
 import { TERMS_CLAUSES, TERMS_CLOSING, TERMS_UPDATED_LABEL } from '../../lib/terms';
+import { CadenceLogo } from '../../components/v2/CadenceLogo';
 
 export const metadata = {
   title: 'Termos e Condições — Cadence',
@@ -14,7 +15,7 @@ export default function TermosPage() {
       <div className="v2-bg" style={{ minHeight: '100dvh', padding: '32px 20px 64px', fontFamily: 'var(--font-ui-v2)' }}>
         <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 22 }}>
-            <span style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--ink)' }}>cadence</span>
+            <CadenceLogo word={26} />
           </div>
           <div className="v2-card" style={{ padding: '28px 26px' }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)' }}>

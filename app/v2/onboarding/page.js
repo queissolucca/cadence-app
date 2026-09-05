@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/client';
 import { Card } from '../../../components/ui';
+import { CadenceLogo } from '../../../components/v2/CadenceLogo';
 
 const inputStyle = {
   display: 'block', width: '100%', marginTop: 4, padding: '11px 12px',
@@ -46,7 +47,7 @@ export default function OnboardingV2() {
     <div className="v2-bg" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: 'var(--font-ui-v2)' }}>
       <div style={{ width: '100%', maxWidth: 380 }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--ink)' }}>cadence</span>
+          <CadenceLogo word={28} />
         </div>
         <Card>
           <form onSubmit={submitName} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

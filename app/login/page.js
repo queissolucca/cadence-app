@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../../lib/supabase/client';
 import { Card } from '../../components/ui';
 import { ThemeProviderV2 } from '../../components/v2/ThemeProviderV2';
+import { CadenceLogo } from '../../components/v2/CadenceLogo';
 
 const inputStyle = {
   display: 'block', width: '100%', marginTop: 4, padding: '11px 12px',
@@ -102,7 +103,7 @@ export default function LoginPage() {
       <div className="v2-bg" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: 'var(--font-ui-v2)' }}>
         <div style={{ width: '100%', maxWidth: 380 }}>
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--ink)' }}>cadence</span>
+            <CadenceLogo word={28} />
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>você já sabe inglês. hora de aprender de vez</p>
           </div>
           <Card>
