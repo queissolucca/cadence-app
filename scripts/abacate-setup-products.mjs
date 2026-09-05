@@ -16,13 +16,15 @@ if (!KEY) {
 const CACHE = '.abacate-products.json';
 const PRODUCTS = [
   {
-    externalId: 'cadence-pro-trimestral',
+    // Compra AVULSA (sem cycle) — acesso de 3 meses controlado por expires_at.
+    // Sem ciclo, o PIX é normal (não exige "PIX Automático").
+    externalId: 'cadence-pro-3m',
     envVar: 'ABACATEPAY_PROD_PRO_TRIMESTRAL',
     name: 'Cadence Pro',
-    description: 'Acesso ao Cadence — assinatura trimestral',
+    description: 'Acesso ao Cadence — 3 meses',
     price: 8990, // centavos (R$ 89,90)
     currency: 'BRL',
-    cycle: 'QUARTERLY',
+    cycle: null, // avulso
   },
 ];
 
