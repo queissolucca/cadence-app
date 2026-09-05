@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
+import { verifyWebhookSignature, threeMonthsFrom, classifyEvent } from '../../../../lib/payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,45 +72,90 @@ function looksPaid(body) {
 }
 
 export async function POST(request) {
+  // Camada 1: secret na query (?webhookSecret=), como já configurado no painel.
+  // Aceita x-abacate-secret por compat.
   const secret = request.nextUrl.searchParams.get('webhookSecret') || request.headers.get('x-abacate-secret') || '';
-  if (!process.env.ABACATEPAY_WEBHOOK_SECRET || secret !== process.env.ABACATEPAY_WEBHOOK_SECRET) {
+  const expectedSecret = process.env.ABACATEPAY_WEBHOOK_SECRET || '';
+  if (!expectedSecret || secret !== expectedSecret) {
     return NextResponse.json({ error: 'invalid_secret' }, { status: 401 });
   }
 
+  // Corpo CRU — necessário pra validar o HMAC ANTES de qualquer parse.
+  const raw = await request.text();
+
+  // Camada 2: HMAC-SHA256 do corpo cru (X-Webhook-Signature). Se o AbacatePay
+  // mandar o header, ele PRECISA bater; se não mandar, a query secret é o gate.
+  // (Ver "o que está frágil": confirmar em dev mode se o header chega e então
+  // tornar obrigatório.)
+  const signature = request.headers.get('x-webhook-signature') || request.headers.get('x-signature') || '';
+  if (signature && !verifyWebhookSignature(raw, signature, expectedSecret)) {
+    return NextResponse.json({ error: 'invalid_signature' }, { status: 401 });
+  }
+
   let body;
-  try {
-    body = await request.json();
-  } catch {
+  try { body = raw ? JSON.parse(raw) : {}; } catch {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  // Loga o shape na 1ª vez pra você conferir nos logs da Vercel e refinar.
-  try { console.log('[abacatepay webhook]', JSON.stringify(body).slice(0, 2000)); } catch {}
+  try { console.log('[abacatepay webhook]', String(body?.event || body?.type || '?'), JSON.stringify(body).slice(0, 1500)); } catch {}
 
+  const admin = createAdminClient();
+
+  // Dev mode: eventos de teste vêm com devMode:true. Em produção, não liberamos
+  // acesso a partir de um evento de dev.
+  const isProd = (process.env.VERCEL_ENV || process.env.NODE_ENV) === 'production';
+  if (body?.devMode === true && isProd) {
+    return NextResponse.json({ ok: true, note: 'dev_event_ignored_in_prod' });
+  }
+
+  // Idempotência: grava o id do evento (log_...) e ignora repetição (o
+  // AbacatePay reenvia em caso de falha — não pode liberar/creditar 2x).
+  const eventId = typeof body?.id === 'string' ? body.id : null;
+  if (eventId) {
+    const ins = await admin.from('webhook_events').insert({ id: eventId, event: String(body?.event || ''), provider: 'abacatepay' });
+    if (ins.error && ins.error.code === '23505') {
+      return NextResponse.json({ ok: true, note: 'duplicate_ignored' });
+    }
+    // outros erros (ex.: tabela ausente antes da migration) → segue best-effort
+  }
+
+  const event = String(body?.event || body?.type || '').toLowerCase();
   const email = (deepFindEmail(body) || '').toLowerCase().trim();
-  if (!email) return NextResponse.json({ ok: true, note: 'no_email_found' });
+  const kind = classifyEvent(event);
 
-  if (looksPaid(body)) {
+  // Libera / renova acesso (expires_at = agora + 3 meses).
+  if (kind === 'grant' || (!event && looksPaid(body))) {
+    if (!email) return NextResponse.json({ ok: true, note: 'no_email_found' });
     const rawAmount = deepFindAmount(body);
-    const amount = typeof rawAmount === 'number' ? Math.round(rawAmount) / 100 : null; // AbacatePay = centavos
+    const amount = typeof rawAmount === 'number' ? Math.round(rawAmount) / 100 : null; // centavos → reais
     const method = deepFindMethod(body);
-    // Acesso de 3 meses: paid_at = agora, expires_at = agora + 3 meses. Uma
-    // renovação reescreve os dois (estende +3 meses a partir do pagamento).
-    const now = new Date();
-    const expires = new Date(now);
-    expires.setMonth(expires.getMonth() + 3);
-    const row = { email, provider: 'abacatepay', paid_at: now.toISOString(), expires_at: expires.toISOString() };
+    const row = { email, provider: 'abacatepay', paid_at: new Date().toISOString(), expires_at: threeMonthsFrom() };
     if (amount != null) row.amount = amount;
     if (method) row.method = method;
 
-    const admin = createAdminClient();
-    // Tenta com as colunas novas (amount/method/provider/expires_at); se alguma
-    // migration não rodou, cai pro upsert só com email (mantém pago, sem expiry).
     let res = await admin.from('paid_emails').upsert(row, { onConflict: 'email' });
     if (res.error) res = await admin.from('paid_emails').upsert({ email }, { onConflict: 'email' });
     if (res.error) return NextResponse.json({ error: 'save_failed', details: res.error.message }, { status: 500 });
+
+    try { await admin.from('orders').update({ status: 'paid', updated_at: new Date().toISOString() }).eq('email', email).eq('status', 'pending'); } catch { /* best-effort */ }
     return NextResponse.json({ ok: true, marked: email, amount, method });
   }
 
-  return NextResponse.json({ ok: true, note: 'not_a_paid_event' });
+  // Revoga acesso (reembolso / disputa): expira agora.
+  if (kind === 'revoke') {
+    if (email) {
+      try { await admin.from('paid_emails').update({ expires_at: new Date().toISOString() }).eq('email', email); } catch { /* best-effort */ }
+      const status = event.includes('refunded') ? 'refunded' : 'disputed';
+      try { await admin.from('orders').update({ status, updated_at: new Date().toISOString() }).eq('email', email); } catch { /* best-effort */ }
+    }
+    return NextResponse.json({ ok: true, revoked: email || null });
+  }
+
+  // Cancelamento de assinatura: NÃO revoga agora — o acesso vale até expires_at.
+  if (kind === 'cancel') {
+    if (email) { try { await admin.from('orders').update({ status: 'canceled', updated_at: new Date().toISOString() }).eq('email', email); } catch { /* best-effort */ } }
+    return NextResponse.json({ ok: true, note: 'subscription_cancelled_access_until_expiry' });
+  }
+
+  return NextResponse.json({ ok: true, note: 'unhandled_event', event });
 }

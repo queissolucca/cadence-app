@@ -16,3 +16,6 @@ out
 # Misc
 .DS_Store
 *.log
+
+# cache local do script de setup do AbacatePay (contém prod_ids, não secrets)
+.abacate-products.json

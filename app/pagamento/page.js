@@ -2,6 +2,7 @@ import { createClient } from '../../lib/supabase/server';
 import { Card } from '../../components/ui';
 import { ThemeProviderV2 } from '../../components/v2/ThemeProviderV2';
 import { TrocarLoginButton } from './TrocarLoginButton';
+import { CheckoutButton } from '../../components/v2/CheckoutButton';
 
 const btnStyle = {
   border: 'none', borderRadius: 12, padding: '13px 16px', fontWeight: 700,
@@ -19,8 +20,6 @@ export default async function PagamentoPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const paymentLinkUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK_URL;
 
   // Renovação: se o email já pagou mas o acesso de 3 meses venceu, a tela vira
   // "acesso expirado — renove" em vez de "acesso pendente".
@@ -83,10 +82,14 @@ export default async function PagamentoPage() {
               </p>
             </div>
 
-            {paymentLinkUrl && (
-              <a href={paymentLinkUrl} style={btnStyle}>
-                {user ? 'ainda não paguei — ir para o pagamento' : 'ir para o pagamento'}
-              </a>
+            {user ? (
+              <CheckoutButton
+                planId="pro-trimestral"
+                label={expired ? 'renovar acesso — cartão ou pix' : 'assinar — cartão ou pix'}
+                style={btnStyle}
+              />
+            ) : (
+              <a href="/login" style={btnStyle}>entrar para assinar</a>
             )}
 
             {user ? (
