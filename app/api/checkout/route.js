@@ -60,19 +60,38 @@ export async function POST(request) {
   const base = baseUrl(request);
   const externalId = orderId || `cad_${user.id}_${Date.now()}`;
 
+  // Assinatura (cycle) cobra 1x por ciclo — sem parcelamento; compra avulsa
+  // parcela dinamicamente respeitando o mínimo de R$ 10 por parcela.
+  const installments = plan.cycle ? 1 : maxInstallmentsFor(plan.price);
+  const buildBody = (methods) => ({
+    items: [{ id: plan.prodId, quantity: 1 }],
+    methods,
+    card: { maxInstallments: installments },
+    externalId,
+    returnUrl: `${base}/pagamento`,
+    completionUrl: `${base}/obrigado`,
+    // metadata amarra o webhook ao usuário (o acesso é por email).
+    metadata: { userId: user.id, email: user.email, plan: body.planId },
+  });
+
+  // Diagnóstico: mostra QUAL produto/ciclo este deploy está usando.
+  console.log('[checkout] criando', { plan: body.planId, prod: plan.prodId, cycle: plan.cycle });
+
   try {
-    const checkout = await createCheckout({
-      items: [{ id: plan.prodId, quantity: 1 }],
-      methods: ['CARD', 'PIX'],
-      // Assinatura (cycle) cobra 1x por ciclo — sem parcelamento; compra avulsa
-      // parcela dinamicamente respeitando o mínimo de R$ 10 por parcela.
-      card: { maxInstallments: plan.cycle ? 1 : maxInstallmentsFor(plan.price) },
-      externalId,
-      returnUrl: `${base}/pagamento`,
-      completionUrl: `${base}/obrigado`,
-      // metadata amarra o webhook ao usuário (o acesso é por email).
-      metadata: { userId: user.id, email: user.email, plan: body.planId },
-    });
+    let checkout;
+    try {
+      checkout = await createCheckout(buildBody(['CARD', 'PIX']));
+    } catch (e) {
+      // Se a conta não tem PIX (ou PIX Automático), cai pra só cartão —
+      // o checkout precisa funcionar de qualquer jeito.
+      const msg = String(e?.apiError || e?.message || '');
+      if (/pix/i.test(msg)) {
+        console.warn('[checkout] PIX indisponível nesta conta, seguindo só com cartão:', msg);
+        checkout = await createCheckout(buildBody(['CARD']));
+      } else {
+        throw e;
+      }
+    }
 
     if (orderId && checkout?.id) {
       try {
