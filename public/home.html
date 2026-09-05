@@ -155,6 +155,9 @@
     .story .sh p{font-size:clamp(14px,3.7vw,16px);max-width:34ch;margin-top:9px}
     .story-grid,.stagebar{display:none}
     .story .story-m{display:block}
+    /* garante que os rounds sempre apareçam no mobile, mesmo que o reveal
+       (IntersectionObserver) não dispare — evita a seção ficar em branco */
+    .story-m .reveal{opacity:1;transform:none}
   }
   .col{position:relative;border-radius:20px;padding:22px;min-height:340px}
   .col.sem{background:var(--graybg);border:1px solid var(--line)}
@@ -196,10 +199,7 @@
 
   /* ---- mobile: duelo em rounds (Dia 1 → Mês 3), um round por tela ---- */
   .story-m{display:none;max-width:480px;margin:0 auto;padding-bottom:6px}
-  .mbar{position:sticky;top:var(--topbar-h,60px);z-index:30;display:flex;gap:6px;margin:16px -12px 0;
-        padding:11px 12px;background:var(--paper)}
-  .mbar::after{content:"";position:absolute;left:0;right:0;top:100%;height:18px;pointer-events:none;
-               background:linear-gradient(var(--paper),rgba(246,249,244,0))}
+  .mbar{display:flex;gap:6px;margin:16px 0 4px;padding:0}
   .mbar .sl{flex:1;text-align:center;font-size:11.5px;font-weight:800;letter-spacing:.03em;color:var(--faint);
             background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 0;
             font-family:inherit;cursor:pointer;-webkit-appearance:none;-webkit-tap-highlight-color:transparent;
@@ -541,7 +541,7 @@
           <div class="snap">
             <span class="badge x">✕ o mesmo erro</span>
             <div class="mini">Tenta falar: “I go to work <span class="wrong">at</span> Monday.”</div>
-            <div class="cap">3 meses, ofensiva linda… e o MESMO erro do Dia 1. Cadência burra não ensina.</div>
+            <div class="cap">3 meses, ofensiva linda… e o MESMO erro do Dia 1. Cadência sem inteligência não ensina.</div>
           </div>
         </div>
       </div>
@@ -654,7 +654,7 @@
       <div class="mside dead fail">
         <div class="msh">😮‍💨 Sem Cadence <span class="badge x" style="margin:0">✕ o mesmo erro</span></div>
         <div class="mline" style="margin-bottom:0">Tenta falar: “I go to work <span class="wrong">at</span> Monday.”</div>
-        <p class="mcap">3 meses, ofensiva linda… e o <b>MESMO</b> erro do Dia 1. Cadência burra não ensina.</p>
+        <p class="mcap">3 meses, ofensiva linda… e o <b>MESMO</b> erro do Dia 1. Cadência sem inteligência não ensina.</p>
       </div>
       <div class="mvs"><span>versus</span></div>
       <div class="mside live win">
@@ -820,16 +820,16 @@
     const pills=[...bar.querySelectorAll('.sl')];
     const rounds=[...document.querySelectorAll('.story-m .mround')];
     if(!rounds.length)return;let cur=-1;
+    const topH=()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h'))||60;
     scrollFns.push(()=>{if(!bar.offsetParent)return; /* desktop: bloco oculto */
-      const mark=bar.getBoundingClientRect().bottom+innerHeight*.22;
+      /* referência fixa abaixo da topbar (a barra agora rola junto, não serve de âncora) */
+      const mark=topH()+innerHeight*.30;
       let idx=0;rounds.forEach((r,i)=>{if(r.getBoundingClientRect().top<=mark)idx=i;});
       if(idx===cur)return;cur=idx;
       pills.forEach((p,i)=>{p.classList.toggle('on',i===idx);p.classList.toggle('done',i<idx);});
     });
     pills.forEach((pill,i)=>pill.addEventListener('click',()=>{
-      /* offset fixo (topbar + barra), não a posição atual da barra: assim o
-         alvo não sai errado se o clique cair no meio de um scroll suave */
-      const off=(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h'))||60)+bar.offsetHeight+10;
+      const off=topH()+14; /* barra estática: só compensa a topbar fixa */
       scrollTo({top:rounds[i].getBoundingClientRect().top+scrollY-off,behavior:'smooth'});
     }));
   })();
