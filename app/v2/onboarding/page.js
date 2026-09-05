@@ -58,7 +58,8 @@ export default function OnboardingV2() {
         body: JSON.stringify({ answer: answer.trim() }),
       });
       if (!res.ok) throw new Error('save_failed');
-      router.push('/v2');
+      // Novo funil: depois do diagnóstico vem o pagamento (último passo).
+      router.push('/pagamento');
       router.refresh();
     } catch {
       setError('Não consegui salvar agora. Tenta de novo.');

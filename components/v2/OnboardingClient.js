@@ -125,13 +125,13 @@ export function OnboardingClient({ firstName = '' }) {
         <div style={{ fontSize: 46 }}>🎉</div>
         <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)' }}>Tudo pronto{firstName ? `, ${firstName}` : ''}!</h2>
         <p style={{ margin: 0, color: 'var(--ink-soft)', fontSize: 14, maxWidth: 340, lineHeight: 1.5 }}>
-          Montamos seu plano com base nas suas respostas. Agora é só desbloquear o Cadence e começar.
+          Montamos seu plano com base nas suas respostas. Falta pouco pra você começar!
         </p>
         {goal && (
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--green-dark, var(--green))', background: 'var(--green-soft)', borderRadius: 999, padding: '5px 12px', marginTop: 4 }}>🎯 {goal}</span>
         )}
-        <a href="/pagamento" style={{ marginTop: 12, background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 14, padding: '15px 30px', fontWeight: 800, fontSize: 15, cursor: 'pointer', textDecoration: 'none' }}>
-          Desbloquear o Cadence →
+        <a href="/v2/onboarding" style={{ marginTop: 12, background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 14, padding: '15px 30px', fontWeight: 800, fontSize: 15, cursor: 'pointer', textDecoration: 'none' }}>
+          Continuar →
         </a>
       </div>
     );

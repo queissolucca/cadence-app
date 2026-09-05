@@ -48,62 +48,39 @@ export async function middleware(request) {
     return response;
   }
 
-  // Onboarding pré-pagamento (5 perguntas): exige login, mas não pagamento.
-  if (pathname === '/onboarding') {
+  // Funil pós-cadastro, em ORDEM fixa (pagamento é o ÚLTIMO passo):
+  //   1) /onboarding      → perguntas (idade, nível, motivos, desafios, meta) + termos
+  //   2) /v2/onboarding   → nome + diagnóstico ("norte inicial")
+  //   3) /pagamento       → paga só depois de já ter preenchido tudo
+  //   4) /v2              → app liberado
+  // Requer as migrations 0026 (profiles.onboarded_at + tabela onboarding).
+  async function nextStep() {
+    const [{ data: paidRow }, { data: profile }] = await Promise.all([
+      supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle(),
+      supabase.from('profiles').select('onboarded_at, baseline_question').eq('id', user.id).maybeSingle(),
+    ]);
+    if (!profile?.onboarded_at) return '/onboarding';
+    if (!profile?.baseline_question) return '/v2/onboarding';
+    if (!paidRow) return '/pagamento';
+    return null; // tudo pronto → app
+  }
+
+  // As 3 telas do funil: cada uma só aparece quando é o passo atual; caso
+  // contrário, manda pro passo certo (ou pro app, se já concluiu tudo).
+  if (pathname === '/onboarding' || pathname === '/v2/onboarding' || pathname === '/pagamento') {
     if (!user) return NextResponse.redirect(new URL('/login', request.url));
+    const step = await nextStep();
+    const target = step || '/v2';
+    if (target !== pathname) return NextResponse.redirect(new URL(target, request.url));
     return response;
   }
 
-  if (pathname === '/pagamento') {
-    if (!user) {
-      return response;
-    }
-    const { data: paidRow } = await supabase
-      .from('paid_emails')
-      .select('email')
-      .eq('email', user.email)
-      .maybeSingle();
-    if (paidRow) {
-      return NextResponse.redirect(new URL('/v2', request.url));
-    }
-    // Não pago: garante que respondeu o onboarding primeiro (best-effort — se a
-    // tabela não existe ainda, não bloqueia).
-    const onb = await supabase.from('onboarding').select('user_id').eq('user_id', user.id).maybeSingle();
-    if (!onb.error && !onb.data) {
-      return NextResponse.redirect(new URL('/onboarding', request.url));
-    }
+  // Resto do app (/v2/*): exige login + funil completo (inclui pagamento).
+  if (LOGIN_REQUIRED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    if (!user) return NextResponse.redirect(new URL('/login', request.url));
+    const step = await nextStep();
+    if (step) return NextResponse.redirect(new URL(step, request.url));
     return response;
-  }
-
-  if (!LOGIN_REQUIRED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
-    return response;
-  }
-
-  if (!user) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // paid_emails e profiles são independentes entre si — disparar em paralelo
-  // em vez de sequencial economiza um round-trip inteiro pro Supabase em
-  // toda navegação dentro de /v2 (que é a maior parte do tráfego autenticado).
-  // Pra quem já não é pago, a consulta de profile sai "de graça" (resultado
-  // descartado), mas ela é minúscula — sai mais barato que pagar a latência
-  // sequencial no caso comum (usuário pago, que é a maioria).
-  const needsBaselineCheck = pathname !== '/v2/onboarding';
-  const [{ data: paidRow }, profileResult] = await Promise.all([
-    supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle(),
-    needsBaselineCheck
-      ? supabase.from('profiles').select('baseline_question').eq('id', user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
-  const isPaid = !!paidRow;
-
-  if (!isPaid) {
-    return NextResponse.redirect(new URL('/pagamento', request.url));
-  }
-
-  if (needsBaselineCheck && !profileResult.data?.baseline_question) {
-    return NextResponse.redirect(new URL('/v2/onboarding', request.url));
   }
 
   return response;
