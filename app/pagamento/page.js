@@ -87,15 +87,12 @@ export default async function PagamentoPage() {
 
             {paymentLinkUrl && (
               <a href={paymentLinkUrl} style={btnStyle}>
-                {expired ? 'renovar acesso — pagar com pix' : user ? 'pagar com pix' : 'ir para o pagamento'}
+                {expired ? 'renovar acesso' : 'quero destravar meu inglês'}
               </a>
             )}
 
             {user ? (
               <>
-                <a href="/pagamento" style={{ ...btnStyle, background: 'none', border: '1px solid var(--line)', color: 'var(--ink)', marginTop: 10 }}>
-                  já paguei — verificar de novo
-                </a>
                 <p style={{ margin: '14px 0 0', fontSize: 11.5, color: 'var(--ink-soft)', textAlign: 'center' }}>
                   já pagou com outro email? entre com o mesmo email usado na compra.
                 </p>
