@@ -41,6 +41,15 @@ describe('classifyEvent (roteamento de eventos)', () => {
   it('subscription.cancelled → cancel (não revoga já)', () => {
     expect(classifyEvent('subscription.cancelled')).toBe('cancel');
   });
+  it('billing.paid → grant (PIX do link estático do AbacatePay)', () => {
+    expect(classifyEvent('billing.paid')).toBe('grant');
+  });
+  it('pix.paid → grant', () => {
+    expect(classifyEvent('pix.paid')).toBe('grant');
+  });
+  it('billing.refunded → revoke', () => {
+    expect(classifyEvent('billing.refunded')).toBe('revoke');
+  });
   it('evento desconhecido → ignore', () => {
     expect(classifyEvent('pix.something')).toBe('ignore');
   });
