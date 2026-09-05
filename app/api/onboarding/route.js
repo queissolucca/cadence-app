@@ -33,11 +33,29 @@ export async function POST(request) {
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await supabase.from('onboarding').upsert(row, { onConflict: 'user_id' });
-  if (error) return NextResponse.json({ error: 'save_failed', details: error.message }, { status: 500 });
+  // Valida que respondeu tudo ANTES de marcar como onboarded. Sem isso, um POST
+  // vazio viraria a chave do funil (profiles.onboarded_at) e pularia as perguntas.
+  const complete =
+    !!row.age && !!row.level && !!row.daily_goal &&
+    Array.isArray(row.reasons) && row.reasons.length > 0 &&
+    Array.isArray(row.challenges) && row.challenges.length > 0;
+  if (!complete) return NextResponse.json({ error: 'missing_fields' }, { status: 400 });
 
-  // marca como onboarded (best-effort — coluna pode não existir antes da migration)
-  await supabase.from('profiles').update({ onboarded_at: new Date().toISOString() }).eq('id', user.id);
+  // 1) Marca onboarded_at (a chave do funil) de forma VERIFICADA. Se falhar,
+  // retorna erro e o cliente NÃO avança — evita o loop /onboarding ↔ /pagamento.
+  const { error: profErr } = await supabase
+    .from('profiles')
+    .update({ onboarded_at: new Date().toISOString() })
+    .eq('id', user.id);
+  if (profErr) return NextResponse.json({ error: 'save_failed', details: profErr.message }, { status: 500 });
+
+  // 2) Detalhes das respostas — best-effort (não travam o funil). Se a coluna
+  // gender (0029) faltar, tenta de novo sem ela.
+  let up = await supabase.from('onboarding').upsert(row, { onConflict: 'user_id' });
+  if (up.error) {
+    const { gender, ...noGender } = row; // eslint-disable-line no-unused-vars
+    await supabase.from('onboarding').upsert(noGender, { onConflict: 'user_id' });
+  }
 
   // semeia a memória da Cady (best-effort) pra ela já conhecer o usuário
   try {

@@ -21,28 +21,33 @@ export function OnboardingClient({ firstName = '' }) {
   const [phase, setPhase] = useState('questions'); // 'questions' | 'terms' | 'done'
   const [accepted, setAccepted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
   const total = STEPS.length;
   const done = phase === 'done';
 
   const finish = async (finalAnswers) => {
     setSaving(true);
-    // As duas gravações são best-effort e independentes — mandamos em paralelo
-    // e seguimos pro pagamento de qualquer jeito (o aceite também fica
-    // registrado na sessão; se falhar aqui, o middleware/BD não bloqueia).
+    setErr('');
     try {
-      await Promise.allSettled([
-        fetch('/api/onboarding', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(finalAnswers),
-        }),
-        fetch('/api/terms/accept', { method: 'POST' }),
-      ]);
+      // Grava o onboarding (marca onboarded_at). SÓ avança se der certo — se
+      // falhar e a gente avançasse, o middleware mandaria de volta pra cá (loop).
+      const res = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalAnswers),
+      });
+      if (!res.ok) {
+        setSaving(false);
+        setErr('Não consegui salvar suas respostas agora. Tenta de novo.');
+        return;
+      }
+      // Aceite dos termos: best-effort (não bloqueia).
+      fetch('/api/terms/accept', { method: 'POST' }).catch(() => {});
+      setPhase('done');
     } catch {
-      /* best-effort */
+      setErr('Sem conexão. Tenta de novo.');
     } finally {
       setSaving(false);
-      setPhase('done');
     }
   };
 
@@ -115,6 +120,7 @@ export function OnboardingClient({ firstName = '' }) {
         >
           {saving ? 'Salvando…' : 'Aceitar e continuar'}
         </button>
+        {err && <p style={{ margin: '10px 0 0', fontSize: 13, color: '#c0392b', textAlign: 'center' }}>{err}</p>}
       </div>
     );
   }
