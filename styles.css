@@ -43,7 +43,9 @@ button{font-family:inherit}
 .screen-home{padding:max(22px,env(safe-area-inset-top)) 22px calc(22px + env(safe-area-inset-bottom))}
 
 .home-header{display:flex;justify-content:space-between;align-items:center}
-.logo{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:24px;letter-spacing:-.02em}
+.logo{font-size:24px}
+/* Wordmark da marca (vetor) — height em em herda o font-size do .logo. */
+.cadence-mark{height:0.74em;width:auto;display:inline-block;vertical-align:middle}
 .streak-pill{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #ecebe4;border-radius:20px;padding:6px 12px}
 .streak-dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
 .streak-num{font-weight:700;font-size:14px}

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Pill } from './Pill';
 import { ProfileDialog } from '../v2/ProfileDialog';
+import { CadenceLogo } from '../v2/CadenceLogo';
 
 export function AppHeader({ streak, streakShields = 0, avatarUrl, avatarInitial, profile, className = '', ...props }) {
   const [showStreak, setShowStreak] = useState(false);
@@ -12,7 +13,7 @@ export function AppHeader({ streak, streakShields = 0, avatarUrl, avatarInitial,
 
   return (
     <header className={`v2-app-header ${className}`} {...props}>
-      <Link href="/v2" className="v2-logo" style={{ textDecoration: 'none', color: 'inherit' }} aria-label="Ir para o início">cadence</Link>
+      <Link href="/v2" className="v2-logo" style={{ textDecoration: 'none', color: 'inherit' }} aria-label="Ir para o início"><CadenceLogo word={25} variant="inherit" /></Link>
       <div className="v2-header-right">
         {hasStreak && (
           <button

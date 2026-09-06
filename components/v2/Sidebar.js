@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { CadenceLogo } from './CadenceLogo';
 
 function IconHome() {
   return (
@@ -45,7 +46,7 @@ export function Sidebar({ streak = 0, avatarUrl, avatarInitial, basePath = '/v2'
 
   return (
     <aside className="web-sidebar">
-      <Link href={basePath} className="web-sidebar-logo" style={{ textDecoration: 'none', color: 'inherit' }}>cadence</Link>
+      <Link href={basePath} className="web-sidebar-logo" style={{ textDecoration: 'none', color: 'inherit' }}><CadenceLogo word={22} variant="inherit" /></Link>
 
       <nav className="web-sidebar-nav">
         {NAV.map(({ href, label, Icon }) => {

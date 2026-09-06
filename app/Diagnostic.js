@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TRACKS } from '../lib/tracks';
+import { CadenceLogo } from '../components/v2/CadenceLogo';
 
 // Onboarding reduzido a 2 perguntas (uma por habilidade) — só um norte
 // inicial, não uma avaliação precisa. O nível real se ajusta com uso, via
@@ -114,7 +115,7 @@ export default function Diagnostic() {
           {phase === 'intro' && (
             <>
               <div>
-                <div className="logo">cadence</div>
+                <div className="logo"><CadenceLogo word={26} variant="inherit" /></div>
                 <p className="subtitle">Você já sabe inglês. É hora de aprender de vez.</p>
               </div>
               <div className="login-hero">
@@ -202,7 +203,7 @@ export default function Diagnostic() {
           {phase === 'reveal' && reveal && (
             <>
               <div>
-                <div className="logo">cadence</div>
+                <div className="logo"><CadenceLogo word={26} variant="inherit" /></div>
                 <p className="subtitle">Seu norte inicial</p>
               </div>
 
