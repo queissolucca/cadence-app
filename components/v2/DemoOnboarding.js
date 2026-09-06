@@ -15,7 +15,7 @@ export function DemoOnboarding() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14 }}>
         <span style={{ width: 38, height: 38, borderRadius: 12, background: 'var(--green)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 17, flexShrink: 0 }}>C</span>
         <div>
           <strong style={{ fontSize: 14.5, color: 'var(--ink)', display: 'block' }}>Cady</strong>
