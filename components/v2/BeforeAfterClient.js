@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSpeechRecognition } from '../../lib/useSpeechRecognition';
+import { CadenceLogo } from './CadenceLogo';
 
 function formatDate(d) {
   return new Date(d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -106,7 +107,7 @@ function ResultView({ check, thenDate, locked, nextDateLabel, onRespondAgain }) 
           <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-soft)', textAlign: 'center' }}>{analysis.message_pt}</p>
         )}
 
-        <p style={{ margin: '4px 0 0', textAlign: 'center', fontSize: 12, fontWeight: 800, letterSpacing: '0.04em', color: 'var(--ink-soft)' }}>cadence</p>
+        <p style={{ margin: '4px 0 0', textAlign: 'center', color: 'var(--ink-soft)' }}><CadenceLogo word={17} variant="inherit" /></p>
       </div>
 
       <button type="button" onClick={share} disabled={sharing} className="v2-card-dark" style={{ border: 'none', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>

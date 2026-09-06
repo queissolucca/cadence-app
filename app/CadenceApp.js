@@ -7,6 +7,7 @@ import { mapLedgerItem, ledgerStatus } from '../lib/ledger';
 import { composeSession } from '../lib/session';
 import { getStage, trackLabel, TRACKS } from '../lib/tracks';
 import { computePatent } from '../lib/patents';
+import { CadenceLogo } from '../components/v2/CadenceLogo';
 
 const SESSION_KEY = 'cadence-session-v2';
 
@@ -1008,7 +1009,7 @@ export default function CadenceApp({
             <section className="screen home-screen">
               <div className="topbar">
                 <div>
-                  <div className="logo">cadence</div>
+                  <div className="logo"><CadenceLogo word={26} variant="inherit" /></div>
                   <p className="greeting">{greeting}</p>
                 </div>
                 <div className="topbar-right">
@@ -1072,7 +1073,7 @@ export default function CadenceApp({
             <section className="screen home-screen">
               <div className="topbar">
                 <div>
-                  <div className="logo">cadence</div>
+                  <div className="logo"><CadenceLogo word={26} variant="inherit" /></div>
                   <p className="greeting">Mapa de Lacunas</p>
                 </div>
               </div>

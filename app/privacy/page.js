@@ -10,7 +10,7 @@ export default function PrivacyPage() {
       <div className="app-card">
         <div className="screen" style={{ gap: 18 }}>
           <div>
-            <CadenceLogo word={26} style={{ alignItems: 'flex-start' }} />
+            <CadenceLogo word={26} />
             <p className="subtitle">Política de Privacidade</p>
           </div>
 

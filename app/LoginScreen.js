@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '../lib/supabase/client';
+import { CadenceLogo } from '../components/v2/CadenceLogo';
 
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
@@ -25,7 +26,7 @@ export default function LoginScreen() {
     <main className="app-shell">
       <div className="app-card">
         <div className="login-screen">
-          <div className="logo">cadence</div>
+          <div className="logo"><CadenceLogo word={26} variant="inherit" /></div>
           <p className="subtitle">Você já sabe inglês. É hora de aprender de vez.</p>
           <div className="login-hero">
             <h1>Treino diário de inglês com correção inteligente e memória de longo prazo.</h1>

@@ -119,7 +119,7 @@ button { cursor: pointer; font-family: var(--font-ui); }
 
 /* ---------- Topbar / greeting ---------- */
 .topbar { display: flex; justify-content: space-between; align-items: center; }
-.logo { font-family: var(--font-display); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+.logo { font-size: 26px; }
 .greeting { margin: 2px 0 0; color: #7d806f; font-size: 13px; }
 .streak-pill { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid #e6e3d7; background: #fff; border-radius: 999px; font-size: 13px; font-family: var(--font-mono); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
@@ -433,7 +433,7 @@ button { cursor: pointer; font-family: var(--font-ui); }
 
 /* ---- AppHeader ---- */
 .v2-app-header { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-ui-v2); }
-.v2-app-header .v2-logo { font-size: 25px; font-weight: 800; letter-spacing: -0.5px; color: var(--ink); }
+.v2-app-header .v2-logo { color: var(--ink); }
 .v2-app-header .v2-header-right { display: flex; align-items: center; gap: 10px; }
 .v2-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: var(--v2-brand); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
 .v2-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -446,7 +446,7 @@ button { cursor: pointer; font-family: var(--font-ui); }
  * ========================================================================= */
 .web-shell { min-height: 100dvh; display: flex; font-family: var(--font-ui-v2); }
 .web-sidebar { width: 252px; flex-shrink: 0; border-right: 1px solid var(--line); padding: 28px 18px; display: flex; flex-direction: column; gap: 30px; position: sticky; top: 0; height: 100dvh; overflow-y: auto; }
-.web-sidebar-logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: var(--ink); padding: 0 10px; }
+.web-sidebar-logo { color: var(--ink); padding: 0 10px; }
 .web-sidebar-nav { display: flex; flex-direction: column; gap: 3px; }
 .web-nav-link { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; color: var(--ink-soft); font-size: 14.5px; font-weight: 600; text-decoration: none; transition: background 0.12s ease; }
 .web-nav-link svg { width: 19px; height: 19px; flex-shrink: 0; }
