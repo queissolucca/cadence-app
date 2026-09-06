@@ -76,19 +76,19 @@ export default async function PagamentoPage() {
                 + correção assertiva na hora: gramática, conjugação e o porquê<br />
                 + trilha do intermediário ao avançado, com XP e patentes (Aprendiz → Nativo)<br />
                 + revisão inteligente e personalizada<br />
-                + a Cady <strong>lembra de você</strong> e personaliza cada conversa
+                + a Cady <strong>lembra realmente de você</strong> e personaliza 100% cada conversa sobre você.
               </div>
               <p style={{ margin: '12px 0 0', fontSize: 12.5, color: 'var(--ink-soft)', lineHeight: 1.6 }}>
-                não é chatbot genérico: é uma IA que conversa como gente de verdade, corrige do jeito que faz você evoluir e se lembra da sua vida pra cada aula ser sua. <strong>Imagine pagar esse valor para ter um professor particular que te conheça e que você possa treinar todo dia! Esse é o Cadence!</strong>
+                não é chatbot genérico: é uma IA que conversa como uma pessoa de verdade! Corrige do jeito que faz você evoluir e se lembra da sua vida pra cada aula ser sua. <strong>Imagine pagar esse valor para ter um professor particular que te conheça e que você possa treinar todo dia! Esse é o Cadence!</strong>
               </p>
               <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--ink-soft)', lineHeight: 1.6 }}>
-                <strong>Preço de lançamento: de R$ 296,90 por R$ 89,90 (70% off), só pra quem chega agora, no começo</strong> — depois volta ao valor cheio e a cobrança passa a ser mensal.
+                <strong>Preço de lançamento: de <s>R$ 296,90</s> por R$ 89,90 (70% off), só pra quem chega agora, no começo</strong> — depois volta ao valor cheio e a cobrança passa a ser mensal.
               </p>
             </div>
 
             {paymentLinkUrl && (
               <a href={paymentLinkUrl} style={btnStyle}>
-                {expired ? 'renovar acesso' : 'quero destravar meu inglês'}
+                {expired ? 'renovar acesso' : 'quero destravar meu inglês agora!'}
               </a>
             )}
 
