@@ -4,6 +4,7 @@ import { AjustesClient } from '../../../../components/v2/AjustesClient';
 import { computeGamification } from '../../../../lib/gamification';
 import { streakFromDayKeys } from '../../../../lib/streak';
 import { dayKeySP, weekStartSP, addDays, todayKeySP } from '../../../../lib/dates';
+import { hasPasswordFor } from '../../../../lib/passwordAccount';
 
 // Aba Perfil (antiga Ajustes): a gamificação (patente/XP/missões) mora aqui + o
 // perfil e as configurações.
@@ -18,6 +19,10 @@ export default async function AjustesPageV2() {
     .select('full_name, weekly_cadence_target, theme')
     .eq('id', user.id)
     .single();
+
+  // Consulta separada de propósito: se a migration 0033 ainda não rodou, isso
+  // devolve false em vez de derrubar o select do perfil acima.
+  const hasPassword = await hasPasswordFor(supabase, user);
 
   // ---- Gamificação (derivada dos dados; best-effort se tabelas faltarem) ----
   const now = new Date();
@@ -61,7 +66,7 @@ export default async function AjustesPageV2() {
   return (
     <div className="web-narrow" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <SectionHead title="Perfil" />
-      <AjustesClient profile={profile} email={user.email} game={game} />
+      <AjustesClient profile={profile} email={user.email} game={game} hasPassword={hasPassword} />
     </div>
   );
 }

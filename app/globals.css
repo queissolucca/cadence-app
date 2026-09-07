@@ -424,6 +424,13 @@ button { cursor: pointer; font-family: var(--font-ui); }
   border-radius: 8px;
 }
 
+/* Campo em erro (ex.: "Confirmar senha" diferente de "Senha"): o anel de foco
+   acompanha o vermelho do campo, senão o verde da marca por cima da borda
+   vermelha embaralha o sinal de erro. */
+.v2-bg input[aria-invalid='true']:focus-visible {
+  outline-color: var(--red);
+}
+
 /* ---- Skeleton (loading.js das rotas /v2) ---- */
 @keyframes v2-skeleton-pulse {
   0%, 100% { opacity: 0.6; }

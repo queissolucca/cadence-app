@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight, Brain } from 'lucide-react';
+import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight, Brain, KeyRound } from 'lucide-react';
 import { createClient } from '../../lib/supabase/client';
 import { APP_VERSION } from '../../lib/version';
 import { usePreferenceSave } from '../../lib/usePreferenceSave';
 import { BottomSheet } from './BottomSheet';
 import { SegmentedControl } from './SegmentedControl';
 import { MemoriesDialog } from './MemoriesDialog';
+import { PasswordDialog } from './PasswordDialog';
 import { JourneyCard } from './JourneyCard';
 import { Toast } from './Toast';
 
@@ -58,7 +59,7 @@ function Group({ title, children }) {
 
 const WEEKLY_LABEL = (n) => `${n} dias/sem`;
 
-export function AjustesClient({ profile, email, game }) {
+export function AjustesClient({ profile, email, game, hasPassword = false }) {
   const router = useRouter();
   const { setTheme } = useTheme();
   const { toast, save } = usePreferenceSave();
@@ -70,6 +71,9 @@ export function AjustesClient({ profile, email, game }) {
   const [sheet, setSheet] = useState(null); // 'weekly' | null
   const [signingOut, setSigningOut] = useState(false);
   const [showMemories, setShowMemories] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  // Depois de definir/redefinir, a linha já mostra "definida" sem recarregar.
+  const [passwordSet, setPasswordSet] = useState(hasPassword);
 
   const setWeekly = async (value) => {
     setState((prev) => ({ ...prev, weeklyCadence: value }));
@@ -150,6 +154,16 @@ export function AjustesClient({ profile, email, game }) {
         <Row icon={Brain} label="Suas memórias" onClick={() => setShowMemories(true)} />
       </Group>
 
+      {/* Conta */}
+      <Group title="Conta">
+        <Row
+          icon={KeyRound}
+          label="Senha"
+          valueLabel={passwordSet ? 'definida' : 'não definida'}
+          onClick={() => setShowPassword(true)}
+        />
+      </Group>
+
       {/* Ajuda */}
       <Group title="Ajuda">
         <Row icon={Send} label="Enviar feedback" onClick={() => router.push('/v2/ajuda/feedback')} />
@@ -190,6 +204,13 @@ export function AjustesClient({ profile, email, game }) {
       </BottomSheet>
 
       <MemoriesDialog open={showMemories} onClose={() => setShowMemories(false)} />
+
+      <PasswordDialog
+        open={showPassword}
+        onClose={() => setShowPassword(false)}
+        hasPassword={passwordSet}
+        onSaved={() => setPasswordSet(true)}
+      />
 
       <Toast message={toast} />
     </>
