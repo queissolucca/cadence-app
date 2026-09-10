@@ -1,20 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-const CATEGORY_LABELS = {
-  location: 'Onde mora',
-  work: 'Trabalho & carreira',
-  hobbies: 'Hobbies & interesses',
-  preferences: 'Gostos & preferências',
-  relationships: 'Relacionamentos',
-  family: 'Família',
-  goals: 'Objetivos',
-  finance: 'Finanças',
-  health: 'Saúde & bem-estar',
-  other: 'Outros',
-};
-const ORDER = ['location', 'work', 'hobbies', 'preferences', 'relationships', 'family', 'goals', 'finance', 'health', 'other'];
+import { CATEGORY_LABELS, CATEGORY_ORDER as ORDER } from '../../lib/memoryCategories';
 
 const inputStyle = { border: '1px solid var(--line)', borderRadius: 10, padding: '9px 11px', fontSize: 14, color: 'var(--v2-card-fg, var(--ink))', background: 'var(--v2-card-bg)', width: '100%', fontFamily: 'inherit' };
 

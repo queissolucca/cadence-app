@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { CadyViva } from '../Cady';
 import { Icon } from '../ui';
 import { Card, Grow, Kicker, NavCard, NavRow, Opts } from '../shell';
-import { agrupar, memorias } from '../../../lib/comecar/state';
+import { agrupar } from '../../../lib/comecar/state';
+import { useMemorias } from '../../../lib/comecar/memoria';
 
 const TONS = [
   { v: 'agressivo', t: 'Agressivo', badge: 'recomendado',
@@ -13,9 +14,15 @@ const TONS = [
 ];
 
 /* Folha de memórias: o que a Cady lembra de você, agrupado por assunto.
-   Adicionar, editar inline, apagar. Fecha no X, no escuro em volta e no Esc. */
-function FolhaMemorias({ itens, onMudar, onFechar }) {
-  const [editando, setEditando] = useState(-1);
+   Adicionar, editar inline, apagar. Fecha no X, no escuro em volta e no Esc.
+
+   Recebe três callbacks em vez de um `onMudar(listaInteira)`. Com a lista vindo
+   do Supabase, reescrever o array todo obrigaria quem chama a adivinhar o que
+   mudou pra traduzir em POST/PATCH/DELETE — e um diff por posição quebra assim
+   que o servidor reordena. Dizendo a operação, os dois modos (local e remoto)
+   implementam a mesma coisa sem adivinhação. */
+function FolhaMemorias({ itens, onAdicionar, onEditar, onApagar, onFechar }) {
+  const [editando, setEditando] = useState(null);
   const [novo, setNovo] = useState(false);
   const [rascunho, setRascunho] = useState('');
   const campoNovo = useRef(null);
@@ -29,7 +36,7 @@ function FolhaMemorias({ itens, onMudar, onFechar }) {
 
   useEffect(() => { if (novo) campoNovo.current?.focus(); }, [novo]);
   useEffect(() => {
-    if (editando < 0) return;
+    if (editando == null) return;
     const el = campoEdit.current;
     if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
   }, [editando]);
@@ -37,19 +44,18 @@ function FolhaMemorias({ itens, onMudar, onFechar }) {
   const adicionar = e => {
     e.preventDefault();
     const v = rascunho.trim();
-    if (v) onMudar([...itens, { g: 'Suas anotações', t: v }]);
+    if (v) onAdicionar(v);
     setRascunho(''); setNovo(false);
   };
 
-  const salvar = i => {
+  const salvar = m => {
     const v = campoEdit.current.value.trim();
     // salvar vazio apaga: é o que a pessoa quis dizer ao limpar o campo
-    onMudar(v ? itens.map((m, k) => (k === i ? { ...m, t: v } : m))
-               : itens.filter((_, k) => k !== i));
-    setEditando(-1);
+    if (v) onEditar(m, v); else onApagar(m);
+    setEditando(null);
   };
 
-  const apagar = i => { onMudar(itens.filter((_, k) => k !== i)); setEditando(-1); };
+  const apagar = m => { onApagar(m); setEditando(null); };
 
   return (
     <div className="sheetbg" onClick={e => { if (e.target === e.currentTarget) onFechar(); }}>
@@ -77,25 +83,25 @@ function FolhaMemorias({ itens, onMudar, onFechar }) {
               <div className="memgrp">{g.nome}</div>
               <ul className="memlist" style={{ marginTop: 0 }}>
                 {g.itens.map(m => (
-                  <li className="mem" key={m.i}>
+                  <li className="mem" key={m.k}>
                     <span className="memdot" />
-                    {editando === m.i ? (
+                    {editando === m.k ? (
                       <>
                         <input className="memedit" ref={campoEdit} defaultValue={m.t} maxLength={160}
-                          onKeyDown={e => { if (e.key === 'Enter') salvar(m.i); }} />
+                          onKeyDown={e => { if (e.key === 'Enter') salvar(m); }} />
                         <span className="memact">
-                          <button className="mm-ed" onClick={() => salvar(m.i)} title="Salvar">
+                          <button className="mm-ed" onClick={() => salvar(m)} title="Salvar">
                             <Icon name="check" /></button>
-                          <button className="mm-rm" onClick={() => setEditando(-1)} title="Cancelar">×</button>
+                          <button className="mm-rm" onClick={() => setEditando(null)} title="Cancelar">×</button>
                         </span>
                       </>
                     ) : (
                       <>
                         <p>{m.t}</p>
                         <span className="memact">
-                          <button className="mm-ed" onClick={() => setEditando(m.i)} title="Editar">
+                          <button className="mm-ed" onClick={() => setEditando(m.k)} title="Editar">
                             <Icon name="pencil" /></button>
-                          <button className="mm-rm" onClick={() => apagar(m.i)} title="Apagar">
+                          <button className="mm-rm" onClick={() => apagar(m)} title="Apagar">
                             <Icon name="trash" /></button>
                         </span>
                       </>
@@ -116,7 +122,7 @@ function FolhaMemorias({ itens, onMudar, onFechar }) {
 
 export function Voce({ a, set }) {
   const [folha, setFolha] = useState(null);
-  const itens = memorias(a);
+  const { itens, adicionar, editar, apagar } = useMemorias(a, set);
 
   return (
     <>
@@ -165,7 +171,7 @@ export function Voce({ a, set }) {
 
       {folha === 'mem' && (
         <FolhaMemorias itens={itens} onFechar={() => setFolha(null)}
-          onMudar={m => set('mem', m)} />
+          onAdicionar={adicionar} onEditar={editar} onApagar={apagar} />
       )}
     </>
   );

@@ -5,6 +5,8 @@ import { Cady, CadyViva } from '../Cady';
 import { Constelacao, Glyph, Icon, WorldMap } from '../ui';
 import { Card, Cta, Ghost, Grow, Kicker, Lede, Opts, Pager, Wordmark } from '../shell';
 import { LANGS } from '../../../lib/comecar/data';
+import { useSpeechRecognition } from '../../../lib/useSpeechRecognition';
+import { FRASE_TESTE, compararFala } from '../../../lib/comecar/fala';
 
 export function Splash({ go }) {
   return (
@@ -149,9 +151,21 @@ export function Nivel({ go, a, set }) {
 /* Gravação simulada: o protótipo não escuta de verdade, e o site paralelo
    também não — o microfone real entra quando isso encostar na infra do Cadence.
    O que importa aqui é o gesto: tocar, ver a onda reagir, tocar de novo. */
-export function Mic({ onDone, hintInicial = 'toque para falar', hintOuvindo, hintFim }) {
+/* O microfone tem dois modos. Com `reconhecer`, ele usa a Web Speech API e
+   entrega o que a pessoa realmente falou; sem, é só a animação (a primeira
+   lição é roteirizada de propósito — ver o comentário em LicaoFala).
+
+   O fallback importa: Firefox não tem a API, e em qualquer navegador a pessoa
+   pode negar o microfone. Nesses casos a tela continua andando e o feedback diz
+   que não ouviu, em vez de inventar um resultado. */
+export function Mic({ onDone, reconhecer = false, hintInicial = 'toque para falar', hintOuvindo, hintFim }) {
   const [fase, setFase] = useState('parado');
   const ondas = useRef(null);
+  const fala = useSpeechRecognition({ lang: 'en-US' });
+  const ouvido = useRef('');
+  // O transcript chega em pedaços e some quando a sessão encerra; guardo o
+  // último não-vazio pra não entregar string vazia a quem só lê no fim.
+  if (reconhecer && fala.transcript) ouvido.current = fala.transcript;
 
   useEffect(() => {
     if (fase !== 'ouvindo' || !ondas.current) return;
@@ -162,7 +176,7 @@ export function Mic({ onDone, hintInicial = 'toque para falar', hintOuvindo, hin
 
   useEffect(() => {
     if (fase !== 'fim') return undefined;
-    const t = setTimeout(onDone, 1300);
+    const t = setTimeout(() => onDone(ouvido.current.trim()), 1300);
     return () => clearTimeout(t);
   }, [fase, onDone]);
 
@@ -176,7 +190,10 @@ export function Mic({ onDone, hintInicial = 'toque para falar', hintOuvindo, hin
       </div>
       <button className={`mic ${fase === 'ouvindo' ? 'rec' : ''}`} style={{ marginTop: 14 }}
         disabled={fase === 'fim'}
-        onClick={() => setFase(fase === 'parado' ? 'ouvindo' : 'fim')}>
+        onClick={() => {
+          if (reconhecer && fala.supported) fala.toggle();
+          setFase(fase === 'parado' ? 'ouvindo' : 'fim');
+        }}>
         {fase === 'parado' && <Glyph name="mic" size={34} />}
         {fase === 'ouvindo' && <Glyph name="stop" size={26} />}
         {fase === 'fim' && <Glyph name="clock" size={28} />}
@@ -186,7 +203,7 @@ export function Mic({ onDone, hintInicial = 'toque para falar', hintOuvindo, hin
   );
 }
 
-export function Fala({ go }) {
+export function Fala({ go, set }) {
   return (
     <div className="scr" style={{ textAlign: 'center' }}>
       <Kicker>Teste rápido</Kicker>
@@ -197,7 +214,7 @@ export function Fala({ go }) {
         <Lede style={{ marginTop: 8, fontSize: 13 }}>uma mesa para dois, por favor</Lede>
       </Card>
       <Grow />
-      <Mic onDone={() => go('feedback')}
+      <Mic reconhecer onDone={texto => { set('fala', texto); go('feedback'); }}
         hintOuvindo="estou te ouvindo… toque quando terminar"
         hintFim="analisando sua fala…" />
       <Grow />
@@ -205,25 +222,48 @@ export function Fala({ go }) {
   );
 }
 
-export function Feedback({ go }) {
+const chipApagado = {
+  fontSize: 11.5, padding: '6px 12px', background: 'transparent',
+  borderColor: 'var(--dk-line)', color: 'var(--dk-soft)',
+};
+
+export function Feedback({ go, a }) {
+  const r = compararFala(a.fala);
+
   return (
     <div className="scr" style={{ textAlign: 'center' }}>
-      <Kicker>Você disse</Kicker>
+      <Kicker>{r.ouviu ? 'Você disse' : 'A frase era'}</Kicker>
       <Card className="card-dark"
         style={{ background: 'var(--dark-soft)', marginTop: 12, textAlign: 'left' }}>
         <p style={{ fontFamily: 'var(--f-display)', fontSize: 19 }}>
-          &ldquo;I&rsquo;d like a table for two, please.&rdquo;</p>
-        <div style={{ display: 'flex', gap: 7, marginTop: 13, flexWrap: 'wrap' }}>
-          <span className="chip sel" style={{ fontSize: 11.5, padding: '6px 12px' }}>pronúncia 92%</span>
-          <span className="chip" style={{
-            fontSize: 11.5, padding: '6px 12px', background: 'transparent',
-            borderColor: 'var(--dk-line)', color: 'var(--dk-soft)',
-          }}>ritmo 78%</span>
-        </div>
+          &ldquo;{r.ouviu ? r.disse : FRASE_TESTE}&rdquo;</p>
+        {r.ouviu && (
+          <div style={{ display: 'flex', gap: 7, marginTop: 13, flexWrap: 'wrap' }}>
+            <span className={`chip ${r.completa ? 'sel' : ''}`}
+              style={r.completa ? { fontSize: 11.5, padding: '6px 12px' } : chipApagado}>
+              {r.acertou} de {r.alvo.length} palavras
+            </span>
+            {!r.completa && (
+              <span className="chip" style={chipApagado}>
+                faltou: {r.faltando.slice(0, 3).join(', ')}
+              </span>
+            )}
+          </div>
+        )}
       </Card>
       <CadyViva size={150} />
-      <h2>Olha só — saiu inteira.</h2>
-      <Lede>Esse é o ponto de partida. Agora eu preciso saber pra onde você quer ir.</Lede>
+      {r.ouviu ? (
+        <>
+          <h2>{r.completa ? 'Olha só — saiu inteira.' : 'Boa — já dá pra trabalhar em cima disso.'}</h2>
+          <Lede>Esse é o ponto de partida. Agora eu preciso saber pra onde você quer ir.</Lede>
+        </>
+      ) : (
+        <>
+          <h2>Não consegui te ouvir agora.</h2>
+          <Lede>Pode ter sido o microfone ou o navegador — a gente faz esse teste na
+            primeira conversa. Segue que o resto não depende disso.</Lede>
+        </>
+      )}
       <Grow />
       <Cta onClick={() => go('conquista1')}>continuar</Cta>
     </div>

@@ -4,10 +4,25 @@ import { createClient } from '../../../lib/supabase/server';
 export const dynamic = 'force-dynamic';
 
 const arr = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, 20).map((x) => x.slice(0, 200)) : []);
+// jarr distingue "não veio" de "veio vazio": o funil antigo não manda `topics`,
+// e gravar [] ali apagaria a diferença entre não perguntado e nenhum escolhido.
+const jarr = (v) => (Array.isArray(v) ? arr(v) : null);
 const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : null);
+
+// Colunas anteriores à migration 0034. Se a 0034 ainda não rodou no banco, o
+// upsert com as colunas novas falha inteiro — e aí o funil trava, porque quem
+// não tem onboarded_at volta pro /onboarding pra sempre. Por isso o upsert cai
+// em degraus: linha completa → só as colunas antigas → sem gender (0029).
+const COLUNAS_ANTIGAS = ['user_id', 'age', 'gender', 'level', 'reasons', 'challenges', 'daily_goal', 'updated_at'];
+const somente = (row, chaves) => Object.fromEntries(Object.entries(row).filter(([k]) => chaves.includes(k)));
 
 // POST → salva as respostas do onboarding do usuário e marca profiles.onboarded_at.
 // Também semeia a memória da Cady (nível + motivos) pra ela já personalizar.
+//
+// Atende os DOIS funis:
+//   - v1:      /login → /onboarding (6 perguntas) → /pagamento
+//   - comecar: nova interface de 33 telas, que responde tudo antes da conta
+//     existir e despeja aqui de uma vez assim que a sessão nasce.
 export async function POST(request) {
   const supabase = createClient();
   const {
@@ -22,6 +37,8 @@ export async function POST(request) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
+  const source = body.source === 'comecar' ? 'comecar' : 'v1';
+
   const row = {
     user_id: user.id,
     age: str(body.age, 40),
@@ -30,15 +47,29 @@ export async function POST(request) {
     reasons: arr(body.reasons),
     challenges: arr(body.challenges),
     daily_goal: str(body.dailyGoal, 40),
+    // Colunas da 0034 — só o funil novo preenche.
+    audio_pref: str(body.audioPref, 40),
+    speaks_today: str(body.speaksToday, 40),
+    deadline: str(body.deadline, 40),
+    best_time: str(body.bestTime, 40),
+    topics: jarr(body.topics),
+    tone: str(body.tone, 40),
+    source,
     updated_at: new Date().toISOString(),
   };
 
   // Valida que respondeu tudo ANTES de marcar como onboarded. Sem isso, um POST
   // vazio viraria a chave do funil (profiles.onboarded_at) e pularia as perguntas.
-  const complete =
-    !!row.age && !!row.level && !!row.daily_goal &&
+  //
+  // A nova interface não pergunta idade nem gênero (não estão entre as 33 telas),
+  // então exigir `age` ali reprovaria toda pessoa que vem por /comecar e a jogaria
+  // no questionário antigo depois de já ter respondido 28 telas. A régua muda com
+  // o funil; a do v1 continua exatamente como era.
+  const respondeuONucleo =
+    !!row.level && !!row.daily_goal &&
     Array.isArray(row.reasons) && row.reasons.length > 0 &&
     Array.isArray(row.challenges) && row.challenges.length > 0;
+  const complete = source === 'comecar' ? respondeuONucleo : (!!row.age && respondeuONucleo);
   if (!complete) return NextResponse.json({ error: 'missing_fields' }, { status: 400 });
 
   // 1) Marca onboarded_at (a chave do funil) de forma VERIFICADA. Se falhar,
@@ -49,12 +80,15 @@ export async function POST(request) {
     .eq('id', user.id);
   if (profErr) return NextResponse.json({ error: 'save_failed', details: profErr.message }, { status: 500 });
 
-  // 2) Detalhes das respostas — best-effort (não travam o funil). Se a coluna
-  // gender (0029) faltar, tenta de novo sem ela.
+  // 2) Detalhes das respostas — best-effort (não travam o funil).
   let up = await supabase.from('onboarding').upsert(row, { onConflict: 'user_id' });
   if (up.error) {
-    const { gender, ...noGender } = row; // eslint-disable-line no-unused-vars
-    await supabase.from('onboarding').upsert(noGender, { onConflict: 'user_id' });
+    up = await supabase.from('onboarding').upsert(somente(row, COLUNAS_ANTIGAS), { onConflict: 'user_id' });
+    if (up.error) {
+      await supabase
+        .from('onboarding')
+        .upsert(somente(row, COLUNAS_ANTIGAS.filter((c) => c !== 'gender')), { onConflict: 'user_id' });
+    }
   }
 
   // semeia a memória da Cady (best-effort) pra ela já conhecer o usuário
@@ -64,6 +98,11 @@ export async function POST(request) {
     if (row.daily_goal) facts.push({ user_id: user.id, category: 'goals', fact: `Meta diária: ${row.daily_goal}`, importance: 4 });
     (row.reasons || []).slice(0, 3).forEach((r) => facts.push({ user_id: user.id, category: 'goals', fact: `Quer aprender inglês para: ${r.replace(/\.$/, '')}`, importance: 4 }));
     (row.challenges || []).slice(0, 2).forEach((c) => facts.push({ user_id: user.id, category: 'other', fact: `Desafio com o inglês: ${c.replace(/\.$/, '')}`, importance: 4 }));
+    // Vindas só do funil novo — o tom é o que mais muda a voz da Cady, por isso
+    // entra com importância máxima.
+    if (row.tone) facts.push({ user_id: user.id, category: 'preferences', fact: `Prefere correção em tom ${row.tone === 'agressivo' ? 'direto — quer ser corrigido na hora, sem suavizar' : 'tranquilo — professor paciente, sem pressão'}`, importance: 5 });
+    (row.topics || []).slice(0, 4).forEach((t) => facts.push({ user_id: user.id, category: 'preferences', fact: `Gosta de conversar sobre: ${t}`, importance: 3 }));
+    if (row.best_time) facts.push({ user_id: user.id, category: 'preferences', fact: `Melhor horário pra praticar: ${row.best_time}`, importance: 2 });
     if (facts.length) await supabase.from('user_memory').insert(facts);
   } catch {
     /* best-effort */
