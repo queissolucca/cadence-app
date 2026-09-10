@@ -116,32 +116,6 @@ export function Plano({ go, a }) {
       </Card>
       <Grow />
       <Cta onClick={() => go('compromisso')}>fechado, é isso</Cta>
-      <Ghost onClick={() => go('menor')}>quero começar menor</Ghost>
-    </div>
-  );
-}
-
-export function Menor({ go, a }) {
-  return (
-    <div className="scr">
-      <Kicker>Sem culpa</Kicker>
-      <h1 style={{ marginTop: 8 }}>Começar menor também funciona.</h1>
-      <Lede>Mesmo caminho, mesmos cenários, mesma constelação — só um pouco mais devagar.</Lede>
-      <Card style={{ marginTop: 18 }}>
-        <div className="ritual">
-          <div className="rit"><span className="knot" /><span><b>Aquecer</b>
-            <small>versão curtinha</small></span><span className="dur">30 s</span></div>
-          <div className="rit"><span className="knot" /><span><b>Conversar</b>
-            <small>uma troca só</small></span><span className="dur">2 min</span></div>
-          <div className="rit"><span className="knot dim" /><span><b>Revisar</b>
-            <small>entra quando você quiser</small></span><span className="dur">—</span></div>
-        </div>
-      </Card>
-      <p className="lede mono" style={{ fontSize: 11.5, marginTop: 14 }}>
-        única diferença: a meta vira {fmt(addDias(Math.round(metaDias(a.min) * 1.6)))}</p>
-      <Grow />
-      <Cta onClick={() => go('compromisso')}>prefiro assim</Cta>
-      <Ghost onClick={() => go('plano')}>voltar pro plano cheio</Ghost>
     </div>
   );
 }
@@ -236,7 +210,12 @@ export function Paywall({ go, a }) {
           <span className="priceold">R$ 296,90</span>
           <span className="priceoff">-70%</span>
         </div>
-        <div className="pricenew">R$ 89,90</div>
+        <div className="priceday">
+          <span className="pricenew">R$ 89,90</span>
+          {/* Calculado, não escrito à mão: se o preço ou a duração mudarem, este
+              número muda junto em vez de virar mentira silenciosa. */}
+          <span className="perday">R$ {(89.90 / 90).toFixed(2).replace('.', ',')} / dia</span>
+        </div>
         <p className="priceunit">pagamento único · 3 primeiros meses de acesso</p>
         <ul className="planlist">
           <li><span className="memdot" />conversa de {a.min || 5} minutos por dia, todo dia</li>
@@ -249,7 +228,7 @@ export function Paywall({ go, a }) {
       </div>
       <Grow />
       <Cta onClick={() => go('conta')}>garantir meu acesso</Cta>
-      <Kicker style={{ textAlign: 'center', marginTop: 10 }}>pix ou cartão · acesso liberado na hora</Kicker>
+      <Kicker style={{ textAlign: 'center', marginTop: 10 }}>pague via pix · acesso liberado na hora</Kicker>
     </div>
   );
 }
@@ -364,14 +343,14 @@ export function Conta({ go, a }) {
         <>
           <Grow />
           <Cta disabled={enviando} onClick={() => finalizar(a)}>
-            {enviando ? 'abrindo pagamento…' : 'ir para o pagamento'}
+            {enviando ? 'abrindo pagamento…' : 'pagar com PIX'}
           </Cta>
           {erro && <Erro>{erro}</Erro>}
         </>
       ) : (
         <>
           <form onSubmit={porEmail} style={{ marginTop: 24 }}>
-            <GoogleBtn label="Criar conta com o Google" onClick={porGoogle} />
+            <GoogleBtn label="Continuar com o Google e pagar" onClick={porGoogle} />
             <Field label="Nome" type="text" placeholder="como eu te chamo" autoComplete="name"
               value={nome} onChange={e => setNome(e.target.value)} />
             <Field label="E-mail" type="email" placeholder="voce@email.com" autoComplete="email"
@@ -379,7 +358,7 @@ export function Conta({ go, a }) {
             <Field label="Senha" type="password" placeholder="mínimo 6 caracteres"
               autoComplete="new-password" value={senha} onChange={e => setSenha(e.target.value)} />
             <Cta disabled={enviando || !podeEnviar}>
-              {enviando ? 'criando sua conta…' : 'criar conta'}
+              {enviando ? 'abrindo o pagamento…' : 'criar conta e pagar'}
             </Cta>
           </form>
           {erro && <Erro>{erro}</Erro>}

@@ -235,7 +235,7 @@ export function Gerando({ go, a }) {
       <p className="genstep">{GEN_STEPS[i]}</p>
       <div className="genpanel" key={i}><Painel i={i} a={a} /></div>
       <Laurel frase="Esse será o melhor aplicativo de idiomas do ano"
-        sub="200 mil brasileiros comigo" />
+        sub="Criado por brasileiros, para brasileiros" />
       <Grow />
     </div>
   );

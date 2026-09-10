@@ -88,10 +88,24 @@ export function Proposta({ go }) {
   );
 }
 
+/* ATENÇÃO: estes depoimentos são inventados. A tela tinha uma linha dizendo
+   "dados ilustrativos · protótipo", que era o que os mantinha honestos, e ela
+   foi retirada a pedido — então hoje eles aparecem como se fossem de clientes
+   reais, num site que cobra. Isso é exposição sob o CDC (art. 37).
+
+   Trocar por depoimentos de verdade é mudar só este array: nome, cor do avatar,
+   frase e há quanto tempo a pessoa usa. */
 const DEPOIMENTOS = [
-  { n: 'Marina L.', c: '#3E9B5F', t: 'Reunião em inglês era pânico. Hoje eu abro a câmera e falo.', w: '6 semanas' },
-  { n: 'Rafael T.', c: '#2c7347', t: 'O formato de 5 minutos foi o único que eu consegui manter.', w: '3 meses' },
-  { n: 'Camila V.', c: '#a5760a', t: 'Viajei e pedi tudo sozinha. Sem tradutor, sem gaguejar.', w: '2 meses' },
+  { n: 'Marina L.',  c: '#3E9B5F', t: 'Reunião em inglês era pânico. Hoje eu abro a câmera e falo.', w: '8 semanas' },
+  { n: 'Rafael T.',  c: '#2c7347', t: 'O formato de 5 minutos foi o único que eu consegui manter.', w: '3 semanas' },
+  { n: 'Camila V.',  c: '#a5760a', t: 'Viajei e pedi tudo sozinha. Sem tradutor, sem gaguejar.', w: '8 semanas' },
+  { n: 'Juliana P.', c: '#D9527A', t: 'A correção na hora é o que faltava. Eu errava e ninguém dizia nada.', w: '2 semanas' },
+  { n: 'Diego M.',   c: '#3E9B5F', t: 'Parei de montar a frase na cabeça antes de falar. Agora ela sai.', w: '3 semanas' },
+  { n: 'Thiago A.',  c: '#2c7347', t: 'A daily do time deixou de ser o pior momento do meu dia.', w: '8 semanas' },
+  { n: 'Beatriz S.', c: '#a5760a', t: 'Eu entendia tudo e não respondia nada. Isso acabou.', w: '3 semanas' },
+  { n: 'Amanda R.',  c: '#D9527A', t: 'Cinco minutos antes de dormir. Virou hábito sem eu perceber.', w: '2 semanas' },
+  { n: 'Lucas F.',   c: '#3E9B5F', t: 'Tive entrevista em inglês semana passada. Não travei uma vez.', w: '8 semanas' },
+  { n: 'Pedro H.',   c: '#2c7347', t: 'O sotaque continua. Travar, não — e era isso que me atrapalhava.', w: '3 semanas' },
 ];
 
 export function Social({ go }) {
@@ -103,12 +117,11 @@ export function Social({ go }) {
         <div className="quote" key={q.n}>
           <div className="who">
             <span className="av" style={{ background: q.c }}>{q.n[0]}</span>
-            <span><b>{q.n}</b><small>{q.w} de cadência</small></span>
+            <span><b>{q.n}</b><small>{q.w} de uso</small></span>
           </div>
           <p>&ldquo;{q.t}&rdquo;</p>
         </div>
       ))}
-      <p className="lede mono" style={{ fontSize: 11, marginTop: 14 }}>dados ilustrativos · protótipo</p>
       <Grow />
       <Cta onClick={() => go('audio')}>continuar</Cta>
     </div>

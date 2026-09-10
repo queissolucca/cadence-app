@@ -89,10 +89,16 @@ button{font:inherit;font-family:var(--f-ui);cursor:pointer;border:none;backgroun
 /* trilha de pontos = progresso */
 #trail{position:relative;z-index:3;padding:16px 22px 6px;display:flex;align-items:center;gap:10px;flex-shrink:0}
 #trail.hide{visibility:hidden}
-.back{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
-  font-size:17px;color:var(--ink-soft);flex-shrink:0;border:1px solid var(--line)}
-#phone.dark .back{color:var(--dk-soft);border-color:var(--dk-line)}
-.back:disabled{opacity:.25}
+/* Voltar: era 30px com a cor mais apagada da paleta sobre fundo preto — quase
+   invisível, e abaixo do alvo de toque confortável. Agora tem superfície
+   própria, contraste de verdade e 42px. */
+.back{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;
+  color:var(--ink-soft);flex-shrink:0;border:1px solid var(--line);background:var(--card);
+  transition:transform .12s,background .18s}
+#phone.dark .back{color:#EFEAEC;border-color:#3D363D;background:rgba(255,255,255,.075)}
+#phone.dark .back:hover{background:rgba(255,255,255,.13)}
+.back:active{transform:scale(.93)}
+.back:disabled{opacity:.26}
 .nodes{flex:1;height:22px;position:relative;display:flex;align-items:center}
 .nodes .wire{position:absolute;left:0;right:0;height:2px;background:var(--line);border-radius:2px}
 #phone.dark .nodes .wire{background:var(--dk-line)}
@@ -621,6 +627,10 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
 .priceoff{font-family:var(--f-mono);font-size:11px;font-weight:600;letter-spacing:.06em;
   color:#08150E;border-radius:7px;padding:3px 8px;background:#8FF0C0;
   box-shadow:0 2px 6px rgba(46,158,91,.3)}
+/* O preço por dia anda junto do preço cheio, alinhado pela base e discreto:
+   ele é um apoio pra conta mental, não um segundo preço disputando atenção. */
+.priceday{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.perday{font-family:var(--f-mono);font-size:11.5px;color:var(--dk-mute);letter-spacing:.02em}
 .priceunit{font-size:13px;color:var(--dk-soft);margin-top:5px}
 .planlist{list-style:none;display:flex;flex-direction:column;gap:8px;margin-top:15px}
 .planlist li{display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.45;
@@ -703,19 +713,32 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
 /* ---- grafico de confianca ---- */
 .chart{margin-top:16px;padding:15px 15px 13px}
 .csvg{width:100%;height:auto;display:block;margin-top:8px;overflow:visible}
-.cgrid{stroke:var(--dk-grid);stroke-width:1;stroke-dasharray:2 5}
+/* Grade contínua: tracejada, ela competia por atenção com a própria curva. */
+.cgrid{stroke:var(--dk-grid);stroke-width:1}
+/* O dasharray abaixo NÃO é traço visível — com pathLength="1" ele é o truque
+   que faz a linha se desenhar da esquerda pra direita. */
 .cline{fill:none;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;
   animation:draw2 1.7s cubic-bezier(.35,.1,.25,1) .15s forwards}
-.cline.com{stroke:#f2f2ea;stroke-width:2.6}
+/* A linha "com a Cady" é o argumento da tela: leva a cor dela, mais peso e o
+   brilho. A "sem conversar" fica cinza e fina de propósito — o contraste entre
+   as duas é o que a tela está dizendo. */
+.cline.com{stroke:var(--cady);stroke-width:3.6;
+  filter:drop-shadow(0 0 5px rgba(245,141,174,.60)) drop-shadow(0 0 14px rgba(245,141,174,.30))}
 .cline.sem{stroke:var(--dk-dim);stroke-width:2}
 @keyframes draw2{to{stroke-dashoffset:0}}
+/* Os pontos não tinham fill nenhum, então saíam no preto padrão do SVG —
+   invisíveis sobre o card escuro, e furos pretos em cima da linha. */
 .cdot{opacity:0;animation:pop .34s ease-out forwards}
+.cdot.com,.cend.com{fill:var(--cady-luz)}
+.cdot.sem,.cend.sem{fill:var(--dk-mute)}
+.cend.com{filter:drop-shadow(0 0 7px rgba(245,141,174,.8))}
 @keyframes pop{from{opacity:0}to{opacity:1}}
 .cend{opacity:0;animation:pop .4s ease-out 1.75s forwards}
 .clabels{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
 .cpill{font-family:var(--f-mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;
   border-radius:999px;padding:4px 10px;opacity:0;animation:pop .4s ease-out 1.6s forwards}
-.cpill.com{background:#f2f2ea;color:#141412;font-weight:600}
+.cpill.com{background:var(--cady);color:var(--cady-ink);font-weight:600;
+  box-shadow:0 0 12px rgba(245,141,174,.35)}
 .cpill.sem{border:1px solid #3a3a35;color:#8a8a80}
 .cfoot{display:flex;justify-content:space-between;margin-top:10px;font-family:var(--f-mono);
   font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--dk-mute)}

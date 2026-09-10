@@ -61,7 +61,14 @@ export function App() {
         <Constellation />
 
         <div id="trail" className={tela.bare ? 'hide' : ''}>
-          <button className="back" onClick={voltar} disabled={!hist.length}>‹</button>
+          {/* Chevron em SVG e não o caractere '‹': naquele tamanho o glifo saía
+              fino demais e a espessura variava com a fonte carregada. */}
+          <button className="back" onClick={voltar} disabled={!hist.length} aria-label="Voltar">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
           <div className="nodes">
             <span className="wire" />
             <span className="wire-on" style={{ width: `${(at / (N - 1)) * 100}%` }} />
