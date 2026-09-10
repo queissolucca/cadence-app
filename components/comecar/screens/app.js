@@ -8,8 +8,8 @@ import { Mic } from './abertura';
 import { agrupar, memorias } from '../../../lib/comecar/state';
 import { addDias, fmt, metaDias } from '../../../lib/comecar/datas';
 import {
-  concluir, criarConta, entrarComGoogle, entrarComSenha, limparRetomada,
-  mensagemDe, sessaoAtual, temRetomada,
+  concluir, criarConta, entrarComGoogle, entrarComGoogleExistente, entrarComSenha,
+  limparRetomada, mensagemDe, sessaoAtual, temRetomada,
 } from '../../../lib/comecar/conta';
 import { respostasCompletas } from '../../../lib/comecar/paraApi';
 
@@ -416,7 +416,7 @@ export function Login({ go }) {
 
   const porGoogle = async () => {
     setErro('');
-    try { await entrarComGoogle(); } catch { setErro('Não consegui abrir o Google. Tenta de novo.'); }
+    try { await entrarComGoogleExistente(); } catch { setErro('Não consegui abrir o Google. Tenta de novo.'); }
   };
 
   return (

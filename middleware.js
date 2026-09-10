@@ -36,8 +36,13 @@ export async function middleware(request) {
   }
 
   // A raiz do site é a landing estática (public/home.html) — servida via rewrite,
-  // sem mudar a URL. (Usuários logados que quiserem o app clicam em "Entrar".)
+  // sem mudar a URL. Mas só pra quem ainda não entrou: quem já tem sessão abrindo
+  // cadenceenglish.app quer o app, não a página de vendas. Antes essa pessoa caía
+  // na landing e só chegava no /v2 clicando em "Entrar" (que o middleware então
+  // redirecionava, por já haver sessão) — dois passos pra voltar pra onde ela já
+  // estava. Custo assumido: logado não vê mais a landing sem sair da conta.
   if (pathname === '/') {
+    if (user) return NextResponse.redirect(new URL('/v2', request.url));
     return NextResponse.rewrite(new URL('/home.html', request.url));
   }
 
