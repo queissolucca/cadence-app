@@ -355,6 +355,34 @@ h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-
   background:var(--card);font-size:15px;color:var(--ink);outline:none;font-family:var(--f-ui)}
 .field input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(62,155,95,.13)}
 
+/* --- formulário de conta --- */
+/* Nome e sobrenome dividem a linha: são curtos e pertencem ao mesmo dado. */
+.fieldrow{display:flex;gap:10px}
+.fieldrow .field{flex:1;min-width:0}
+/* O olho fica DENTRO do campo, e o padding à direita abre espaço pra ele — sem
+   isso o texto passa por baixo do ícone em senha longa. */
+.fieldeye{position:relative}
+.fieldeye input{width:100%;padding:14px 48px 14px 15px;border:1px solid var(--line);
+  border-radius:14px;background:var(--card);font-size:15px;color:var(--ink);outline:none;
+  font-family:var(--f-ui)}
+.fieldeye input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(62,155,95,.13)}
+.fieldeye button{position:absolute;right:5px;top:50%;transform:translateY(-50%);
+  width:38px;height:38px;display:grid;place-items:center;border-radius:11px;color:var(--ink-soft)}
+.fieldeye button svg{width:19px;height:19px}
+.fielderr{font-size:11.5px;color:var(--red);margin-top:6px;line-height:1.35}
+.field input.ruim,.field input.ruim:focus{border-color:var(--red);
+  box-shadow:0 0 0 3px rgba(176,87,74,.16)}
+.termos{display:flex;gap:11px;align-items:flex-start;margin-top:15px;font-size:13px;
+  line-height:1.45;color:var(--ink-soft);cursor:pointer}
+.termos input{appearance:none;-webkit-appearance:none;width:21px;height:21px;flex-shrink:0;
+  margin:1px 0 0;border:1.5px solid var(--line);border-radius:7px;background:var(--card);
+  display:grid;place-items:center;transition:background .16s,border-color .16s;cursor:pointer}
+.termos input:checked{background:var(--green);border-color:var(--green)}
+.termos input:checked::after{content:'';width:10px;height:5.5px;
+  border-left:2.2px solid #08160e;border-bottom:2.2px solid #08160e;
+  transform:rotate(-45deg) translate(1px,-1.5px)}
+.termos a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+
 /* tabbar do app */
 .tabbar{display:flex;border-top:1px solid var(--line);background:var(--card);flex-shrink:0;
   position:relative;z-index:3}
@@ -406,6 +434,14 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
 .reset{background:#1e1e1b;border-color:var(--dk-line);color:#f2f2ea}
 #phone.dark .field input{background:var(--dark-soft);border-color:var(--dk-line);color:#f2f2ea}
 #phone.dark .field input::placeholder{color:var(--dk-mute)}
+#phone.dark .fieldeye input{background:var(--dark-soft);border-color:var(--dk-line);color:#f2f2ea}
+#phone.dark .fieldeye input::placeholder{color:var(--dk-mute)}
+#phone.dark .fieldeye button{color:var(--dk-soft)}
+#phone.dark .fieldeye button:hover{color:#f2f2ea}
+#phone.dark .termos{color:var(--dk-soft)}
+#phone.dark .termos input{background:var(--dark-soft);border-color:var(--dk-line)}
+#phone.dark .termos input:checked{background:var(--green);border-color:var(--green)}
+#phone.dark .termos a{color:#f2f2ea}
 #phone.dark .tabbar{background:var(--dark-soft);border-top-color:var(--dk-line)}
 #phone.dark .tab{color:var(--dk-soft)}
 #phone.dark .tab.on{color:#f2f2ea}
@@ -699,11 +735,20 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
 .memnew svg{width:15px;height:15px;stroke-width:2.2}
 
 /* ---- entrar com Google ---- */
+/* Afunda ao toque e volta com uma sobrada. Duas transições diferentes de
+   propósito: descer é rápido e seco (o dedo mandou), subir é mais lento e com
+   overshoot — é o que faz o botão parecer ter mola em vez de só piscar. */
 .gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
   padding:13px 16px;border-radius:12px;font-size:15px;font-weight:700;color:#F4F2EC;
   background:radial-gradient(130% 150% at 30% 18%,#2E2930 0%,#1C191E 50%,#121013 100%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.11),inset 0 -1px 1px rgba(0,0,0,.5),
-    0 2px 5px rgba(0,0,0,.5),0 6px 16px rgba(0,0,0,.32)}
+    0 2px 5px rgba(0,0,0,.5),0 6px 16px rgba(0,0,0,.32);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease}
+.gbtn:active{transform:translateY(3px) scale(.972);
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.62),inset 0 -1px 0 rgba(255,255,255,.05),
+    0 1px 2px rgba(0,0,0,.5);
+  transition:transform .07s ease-out,box-shadow .07s ease-out}
+@media (prefers-reduced-motion:reduce){.gbtn,.gbtn:active{transition:none;transform:none}}
 .gbtn svg{width:18px;height:18px;flex-shrink:0}
 .orsep{display:flex;align-items:center;gap:10px;margin:15px 0}
 .orsep span{flex:1;height:1px;background:var(--dk-line)}

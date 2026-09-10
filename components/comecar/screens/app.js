@@ -8,8 +8,8 @@ import { Mic } from './abertura';
 import { agrupar, memorias } from '../../../lib/comecar/state';
 import { addDias, fmt, metaDias } from '../../../lib/comecar/datas';
 import {
-  concluir, criarConta, entrarComGoogle, entrarComGoogleExistente, entrarComSenha,
-  limparRetomada, mensagemDe, sessaoAtual, temRetomada,
+  abrirCheckout, criarConta, entrarComGoogle, entrarComGoogleExistente, entrarComSenha,
+  limparRetomada, mensagemDe, salvarRespostas, sessaoAtual, temRetomada,
 } from '../../../lib/comecar/conta';
 import { respostasCompletas } from '../../../lib/comecar/paraApi';
 
@@ -181,7 +181,7 @@ export function Tonalidade({ go, a, set }) {
       <Kicker>Último passo</Kicker>
       <h1 style={{ marginTop: 8 }}>Como você quer que eu te corrija?</h1>
       <Lede>Isso muda o meu jeito de falar com você — não muda o conteúdo do plano.</Lede>
-      <Opts value={a.tom} list={TONS} onPick={v => { set('tom', v); go('paywall'); }} />
+      <Opts value={a.tom} list={TONS} onPick={v => { set('tom', v); go('conta'); }} />
       <Card className="card-green"
         style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <Glyph name="bulb" size={20} />
@@ -198,7 +198,23 @@ export function Tonalidade({ go, a, set }) {
 
 /* Fecha o onboarding. O plano vem antes de criar conta porque no app de verdade
    o acesso é liberado pelo e-mail do pagamento. */
-export function Paywall({ go, a }) {
+export function Paywall({ a }) {
+  const [indo, setIndo] = useState(false);
+  const [erro, setErro] = useState('');
+
+  // A conta já existe quando se chega aqui (a tela de conta vem antes), então
+  // este botão pode ir direto pro AbacatePay — sem nenhuma tela no meio.
+  const pagar = async () => {
+    setIndo(true);
+    setErro('');
+    try {
+      await abrirCheckout();   // não retorna: sai da página
+    } catch (e) {
+      setErro(mensagemDe(e));
+      setIndo(false);
+    }
+  };
+
   return (
     <div className="scr">
       <Kicker>Último passo</Kicker>
@@ -227,7 +243,10 @@ export function Paywall({ go, a }) {
           você decide se continua — não renova sozinho.</p>
       </div>
       <Grow />
-      <Cta onClick={() => go('conta')}>garantir meu acesso</Cta>
+      <Cta disabled={indo} onClick={pagar}>
+        {indo ? 'abrindo o pagamento…' : 'garantir meu acesso'}
+      </Cta>
+      {erro && <Erro>{erro}</Erro>}
       <Kicker style={{ textAlign: 'center', marginTop: 10 }}>pague via pix · acesso liberado na hora</Kicker>
     </div>
   );
@@ -255,21 +274,27 @@ const Erro = ({ children }) => (
   }}>{children}</p>
 );
 
-/* Última tela antes do pagamento. É aqui que as 28 telas anônimas viram conta,
-   linha no banco e checkout — nessa ordem, e só avançando quando a anterior
-   confirma (ver o comentário em lib/comecar/conta.js). */
+/* Fecho do onboarding: a conta nasce aqui, e só depois vem o pagamento.
+
+   A ordem importa. O /api/checkout exige sessão — é ela que amarra o pagamento
+   ao usuário. Um checkout aberto antes da conta volta anônimo e o acesso não
+   chega em ninguém: foi exatamente esse o bug que abriu este projeto. Por isso
+   esta tela grava as respostas das 33 telas e passa a bola pro paywall, em vez
+   de mandar direto pro AbacatePay. */
 export function Conta({ go, a }) {
   const [fase, setFase] = useState('form'); // form | enviando | confirme | logado
-  const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
+  const [f, setF] = useState({ nome: '', sobrenome: '', email: '', senha: '', senha2: '', convite: '' });
+  const [aceito, setAceito] = useState(false);
+  const [vendo, setVendo] = useState(false);
   const [erro, setErro] = useState('');
+  const campo = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
 
-  const finalizar = async (estado) => {
+  const seguir = async (estado) => {
     setFase('enviando');
     setErro('');
     try {
-      await concluir(estado);   // não retorna: sai da página pro AbacatePay
+      await salvarRespostas(estado);
+      go('paywall');
     } catch (e) {
       limparRetomada();
       setErro(mensagemDe(e));
@@ -277,14 +302,14 @@ export function Conta({ go, a }) {
     }
   };
 
-  // Retomada do Google (a pessoa saiu do site e voltou) e o caso de já haver
-  // sessão aberta — nos dois a conta já existe, o que falta é gravar e cobrar.
+  // Retomada do Google (saiu do site e voltou) e sessão já aberta: nos dois a
+  // conta existe, o que falta é gravar as respostas.
   useEffect(() => {
     let vivo = true;
     (async () => {
       const usuario = await sessaoAtual();
       if (!vivo) return;
-      if (usuario && temRetomada()) { finalizar(a); return; }
+      if (usuario && temRetomada()) { seguir(a); return; }
       if (usuario) setFase('logado');
       else limparRetomada();
     })();
@@ -293,17 +318,24 @@ export function Conta({ go, a }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A confirmação tem que bater LETRA POR LETRA — sem trim, sem ignorar caixa.
+  // Um espaço no fim é uma senha diferente na hora de entrar.
+  const senhaCurta = f.senha.length > 0 && f.senha.length < 8;
+  const naoBate = f.senha2.length > 0 && f.senha2 !== f.senha;
+  const podeEnviar = f.nome.trim() && f.sobrenome.trim() && f.email.trim()
+    && f.senha.length >= 8 && f.senha2 === f.senha && aceito && respostasCompletas(a);
+
   const porEmail = async (e) => {
     e.preventDefault();
+    if (!podeEnviar) return;
     setFase('enviando');
     setErro('');
     try {
-      const { session } = await criarConta({ nome, email, senha });
+      const { session } = await criarConta(f);
       // Projeto com confirmação de e-mail ligada: sem sessão não dá pra gravar
-      // nem cobrar. As respostas ficam no localStorage e a pessoa volta pelo
-      // link do e-mail, que cai aqui de novo já logada.
+      // nada. As respostas ficam no localStorage e a pessoa volta pelo link.
       if (!session) { setFase('confirme'); return; }
-      await finalizar(a);
+      await seguir(a);
     } catch (err) {
       setErro(err?.message || 'Não consegui criar a conta agora. Tenta de novo.');
       setFase('form');
@@ -321,7 +353,7 @@ export function Conta({ go, a }) {
         <Grow />
         <Wordmark px={28} />
         <h1 style={{ marginTop: 22 }}>Confirma seu e-mail.</h1>
-        <Lede>Mandei um link pra <b>{email}</b>. Clica nele e você volta exatamente aqui — suas
+        <Lede>Mandei um link pra <b>{f.email}</b>. Clica nele e você volta exatamente aqui — suas
           respostas continuam guardadas.</Lede>
         <Grow />
       </div>
@@ -329,36 +361,69 @@ export function Conta({ go, a }) {
   }
 
   const enviando = fase === 'enviando';
-  const podeEnviar = nome.trim() && email.trim() && senha.length >= 6 && respostasCompletas(a);
 
   return (
     <div className="scr" style={{ justifyContent: 'center' }}>
       <Grow />
-      <Wordmark px={28} />
-      <h1 style={{ textAlign: 'center', marginTop: 22 }}>Falta só guardar<br />o seu progresso.</h1>
+      <Wordmark px={26} />
+      <h1 style={{ textAlign: 'center', marginTop: 18 }}>Falta só guardar<br />o seu progresso.</h1>
       <Lede style={{ textAlign: 'center' }}>
         Sua constelação fica salva na conta — você troca de aparelho e ela continua de onde parou.</Lede>
 
       {fase === 'logado' ? (
         <>
           <Grow />
-          <Cta disabled={enviando} onClick={() => finalizar(a)}>
-            {enviando ? 'abrindo pagamento…' : 'pagar com PIX'}
+          <Cta disabled={enviando} onClick={() => seguir(a)}>
+            {enviando ? 'um momento…' : 'continuar'}
           </Cta>
           {erro && <Erro>{erro}</Erro>}
         </>
       ) : (
         <>
-          <form onSubmit={porEmail} style={{ marginTop: 24 }}>
-            <GoogleBtn label="Continuar com o Google e pagar" onClick={porGoogle} />
-            <Field label="Nome" type="text" placeholder="como eu te chamo" autoComplete="name"
-              value={nome} onChange={e => setNome(e.target.value)} />
+          <form onSubmit={porEmail} style={{ marginTop: 22 }}>
+            <GoogleBtn label="Criar conta com o Google" onClick={porGoogle} />
+
+            <div className="fieldrow">
+              <Field label="Nome" type="text" placeholder="seu nome" autoComplete="given-name"
+                value={f.nome} onChange={campo('nome')} />
+              <Field label="Sobrenome" type="text" placeholder="seu sobrenome" autoComplete="family-name"
+                value={f.sobrenome} onChange={campo('sobrenome')} />
+            </div>
             <Field label="E-mail" type="email" placeholder="voce@email.com" autoComplete="email"
-              value={email} onChange={e => setEmail(e.target.value)} />
-            <Field label="Senha" type="password" placeholder="mínimo 6 caracteres"
-              autoComplete="new-password" value={senha} onChange={e => setSenha(e.target.value)} />
+              value={f.email} onChange={campo('email')} />
+
+            <div className="field">
+              <label>Senha</label>
+              <div className="fieldeye">
+                <input type={vendo ? 'text' : 'password'} placeholder="mínimo 8 caracteres"
+                  autoComplete="new-password" value={f.senha} onChange={campo('senha')} />
+                <button type="button" onClick={() => setVendo(v => !v)}
+                  aria-label={vendo ? 'Esconder senha' : 'Mostrar senha'}>
+                  <Icon name={vendo ? 'eyeOff' : 'eye'} />
+                </button>
+              </div>
+              {senhaCurta && <p className="fielderr">A senha precisa de pelo menos 8 caracteres.</p>}
+            </div>
+
+            <div className="field">
+              <label>Confirmar senha</label>
+              <input type={vendo ? 'text' : 'password'} placeholder="repita a senha"
+                autoComplete="new-password" aria-invalid={naoBate ? 'true' : undefined}
+                className={naoBate ? 'ruim' : ''} value={f.senha2} onChange={campo('senha2')} />
+              {naoBate && <p className="fielderr">As senhas não são iguais.</p>}
+            </div>
+
+            <Field label="Código de convite (opcional)" type="text" placeholder="tem um código? cola aqui"
+              autoComplete="off" value={f.convite} onChange={campo('convite')} />
+
+            <label className="termos">
+              <input type="checkbox" checked={aceito} onChange={e => setAceito(e.target.checked)} />
+              <span>Aceito os <a href="/termos" target="_blank" rel="noreferrer">termos de uso</a> e a{' '}
+                <a href="/privacy" target="_blank" rel="noreferrer">política de privacidade</a>.</span>
+            </label>
+
             <Cta disabled={enviando || !podeEnviar}>
-              {enviando ? 'abrindo o pagamento…' : 'criar conta e pagar'}
+              {enviando ? 'criando sua conta…' : 'criar conta'}
             </Cta>
           </form>
           {erro && <Erro>{erro}</Erro>}
