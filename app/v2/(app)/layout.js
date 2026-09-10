@@ -1,6 +1,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { TabBar } from '../../../components/ui';
 import { Sidebar } from '../../../components/v2/Sidebar';
+import { ConstellationBg } from '../../../components/v2/ConstellationBg';
 import { streakFromDayKeys } from '../../../lib/streak';
 import { dayKeySP, todayKeySP } from '../../../lib/dates';
 import { Tracker } from '../../../components/Tracker';
@@ -28,6 +29,9 @@ export default async function AppLayoutV2({ children }) {
   return (
     <div className="v2-bg web-shell" style={{ fontFamily: 'var(--font-ui-v2)' }}>
       <Tracker />
+      {/* Antes do conteúdo de propósito: o fundo do shell pinta primeiro, o
+          canvas fica em z-index 0 e sidebar/main sobem pra 1 (globals.css). */}
+      <ConstellationBg />
       <Sidebar streak={streak} avatarUrl={profile?.avatar_url} avatarInitial={profile?.full_name || user.email} />
       <main className="web-main">
         <div className="web-main-inner">{children}</div>

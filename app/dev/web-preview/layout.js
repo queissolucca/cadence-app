@@ -1,6 +1,7 @@
 import { ThemeProviderV2 } from '../../../components/v2/ThemeProviderV2';
 import { Sidebar } from '../../../components/v2/Sidebar';
 import { TabBar } from '../../../components/ui';
+import { ConstellationBg } from '../../../components/v2/ConstellationBg';
 
 // Preview visual sem login e sem Supabase — vive fora de /v2 (middleware só
 // protege /v2 e /pagamento) e usa dados mockados nas pages abaixo. Reaproveita
@@ -11,6 +12,7 @@ export default function WebPreviewLayout({ children }) {
   return (
     <ThemeProviderV2>
       <div className="v2-bg web-shell">
+        <ConstellationBg />
         <Sidebar streak={12} avatarInitial="Lucca" basePath="/dev/web-preview" />
         <main className="web-main">
           <div className="web-main-inner">
