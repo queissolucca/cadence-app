@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import crypto from 'node:crypto';
-import { verifyWebhookSignature, maxInstallmentsFor, classifyEvent, threeMonthsFrom } from '../lib/payments.js';
+import { verifyWebhookSignature, maxInstallmentsFor, classifyEvent, threeMonthsFrom, metodoRecusado } from '../lib/payments.js';
 import { getPlan } from '../lib/plans.js';
 
 describe('verifyWebhookSignature (HMAC do webhook)', () => {
@@ -75,5 +75,46 @@ describe('threeMonthsFrom', () => {
   it('soma 3 meses', () => {
     const base = new Date('2026-01-15T00:00:00.000Z');
     expect(threeMonthsFrom(base).slice(0, 7)).toBe('2026-04');
+  });
+});
+
+describe('metodoRecusado (qual método o AbacatePay não aceita)', () => {
+  it('pega o caso real que derrubava o botão de pagar', () => {
+    // Mensagem literal que a produção estava recebendo, com 502 no cliente.
+    expect(metodoRecusado('CARD is not available for this store')).toBe('CARD');
+  });
+
+  it('pega o caso simétrico', () => {
+    expect(metodoRecusado('PIX is not available for this store')).toBe('PIX');
+  });
+
+  it('não confunde método com palavra que só contém o nome', () => {
+    // Sem o \b, "CARD" casaria dentro de CARDHOLDER e a gente removeria o
+    // método errado do pedido.
+    expect(metodoRecusado('CARDHOLDER_NAME is not available')).toBe(null);
+    expect(metodoRecusado('DISCARDED is not available')).toBe(null);
+  });
+
+  it('erro que não é sobre método indisponível sobe, não vira retentativa', () => {
+    for (const m of [
+      'AbacatePay respondeu HTTP 401',
+      'product prod_x not found',
+      'invalid externalId',
+      '',
+      null,
+      undefined,
+    ]) {
+      expect(metodoRecusado(m)).toBe(null);
+    }
+  });
+
+  it('só considera os métodos que estavam no pedido', () => {
+    // Se já tiramos CARD e o erro volta falando de CARD, não há o que remover.
+    expect(metodoRecusado('CARD is not available for this store', ['PIX'])).toBe(null);
+  });
+
+  it('aceita as outras formas que a API usa pra dizer o mesmo', () => {
+    expect(metodoRecusado('PIX unavailable')).toBe('PIX');
+    expect(metodoRecusado('CARD is disabled for this account')).toBe('CARD');
   });
 });

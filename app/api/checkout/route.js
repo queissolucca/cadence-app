@@ -3,7 +3,7 @@ import { createClient } from '../../../lib/supabase/server';
 import { createAdminClient } from '../../../lib/supabase/admin';
 import { getPlan } from '../../../lib/plans';
 import { createCheckout } from '../../../lib/abacatepay';
-import { maxInstallmentsFor } from '../../../lib/payments';
+import { maxInstallmentsFor, metodoRecusado } from '../../../lib/payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,21 +77,42 @@ export async function POST(request) {
   // Diagnóstico: mostra QUAL produto/ciclo este deploy está usando.
   console.log('[checkout] criando', { plan: body.planId, prod: plan.prodId, cycle: plan.cycle });
 
-  try {
-    let checkout;
-    try {
-      checkout = await createCheckout(buildBody(['CARD', 'PIX']));
-    } catch (e) {
-      // Se a conta não tem PIX (ou PIX Automático), cai pra só cartão —
-      // o checkout precisa funcionar de qualquer jeito.
-      const msg = String(e?.apiError || e?.message || '');
-      if (/pix/i.test(msg)) {
-        console.warn('[checkout] PIX indisponível nesta conta, seguindo só com cartão:', msg);
-        checkout = await createCheckout(buildBody(['CARD']));
-      } else {
-        throw e;
+  /* O AbacatePay recusa o checkout inteiro se QUALQUER método pedido estiver
+     desabilitado na loja, com um 400 do tipo "CARD is not available for this
+     store". A versão anterior só tratava o caso do PIX faltando — e, pior,
+     reagia caindo pra CARD. Quando o erro era justamente sobre CARD (que é o
+     caso desta conta), não havia fallback nenhum e o botão morria em 502.
+
+     Agora a recuperação segue o que o erro DIZ: tira do pedido o método que a
+     loja não tem e tenta com o resto. PIX vem primeiro na lista porque é o que
+     a tela promete ("pague via pix") e o que toda conta AbacatePay tem. */
+  const TODOS = ['PIX', 'CARD'];
+
+  async function criarComFallback() {
+    let metodos = [...TODOS];
+    const removidos = [];
+    for (let tentativa = 0; tentativa < TODOS.length; tentativa++) {
+      try {
+        return await createCheckout(buildBody(metodos));
+      } catch (e) {
+        const msg = String(e?.apiError || e?.message || '');
+        // "<METODO> is not available for this store" — pega o método pelo nome
+        // que veio na mensagem, em vez de adivinhar qual era.
+        const culpado = metodoRecusado(msg, metodos);
+        if (!culpado) throw e;
+        removidos.push(culpado);
+        metodos = metodos.filter((m) => m !== culpado);
+        console.warn(`[checkout] ${culpado} indisponível nesta loja; tentando com [${metodos.join(', ')}]`);
+        if (!metodos.length) {
+          throw new Error(`nenhum método de pagamento habilitado na loja (recusados: ${removidos.join(', ')})`);
+        }
       }
     }
+    throw new Error('não consegui criar o checkout com nenhum método');
+  }
+
+  try {
+    const checkout = await criarComFallback();
 
     if (orderId && checkout?.id) {
       try {

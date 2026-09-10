@@ -93,35 +93,146 @@ export function Proposta({ go }) {
    foi retirada a pedido — então hoje eles aparecem como se fossem de clientes
    reais, num site que cobra. Isso é exposição sob o CDC (art. 37).
 
-   Trocar por depoimentos de verdade é mudar só este array: nome, cor do avatar,
-   frase e há quanto tempo a pessoa usa. */
+   Trocar por depoimentos de verdade é mudar só este array.
+
+   CAMPOS: n nome · c cor do rosto · f bandeira · d quando avaliou · w há
+   quanto tempo usa · t a frase. O campo opcional `nota` (1 a 5) acende as
+   estrelas douradas no palco; ele está desligado em todos de propósito —
+   depoimento inventado já é uma coisa, uma NOTA inventada é outra, e essa é a
+   que o art. 37 pega mais rápido. Quando os depoimentos forem reais, é só
+   escrever nota: 5.
+
+   TETO EDITORIAL DE t: ~110 caracteres. O palco trava a frase em três linhas
+   (altura fixa, pra o mural logo acima não pular a cada troca); acima disso
+   ela trunca com reticências em vez de quebrar o layout.
+
+   As cores saíram de 4 pra 6 (entraram #5FBFB4 e #8E6DE8, que já vêm do
+   WM_PEOPLE): com 4 em rodízio o mural fica com dois verdes quase iguais
+   colados um no outro. */
 const DEPOIMENTOS = [
-  { n: 'Marina L.',  c: '#3E9B5F', t: 'Reunião em inglês era pânico. Hoje eu abro a câmera e falo.', w: '8 semanas' },
-  { n: 'Rafael T.',  c: '#2c7347', t: 'O formato de 5 minutos foi o único que eu consegui manter.', w: '3 semanas' },
-  { n: 'Camila V.',  c: '#a5760a', t: 'Viajei e pedi tudo sozinha. Sem tradutor, sem gaguejar.', w: '8 semanas' },
-  { n: 'Juliana P.', c: '#D9527A', t: 'A correção na hora é o que faltava. Eu errava e ninguém dizia nada.', w: '2 semanas' },
-  { n: 'Diego M.',   c: '#3E9B5F', t: 'Parei de montar a frase na cabeça antes de falar. Agora ela sai.', w: '3 semanas' },
-  { n: 'Thiago A.',  c: '#2c7347', t: 'A daily do time deixou de ser o pior momento do meu dia.', w: '8 semanas' },
-  { n: 'Beatriz S.', c: '#a5760a', t: 'Eu entendia tudo e não respondia nada. Isso acabou.', w: '3 semanas' },
-  { n: 'Amanda R.',  c: '#D9527A', t: 'Cinco minutos antes de dormir. Virou hábito sem eu perceber.', w: '2 semanas' },
-  { n: 'Lucas F.',   c: '#3E9B5F', t: 'Tive entrevista em inglês semana passada. Não travei uma vez.', w: '8 semanas' },
-  { n: 'Pedro H.',   c: '#2c7347', t: 'O sotaque continua. Travar, não — e era isso que me atrapalhava.', w: '3 semanas' },
+  { n: 'Marina L.',  nota: 5, c: '#3E9B5F', f: '🇧🇷', d: 'hoje',        w: '8 semanas', t: 'Reunião em inglês era pânico. Hoje eu abro a câmera e falo.' },
+  { n: 'Rafael T.',  nota: 5, c: '#2c7347', f: '🇧🇷', d: 'há 1 dia',    w: '3 semanas', t: 'O formato de 5 minutos foi o único que eu consegui manter.' },
+  { n: 'Camila V.',  nota: 5, c: '#a5760a', f: '🇧🇷', d: 'há 2 dias',   w: '8 semanas', t: 'Viajei e pedi tudo sozinha. Sem tradutor, sem gaguejar.' },
+  { n: 'Juliana P.', nota: 4, c: '#D9527A', f: '🇧🇷', d: 'há 2 dias',   w: '2 semanas', t: 'A correção na hora é o que faltava. Eu errava e ninguém dizia nada.' },
+  { n: 'Diego M.',   nota: 5, c: '#5FBFB4', f: '🇧🇷', d: 'há 3 dias',   w: '3 semanas', t: 'Parei de montar a frase na cabeça antes de falar. Agora ela sai.' },
+  { n: 'Thiago A.',  nota: 5, c: '#8E6DE8', f: '🇧🇷', d: 'há 4 dias',   w: '8 semanas', t: 'A daily do time deixou de ser o pior momento do meu dia.' },
+  { n: 'Beatriz S.', nota: 4, c: '#3E9B5F', f: '🇧🇷', d: 'há 5 dias',   w: '3 semanas', t: 'Eu entendia tudo e não respondia nada. Isso acabou.' },
+  { n: 'Amanda R.',  nota: 5, c: '#a5760a', f: '🇧🇷', d: 'há 1 semana', w: '2 semanas', t: 'Cinco minutos antes de dormir. Virou hábito sem eu perceber.' },
+  { n: 'Lucas F.',   nota: 5, c: '#D9527A', f: '🇧🇷', d: 'há 1 semana', w: '8 semanas', t: 'Tive entrevista em inglês semana passada. Não travei uma vez.' },
+  { n: 'Pedro H.',   nota: 4, c: '#5FBFB4', f: '🇧🇷', d: 'há 2 semanas', w: '3 semanas', t: 'O sotaque continua. Travar, não — e era isso que me atrapalhava.' },
 ];
 
+/* 5200ms = 2 × 2,6s, a batida da casa (pt-beat, halo). O palco troca sempre na
+   mesma fase do murmúrio do mural: um relógio só pra tela inteira. */
+
+/* CSS não para um setTimeout, então o modo calmo precisa ser lido no JS. Com
+   listener de 'change' pra atender quem liga a preferência com a tela aberta.
+   Lido dentro do efeito e não no corpo: matchMedia não existe no servidor. */
+
+/* Mural de vozes.
+
+   A versão anterior empilhava os 10 depoimentos: 1378px de tela contra 483px
+   de espaço no iPhone SE, ou seja, o botão "continuar" nascia 895px abaixo da
+   dobra e ninguém via prova social nenhuma — via um paredão de texto parado.
+
+   Aqui os 10 estão TODOS na tela o tempo todo, como dez rostos quadrados que
+   murmuram na batida de 2,6s da casa (o mesmo pt-beat dos pontos da
+   constelação, com atraso de n × 0,26s: 10 × 0,26 = 2,6s exatos, então a luz
+   atravessa o mural em onda contínua e nunca reinicia). Embaixo, um palco
+   mostra uma pessoa por vez e troca sozinho.
+
+   Três fontes de vida em cadências diferentes — a onda do mural, a barra do
+   palco e a Cady do cabeçalho, que segue o dedo. Nada com TEXTO dentro se
+   desloca: depoimento que se move é depoimento que não se lê. */
 export function Social({ go }) {
+  const fila = useRef(null);
+  const [pulando, setPulando] = useState(-1);
+
+  /* Arrastar com o MOUSE. No toque o navegador já rola sozinho, e interceptar
+     ali só atrapalharia (roubaria o gesto vertical da página). Por isso o
+     arraste manual é só pra ponteiro de mouse. */
+  useEffect(() => {
+    const el = fila.current;
+    if (!el) return undefined;
+    let ativo = false, x0 = 0, s0 = 0, andou = 0;
+
+    const desce = e => {
+      if (e.pointerType !== 'mouse') return;
+      ativo = true; andou = 0;
+      x0 = e.clientX; s0 = el.scrollLeft;
+      el.classList.add('arrastando');
+    };
+    const move = e => {
+      if (!ativo) return;
+      const d = e.clientX - x0;
+      andou = Math.max(andou, Math.abs(d));
+      el.scrollLeft = s0 - d;
+    };
+    const sobe = () => {
+      if (!ativo) return;
+      ativo = false;
+      el.classList.remove('arrastando');
+      // Arrastou de verdade? Então o clique que vem a seguir é resíduo do
+      // gesto, não intenção — senão o cartão "pula" toda vez que se arrasta.
+      if (andou > 6) {
+        const comer = ev => { ev.stopPropagation(); ev.preventDefault(); };
+        el.addEventListener('click', comer, { capture: true, once: true });
+        setTimeout(() => el.removeEventListener('click', comer, { capture: true }), 60);
+      }
+    };
+
+    el.addEventListener('pointerdown', desce);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', sobe);
+    window.addEventListener('pointercancel', sobe);
+    return () => {
+      el.removeEventListener('pointerdown', desce);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', sobe);
+      window.removeEventListener('pointercancel', sobe);
+    };
+  }, []);
+
+  // O pulo é uma classe que sai sozinha: repetir o clique tem que repetir a
+  // animação, e uma classe que ficasse grudada só animaria na primeira vez.
+  const pular = n => {
+    setPulando(n);
+    setTimeout(() => setPulando(v => (v === n ? -1 : v)), 380);
+  };
+
   return (
     <div className="scr">
-      <Kicker>Quem já está falando</Kicker>
-      <h2 style={{ marginTop: 8 }}>Gente que parou de travar</h2>
-      {DEPOIMENTOS.map(q => (
-        <div className="quote" key={q.n}>
-          <div className="who">
-            <span className="av" style={{ background: q.c }}>{q.n[0]}</span>
-            <span><b>{q.n}</b><small>{q.w} de uso</small></span>
-          </div>
-          <p>&ldquo;{q.t}&rdquo;</p>
+      <div className="vzhead">
+        <CadyViva size={52} />
+        <div className="vzhd">
+          <Kicker>quem já está falando</Kicker>
+          <h2>Quem parou de travar</h2>
         </div>
-      ))}
+      </div>
+
+      {/* Fila horizontal com encaixe: no celular o dedo já arrasta nativo, e o
+          scroll-snap faz cada cartão parar centralizado em vez de meio fora. */}
+      <div className="vzrow" ref={fila}>
+        {DEPOIMENTOS.map((p, n) => (
+          <button key={p.n} type="button"
+            className={`quote vzcard ${pulando === n ? 'pulo' : ''}`}
+            style={{ '--k': p.c }} onClick={() => pular(n)}
+            aria-label={`depoimento de ${p.n}, ${p.nota} de 5 estrelas`}>
+            <span className="vzwho">
+              <span className="vzav"><b>{p.n[0]}</b></span>
+              <span className="vzid">
+                <b>{p.n}</b>
+                <small>{p.w} de uso</small>
+              </span>
+            </span>
+            <span className="lstars" aria-hidden="true">{'★'.repeat(p.nota)}<i>{'★'.repeat(5 - p.nota)}</i></span>
+            <span className="vzq">&ldquo;{p.t}&rdquo;</span>
+          </button>
+        ))}
+      </div>
+
+      <p className="vzhint">arraste para ver os outros</p>
+
       <Grow />
       <Cta onClick={() => go('audio')}>continuar</Cta>
     </div>

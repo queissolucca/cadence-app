@@ -203,12 +203,6 @@ h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-
    como vivo, e não o tamanho do movimento. Só o ACESO bate; o apagado não tem
    animação, e é isso que deixa um único ponto pulsando no "você está aqui". */
 .cn-pt.on{animation:pt-beat 2.6s ease-in-out infinite;animation-delay:inherit}
-@keyframes pt-beat{
-  0%,68%,100%{transform:scale(1)}
-  73%{transform:scale(1.10)}
-  78%{transform:scale(1)}
-  82%{transform:scale(1.05)}
-  87%{transform:scale(1)}}
 .cn-halo{fill:none;stroke:var(--green);stroke-width:1.5;opacity:0;
   animation:halo 2.6s ease-out infinite}
 /* o anel sai junto da primeira pulsada do pt-beat — luz e tamanho na mesma
@@ -327,18 +321,6 @@ h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-
 .rit .dur{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--ink-soft);flex-shrink:0}
 
 /* depoimentos mock */
-.quote{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);
-  padding:15px;margin-top:10px}
-#phone.dark .quote{background:var(--dark-soft);border-color:var(--dk-line)}
-.quote .who{display:flex;align-items:center;gap:10px;margin-bottom:9px}
-.quote .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
-  font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
-.quote .who b{font-size:13.5px;display:block}
-.quote .who small{font-family:var(--f-mono);font-size:10px;color:var(--ink-soft);
-  letter-spacing:.06em;text-transform:uppercase}
-.quote p{font-size:13.5px;line-height:1.5;color:var(--ink-soft)}
-#phone.dark .quote p,#phone.dark .quote .who small{color:var(--dk-soft)}
-
 /* badge de conquista */
 .medal{width:96px;height:96px;margin:0 auto;border-radius:50%;display:grid;place-items:center;
   background:var(--green-soft);border:2px solid var(--green);font-size:40px;position:relative}
@@ -413,8 +395,15 @@ h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-
   font-size:11px;color:var(--ink-soft);line-height:1.5}
 .reset{margin-top:9px;width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;
   font-size:12px;font-weight:600;background:#fff}
+/* dvh e não vh: no Safari do iOS 100vh é a viewport GRANDE (a de barra
+   escondida), enquanto html/body são position:fixed;height:100% — a viewport
+   pequena. Como o body centraliza, o #phone mais alto que ele era cortado em
+   cima E embaixo, ~45px de cada lado, e o "continuar" das telas que terminam
+   coladas no rodapé ficava fora da tela. Pior: numa tela que CABE inteira, o
+   #view não tem o que rolar, então o pedaço cortado era inalcançável.
+   A linha 69 já usava 100dvh; esta aqui vencia por vir depois. */
 @media(max-width:760px){#side{display:none}body{padding:0}
-  #phone{width:100%;height:100vh;border-radius:0}}
+  #phone{width:100%;height:100dvh;border-radius:0}}
 
 /* --- correções de especificidade: regras dark (com #id) venciam os estados
        .on/.sel definidos só por classe, apagando o verde do modo escuro --- */
@@ -787,3 +776,161 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
 .cpill.sem{border:1px solid #3a3a35;color:#8a8a80}
 .cfoot{display:flex;justify-content:space-between;margin-top:10px;font-family:var(--f-mono);
   font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--dk-mute)}
+
+/* ===================================================================
+   MURAL DE VOZES — a tela social (/comecar → 'social')
+
+   Substituiu o .quote empilhado, que rendia 1378px de tela contra 483px de
+   espaço no iPhone SE. Aqui nada rola: os dez rostos cabem, o palco tem altura
+   travada e o "continuar" nasce visível nos três tamanhos.
+
+   Nomes novos (.vz*) porque não existe nenhuma regra "#phone.dark .vzX" no
+   arquivo — então nenhum estado meu perde calado pra uma regra (1,2,0), que é
+   o acidente que já obrigou as "correções de especificidade" das linhas 419
+   em diante. Mesmo assim, tudo que PINTA (fundo, borda, cor, anel) mora no
+   bloco escuro logo abaixo, e o que é geometria (transform, layout) fica
+   neste bloco neutro: as duas camadas nunca disputam a mesma propriedade.
+
+   Nenhuma curva nova — só as cinco da casa. Uma keyframe nova só (vz-run).
+   =================================================================== */
+
+/* ---- cabeçalho: a Cady à esquerda do título ---- */
+.vzhead{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.vzhead .cady-host{margin:0}          /* .cady-host nasce margin:0 auto */
+.vzhd{display:flex;flex-direction:column;min-width:0}
+/* line-height explícito: "normal" é 1,303 no Hanken e 1,20 no Spline Mono —
+   contar 1,2 pros dois erra a conta de altura. */
+.vzhd .kicker{line-height:1.2}
+.vzhd h2{margin-top:3px;line-height:1.22}
+
+/* ---- o mural: os dez rostos, todos na tela ----
+   flex-wrap e não grid: com 5 por linha, o grid encosta a última fileira
+   incompleta à esquerda quando o array tiver 8, 9 ou 11 itens. Com flex +
+   center, a fileira órfã fica centrada. A largura é a conta de 5 colunas:
+   5w + 4×9 de gap = 100%. */
+/* O escolhido cresce 2,95px por lado dentro de 9px de gap: não encosta em
+   ninguém e, por ser transform, não reflui nada. O scale mora no BOTÃO e o
+   murmúrio mora no rosto — dois transforms em dois elementos, nunca
+   disputando a mesma propriedade. É isso que elimina o salto de escala. */
+.vzav{--a:100%;position:relative;flex-shrink:0;display:grid;place-items:center;
+  width:var(--a);height:var(--a);border-radius:10px;
+  background:var(--k);                                  /* rede pra Safari < 16.2 */
+  background:radial-gradient(120% 120% at 30% 22%,
+    color-mix(in srgb,var(--k) 62%,#FFFFFF) 0%,var(--k) 48%,
+    color-mix(in srgb,var(--k) 55%,#000000) 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.30),
+    inset 0 -1.5px 3px rgba(0,0,0,.42),0 2px 6px rgba(0,0,0,.5)}
+.vzav b{font-family:var(--f-display);font-size:22px;font-weight:800;color:#fff;
+  line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+@media (min-height:800px){
+  .vzt{width:calc((100% - 27px) / 4)}
+  .vzav b{font-size:26px}
+  .vzq{font-size:18px;min-height:74px}
+}
+
+/* ---- o palco ---- */
+/* O palco é o herói da tela, então é ele quem come a folga vertical em vez de
+   ela virar vazio no rodapé: flex:1 com teto de 240px, e o conteúdo centrado
+   dentro. No iPhone SE ele fica na altura natural; num Pro Max cresce até o
+   teto e o resto da sobra vai pro .grow, que mantém o "continuar" colado
+   embaixo. */
+.vzwho{display:flex;align-items:center;gap:11px}
+.vzid{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.vzid b{font-size:14px;font-weight:700;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* A frase. min-height 41 + clamp em 2 linhas travam a altura do palco: com uma
+   linha sobra ar, com três ela trunca. É essa trava que impede o palco (e o
+   mural logo acima) de pular de altura a cada troca. */
+.vzq{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;
+  overflow:hidden;
+  font-family:var(--f-display);font-size:16px;font-weight:700;line-height:1.36;
+  letter-spacing:-.015em;margin-top:12px;min-height:65px}
+
+/* ---- movimento 2: a troca do palco ----
+   panel-in é A convenção do arquivo pra "o conteúdo trocou sem sair do
+   lugar". Dispara sozinho porque o key do .vzin remonta o nó. */
+@keyframes vz-run{to{transform:scaleX(1)}}
+/* Segurar pausa: o JS guarda o tempo restante e reagenda com ele, o CSS
+   congela a barra no mesmo quadro. Os dois relógios ficam em fase sozinhos. */
+/* A superfície canônica de card escuro da casa (a do .mem e do .gsum), e não o
+   --dark-soft chapado do .quote antigo. É esse acabamento que faz virar balão. */
+#phone.dark .vzid b{color:#F4F2EC}
+#phone.dark .vzq{color:#F4F2EC;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+#phone.dark .vzsub i,#phone.dark .vzwhen{color:var(--dk-mute)}
+
+/* ---- modo calmo ----
+   O arquivo não tem chave geral, só dois blocos pontuais, então esta tela traz
+   o dela. O padrão é o da linha 583: animation:none MAIS forçar o estado
+   FINAL — nunca congelar no quadro 0. O autoplay quem desliga é o JS
+   (useCalmo), porque CSS não para um setTimeout; e sem ele os dez rostos
+   continuam clicáveis, então a tela segue COMPLETA. */
+@media (prefers-reduced-motion:reduce){
+  .vzt .vzav{animation:none!important;transform:none!important}
+  /* o escolhido mantém o scale(1.10): escala parada não é movimento, o que o
+     modo calmo proíbe é a viagem até ela. Some só a mola. */
+  .vzt{transition:none!important}
+  .vzin .vzwho,.vzin .vzq{animation:none!important;opacity:1!important;
+    transform:none!important}
+  /* a barra vira régua estática apagada, não uma barra que corre */
+  .vzbar{animation:none!important;transform:scaleX(1)!important;opacity:.18}
+  .vzst{transition:none!important}
+  /* o :active dos rostos fica de fora de propósito: quem pediu menos
+     movimento não pediu menos retorno ao toque. */
+}
+
+
+/* ===================================================================
+   Depoimentos — fila de cartões arrastáveis
+   =================================================================== */
+/* Rola no eixo X com encaixe. `touch-action:pan-x` diz ao navegador que o
+   gesto horizontal é desta fila e o vertical continua sendo da página — sem
+   isso, arrastar de lado no celular às vezes rola a tela junto. */
+.vzrow{display:flex;gap:11px;margin-top:16px;padding:2px 2px 10px;
+  overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
+  touch-action:pan-x;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;overscroll-behavior-x:contain}
+.vzrow::-webkit-scrollbar{display:none}
+.vzrow.arrastando{scroll-snap-type:none;cursor:grabbing}
+.vzrow.arrastando .vzcard{cursor:grabbing}
+
+/* Retangular e largo o bastante pra caber a frase em 3 linhas, e estreito o
+   bastante pra o próximo cartão aparecer pela borda — é o que conta que a
+   fila continua. */
+.vzcard{flex:0 0 78%;max-width:300px;scroll-snap-align:center;
+  display:flex;flex-direction:column;gap:9px;text-align:left;cursor:grab;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:15px 15px 16px;
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1),border-color .2s}
+#phone.dark .vzcard{background:var(--dark-soft);border-color:var(--dk-line)}
+#phone.dark .vzcard:hover{border-color:#3d363d}
+.vzcard .vzwho{display:flex;align-items:center;gap:10px}
+.vzcard .vzav{--a:38px;border-radius:11px;opacity:1;animation:none}
+.vzcard .vzav b{font-size:15px}
+.vzcard .vzid{display:flex;flex-direction:column;gap:2px;min-width:0}
+.vzcard .vzid b{font-size:14px;font-weight:700;color:var(--ink);line-height:1.25}
+#phone.dark .vzcard .vzid b{color:#F4F2EC}
+.vzcard .vzid small{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--dk-mute)}
+/* As estrelas vazias entram como <i> na mesma linha: sem elas, 4 e 5 estrelas
+   ficam com larguras diferentes e a coluna dança de cartão pra cartão. */
+.vzcard .lstars i{color:var(--dk-line);font-style:normal}
+.vzcard .vzq{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;
+  overflow:hidden;font-size:13.5px;line-height:1.5;color:var(--ink-soft)}
+#phone.dark .vzcard .vzq{color:#CFC9CD}
+
+/* O pulinho do clique. Classe que sai sozinha depois de 380ms — em `:active`
+   a animação só rodaria enquanto o dedo estivesse encostado. */
+.vzcard.pulo{animation:vz-pulo .38s cubic-bezier(.34,1.56,.64,1)}
+@keyframes vz-pulo{
+  0%{transform:translateY(0) scale(1)}
+  30%{transform:translateY(-9px) scale(1.035)}
+  60%{transform:translateY(2px) scale(.99)}
+  100%{transform:translateY(0) scale(1)}}
+.vzcard:active{transform:scale(.985)}
+
+.vzhint{margin-top:2px;text-align:center;font-family:var(--f-mono);font-size:10px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--dk-mute)}
+
+@media (prefers-reduced-motion:reduce){
+  .vzcard,.vzcard.pulo{animation:none;transition:none}
+}
