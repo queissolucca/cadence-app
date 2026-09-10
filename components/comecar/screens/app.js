@@ -7,6 +7,11 @@ import { Card, Cta, Field, Ghost, Grow, Kicker, Lede, NavCard, NavRow, Opts, Wor
 import { Mic } from './abertura';
 import { agrupar, memorias } from '../../../lib/comecar/state';
 import { addDias, fmt, metaDias } from '../../../lib/comecar/datas';
+import {
+  concluir, criarConta, entrarComGoogle, entrarComSenha, limparRetomada,
+  mensagemDe, sessaoAtual, temRetomada,
+} from '../../../lib/comecar/conta';
+import { respostasCompletas } from '../../../lib/comecar/paraApi';
 
 /* ---- primeira lição ----------------------------------------------------- */
 
@@ -260,13 +265,93 @@ const GLogo = () => (
 
 const GoogleBtn = ({ label, onClick }) => (
   <>
-    <button className="gbtn" onClick={onClick}><GLogo />{label}</button>
+    <button type="button" className="gbtn" onClick={onClick}><GLogo />{label}</button>
     <div className="orsep"><span /><i>ou</i><span /></div>
   </>
 );
 
-export function Conta({ go, patch }) {
-  const entrar = () => { patch({ feito: true }); go('home'); };
+const Erro = ({ children }) => (
+  <p style={{
+    margin: '10px 0 0', fontSize: 13, color: 'var(--red)', textAlign: 'center',
+  }}>{children}</p>
+);
+
+/* Última tela antes do pagamento. É aqui que as 28 telas anônimas viram conta,
+   linha no banco e checkout — nessa ordem, e só avançando quando a anterior
+   confirma (ver o comentário em lib/comecar/conta.js). */
+export function Conta({ go, a }) {
+  const [fase, setFase] = useState('form'); // form | enviando | confirme | logado
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [erro, setErro] = useState('');
+
+  const finalizar = async (estado) => {
+    setFase('enviando');
+    setErro('');
+    try {
+      await concluir(estado);   // não retorna: sai da página pro AbacatePay
+    } catch (e) {
+      limparRetomada();
+      setErro(mensagemDe(e));
+      setFase(e?.etapa === 'sessao' ? 'form' : 'logado');
+    }
+  };
+
+  // Retomada do Google (a pessoa saiu do site e voltou) e o caso de já haver
+  // sessão aberta — nos dois a conta já existe, o que falta é gravar e cobrar.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const usuario = await sessaoAtual();
+      if (!vivo) return;
+      if (usuario && temRetomada()) { finalizar(a); return; }
+      if (usuario) setFase('logado');
+      else limparRetomada();
+    })();
+    return () => { vivo = false; };
+    // roda uma vez: é sobre o estado da sessão na chegada, não sobre `a`
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const porEmail = async (e) => {
+    e.preventDefault();
+    setFase('enviando');
+    setErro('');
+    try {
+      const { session } = await criarConta({ nome, email, senha });
+      // Projeto com confirmação de e-mail ligada: sem sessão não dá pra gravar
+      // nem cobrar. As respostas ficam no localStorage e a pessoa volta pelo
+      // link do e-mail, que cai aqui de novo já logada.
+      if (!session) { setFase('confirme'); return; }
+      await finalizar(a);
+    } catch (err) {
+      setErro(err?.message || 'Não consegui criar a conta agora. Tenta de novo.');
+      setFase('form');
+    }
+  };
+
+  const porGoogle = async () => {
+    setErro('');
+    try { await entrarComGoogle(); } catch { setErro('Não consegui abrir o Google. Tenta de novo.'); }
+  };
+
+  if (fase === 'confirme') {
+    return (
+      <div className="scr" style={{ justifyContent: 'center', textAlign: 'center' }}>
+        <Grow />
+        <Wordmark px={28} />
+        <h1 style={{ marginTop: 22 }}>Confirma seu e-mail.</h1>
+        <Lede>Mandei um link pra <b>{email}</b>. Clica nele e você volta exatamente aqui — suas
+          respostas continuam guardadas.</Lede>
+        <Grow />
+      </div>
+    );
+  }
+
+  const enviando = fase === 'enviando';
+  const podeEnviar = nome.trim() && email.trim() && senha.length >= 6 && respostasCompletas(a);
+
   return (
     <div className="scr" style={{ justifyContent: 'center' }}>
       <Grow />
@@ -274,33 +359,81 @@ export function Conta({ go, patch }) {
       <h1 style={{ textAlign: 'center', marginTop: 22 }}>Falta só guardar<br />o seu progresso.</h1>
       <Lede style={{ textAlign: 'center' }}>
         Sua constelação fica salva na conta — você troca de aparelho e ela continua de onde parou.</Lede>
-      <div style={{ marginTop: 24 }}>
-        <GoogleBtn label="Criar conta com o Google" onClick={entrar} />
-        <Field label="Nome" type="text" placeholder="como eu te chamo" />
-        <Field label="E-mail" type="email" placeholder="voce@email.com" />
-        <Field label="Senha" type="password" placeholder="mínimo 6 caracteres" />
-      </div>
-      <Cta onClick={entrar}>criar conta</Cta>
-      <Ghost onClick={() => go('login')}>já tenho conta · entrar</Ghost>
+
+      {fase === 'logado' ? (
+        <>
+          <Grow />
+          <Cta disabled={enviando} onClick={() => finalizar(a)}>
+            {enviando ? 'abrindo pagamento…' : 'ir para o pagamento'}
+          </Cta>
+          {erro && <Erro>{erro}</Erro>}
+        </>
+      ) : (
+        <>
+          <form onSubmit={porEmail} style={{ marginTop: 24 }}>
+            <GoogleBtn label="Criar conta com o Google" onClick={porGoogle} />
+            <Field label="Nome" type="text" placeholder="como eu te chamo" autoComplete="name"
+              value={nome} onChange={e => setNome(e.target.value)} />
+            <Field label="E-mail" type="email" placeholder="voce@email.com" autoComplete="email"
+              value={email} onChange={e => setEmail(e.target.value)} />
+            <Field label="Senha" type="password" placeholder="mínimo 6 caracteres"
+              autoComplete="new-password" value={senha} onChange={e => setSenha(e.target.value)} />
+            <Cta disabled={enviando || !podeEnviar}>
+              {enviando ? 'criando sua conta…' : 'criar conta'}
+            </Cta>
+          </form>
+          {erro && <Erro>{erro}</Erro>}
+          <Ghost onClick={() => go('login')}>já tenho conta · entrar</Ghost>
+        </>
+      )}
       <Grow />
     </div>
   );
 }
 
-export function Login({ go, patch }) {
-  const entrar = () => { patch({ feito: true }); go('home'); };
+/* Quem já tem conta não passa por aqui de novo: entra e vai pro /v2, e o
+   middleware decide o passo certo (questionário, pagamento ou app). Reaproveitar
+   as respostas destas 33 telas pra uma conta antiga sobrescreveria o que a
+   pessoa já tinha respondido — e duplicaria a memória semeada. */
+export function Login({ go }) {
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [erro, setErro] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const entrar = async (e) => {
+    e.preventDefault();
+    setEnviando(true);
+    setErro('');
+    try {
+      await entrarComSenha({ email, senha });
+      window.location.href = '/v2';
+    } catch {
+      setErro('E-mail ou senha não conferem.');
+      setEnviando(false);
+    }
+  };
+
+  const porGoogle = async () => {
+    setErro('');
+    try { await entrarComGoogle(); } catch { setErro('Não consegui abrir o Google. Tenta de novo.'); }
+  };
+
   return (
     <div className="scr" style={{ justifyContent: 'center' }}>
       <Grow />
       <Wordmark px={28} />
       <h1 style={{ textAlign: 'center', marginTop: 22 }}>Bom te ver de volta.</h1>
       <Lede style={{ textAlign: 'center' }}>Sua constelação está do jeito que você deixou.</Lede>
-      <div style={{ marginTop: 24 }}>
-        <GoogleBtn label="Continuar com Google" onClick={entrar} />
-        <Field label="E-mail" type="email" placeholder="voce@email.com" />
-        <Field label="Senha" type="password" placeholder="••••••••" />
-      </div>
-      <Cta onClick={entrar}>entrar</Cta>
+      <form onSubmit={entrar} style={{ marginTop: 24 }}>
+        <GoogleBtn label="Continuar com Google" onClick={porGoogle} />
+        <Field label="E-mail" type="email" placeholder="voce@email.com" autoComplete="email"
+          value={email} onChange={e => setEmail(e.target.value)} />
+        <Field label="Senha" type="password" placeholder="••••••••" autoComplete="current-password"
+          value={senha} onChange={e => setSenha(e.target.value)} />
+        <Cta disabled={enviando}>{enviando ? 'entrando…' : 'entrar'}</Cta>
+      </form>
+      {erro && <Erro>{erro}</Erro>}
       <Ghost onClick={() => go('conta')}>ainda não tenho conta · criar</Ghost>
       <Grow />
     </div>

@@ -5,6 +5,7 @@ import { Constellation } from './Constellation';
 import { SphereDefs } from './ui';
 import { useEstado } from '../../lib/comecar/state';
 import { ORDEM, SCREENS, TABS, acharTela } from '../../lib/comecar/flow';
+import { temRetomada } from '../../lib/comecar/conta';
 
 export function App() {
   const { a, set, patch, reset } = useEstado();
@@ -17,6 +18,14 @@ export function App() {
   }, []);
 
   const [cur, setCur] = useState('splash');
+
+  // Volta do Google: o OAuth tira a pessoa do site e o /auth/callback devolve
+  // ela aqui. Sem isto ela cairia no splash e teria que refazer as 28 telas —
+  // as respostas continuariam no localStorage, mas a navegação recomeçaria do
+  // zero. Roda depois da montagem porque localStorage não existe no servidor.
+  useEffect(() => {
+    if (temRetomada()) setCur('conta');
+  }, []);
   const [hist, setHist] = useState([]);
 
   const go = useCallback(id => {
