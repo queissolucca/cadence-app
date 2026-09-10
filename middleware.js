@@ -35,14 +35,25 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL(LEGACY_REDIRECTS[pathname], request.url));
   }
 
-  // A raiz do site é a landing estática (public/home.html) — servida via rewrite,
-  // sem mudar a URL. Mas só pra quem ainda não entrou: quem já tem sessão abrindo
-  // cadenceenglish.app quer o app, não a página de vendas. Antes essa pessoa caía
-  // na landing e só chegava no /v2 clicando em "Entrar" (que o middleware então
-  // redirecionava, por já haver sessão) — dois passos pra voltar pra onde ela já
-  // estava. Custo assumido: logado não vê mais a landing sem sair da conta.
+  // A raiz do site é a nova interface (as 33 telas de /comecar), servida por
+  // REWRITE: a URL continua sendo cadenceenglish.app, o conteúdo é o de
+  // /comecar. Rewrite e não redirect porque o endereço que a pessoa digitou é o
+  // que ela deve continuar vendo na barra — e porque assim o /comecar segue
+  // valendo como link direto (é pra onde o /auth/callback devolve quem entra
+  // pelo Google no meio do cadastro).
+  //
+  // Quem já tem sessão pula tudo isso e vai pro app: abrir o site logado é
+  // querer o /v2, não refazer o onboarding.
   if (pathname === '/') {
     if (user) return NextResponse.redirect(new URL('/v2', request.url));
+    return NextResponse.rewrite(new URL('/comecar', request.url));
+  }
+
+  // A landing antiga (public/home.html) não foi apagada — ela tem a história do
+  // fundador, o FAQ e o preço, que não existem em lugar nenhum das 33 telas.
+  // Continua inteira aqui, e os links dentro dela (/experimentar, /login,
+  // /privacy, /termos) seguem valendo.
+  if (pathname === '/sobre') {
     return NextResponse.rewrite(new URL('/home.html', request.url));
   }
 

@@ -90,7 +90,10 @@ export function AjustesClient({ profile, email, game, hasPassword = false }) {
     setSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push('/login');
+    // Sair devolve pra porta de entrada do site (a nova interface), e não pro
+    // formulário de login: quem saiu não necessariamente quer entrar de novo
+    // agora, e cair num campo de senha vazio é um beco.
+    router.push('/');
     router.refresh();
   };
 

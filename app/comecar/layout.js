@@ -12,11 +12,30 @@ import './comecar.css';
 // arquivo do filho é injetado depois do globals.css do pai, os `:root` daqui
 // ganham sem precisar de !important.
 
+const TITULO = 'cadence — conversa curta, todo dia';
+const RESUMO = 'Você já sabe inglês. É hora de aprender de vez. Cinco minutos de conversa por dia '
+  + 'com a Cady, com correção direta e repetição espaçada.';
+
 export const metadata = {
-  title: 'cadence — conversa curta, todo dia',
-  description:
-    'Você já sabe inglês. É hora de aprender de vez. Cinco minutos de conversa por dia com a Cady, '
-    + 'com correção direta e repetição espaçada.',
+  // Necessário pra as URLs de og:image/canonical saírem absolutas — sem isto o
+  // Next emite caminho relativo, que WhatsApp e LinkedIn ignoram.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://cadenceenglish.app'),
+  title: TITULO,
+  description: RESUMO,
+  // Esta rota passou a ser servida na raiz do site, então é ela que aparece
+  // quando alguém manda o link do Cadence. Nem ela nem a landing antiga tinham
+  // Open Graph: o link colava sem título decente e sem imagem nenhuma.
+  openGraph: {
+    type: 'website',
+    locale: 'pt_BR',
+    siteName: 'Cadence',
+    title: TITULO,
+    description: RESUMO,
+    url: '/',
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Cady, a coach do Cadence' }],
+  },
+  twitter: { card: 'summary_large_image', title: TITULO, description: RESUMO, images: ['/og.png'] },
+  alternates: { canonical: '/' },
   // Salvo na tela de início do iPhone, a barra de status fica translúcida sobre
   // o preto do app em vez de virar uma faixa branca.
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent' },
