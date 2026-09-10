@@ -1,288 +1,197 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '../../lib/supabase/client';
-import { Card } from '../../components/ui';
-import { ThemeProviderV2 } from '../../components/v2/ThemeProviderV2';
-import { CadenceLogo } from '../../components/v2/CadenceLogo';
-import { PasswordInput, NewPasswordFields } from '../../components/v2/PasswordInput';
+import { Constellation } from '../../components/comecar/Constellation';
+import { Icon, SphereDefs } from '../../components/comecar/ui';
+import { Cta, Field, Ghost, Grow, Lede, Wordmark } from '../../components/comecar/shell';
 import { friendlyAuthError } from '../../lib/authErrors';
 
-const inputStyle = {
-  display: 'block', width: '100%', marginTop: 4, padding: '11px 12px',
-  border: '1px solid var(--line)', borderRadius: 10, fontSize: 14, color: 'var(--ink)', fontFamily: 'inherit',
-};
-const btnStyle = {
-  border: 'none', borderRadius: 12, padding: '13px 16px', fontWeight: 700,
-  background: 'var(--green)', color: '#fff', fontSize: 15,
-};
-const linkBtnStyle = {
-  border: 'none', background: 'none', color: 'var(--green-dark)', textDecoration: 'underline',
-  cursor: 'pointer', padding: 0, fontSize: 12.5, fontFamily: 'inherit',
-};
+/* Entrar — a única tela de login do produto.
 
-// Rota pública top-level (cadenceenglish.app/login) — /v2/login vira só um
-// redirect pra cá (ver app/v2/login/page.js). Fica fora da árvore /v2, por
-// isso embrulha o próprio ThemeProviderV2 (normalmente vem de app/v2/layout.js).
+   Antes isto era um card claro do /v2 com quatro modos empilhados (entrar,
+   criar conta, link mágico, esqueci a senha). Ficou com o design das 33 telas,
+   e enxugou pro que a tela precisa ser:
+
+   - CRIAR CONTA saiu daqui. A conta agora nasce no fim do onboarding, depois
+     das 33 telas, porque é lá que existem as respostas pra gravar junto. Ter
+     dois cadastros diferentes era ter dois lugares pra divergir.
+   - LINK MÁGICO saiu, como pedido. Dava pra tirar sem trancar ninguém do lado
+     de fora porque "esqueci minha senha" atende quem entrou por Google ou por
+     link e nunca definiu senha: o e-mail de recuperação deixa definir uma.
+   - ESQUECI MINHA SENHA ficou, e não era negociável. É a única saída de quem
+     não tem senha ou esqueceu a que tinha. */
+
+const G = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+    <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z" />
+    <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z" />
+    <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z" />
+    <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
+  </svg>
+);
+
+const Erro = ({ children }) => (
+  <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--red)', textAlign: 'center' }}>{children}</p>
+);
+
 export default function LoginPage() {
-  const router = useRouter();
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'magic' | 'reset'
-  const [name, setName] = useState('');
+  const [modo, setModo] = useState('entrar');  // entrar | recuperar | enviado
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [magicSent, setMagicSent] = useState(false);
-  const [confirmSent, setConfirmSent] = useState(false);
-  const [existingSent, setExistingSent] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [resent, setResent] = useState(false);
+  const [senha, setSenha] = useState('');
+  const [vendo, setVendo] = useState(false);
+  const [indo, setIndo] = useState(false);
+  const [erro, setErro] = useState('');
 
-  const sent = magicSent || confirmSent || existingSent || resetSent;
-  // Trava do "Criar conta": só libera com "Confirmar senha" idêntico a "Senha"
-  // (a Senha é sempre o padrão). O vermelho do campo mora no NewPasswordFields.
-  const submitBlocked = mode === 'signup' && confirmPassword !== password;
+  const trocar = (m) => { setModo(m); setErro(''); };
 
-  const redirectTo = (next = '/v2') => `${window.location.origin}/auth/callback?next=${next}`;
-
-  const signInWithGoogle = async () => {
-    setError('');
-    setLoading(true);
-    const supabase = createClient();
-
-    const { error: err } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: redirectTo() },
-    });
-    if (err) {
-      setError('Não consegui iniciar o login com Google. Tenta de novo.');
-      setLoading(false);
+  const porGoogle = async () => {
+    setErro('');
+    setIndo(true);
+    try {
+      const { error } = await createClient().auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=/v2` },
+      });
+      if (error) throw error;
+      // Não desliga o `indo`: a página está saindo pro Google.
+    } catch (e) {
+      setErro(friendlyAuthError(e));
+      setIndo(false);
     }
   };
 
-  const handleSubmit = async (e) => {
+  const entrar = async (e) => {
     e.preventDefault();
-    setError('');
-
-    if (mode === 'signup' && password !== confirmPassword) {
-      setError('As senhas não coincidem.');
-      return;
-    }
-
-    setLoading(true);
-    const supabase = createClient();
-
+    setIndo(true);
+    setErro('');
     try {
-      if (mode === 'magic') {
-        const { error: err } = await supabase.auth.signInWithOtp({
-          email,
-          options: { emailRedirectTo: redirectTo() },
-        });
-        if (err) throw err;
-        setMagicSent(true);
-      } else if (mode === 'reset') {
-        const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: redirectTo('/auth/nova-senha'),
-        });
-        if (err) throw err;
-        setResetSent(true);
-      } else if (mode === 'signup') {
-        const { data, error: err } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: redirectTo(),
-            data: { full_name: name.trim() },
-          },
-        });
-        if (err) throw err;
-
-        // Quando o e-mail JÁ tem conta, o Supabase não manda e-mail nenhum e
-        // não devolve erro (proteção contra enumeração de usuários): vem um
-        // user falso com identities: []. Era esse o caso em que "criar conta"
-        // parecia dar certo e nada chegava na caixa de entrada — aqui a gente
-        // detecta e manda um link de acesso, pra que um e-mail chegue sempre.
-        const alreadyRegistered =
-          data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
-        if (alreadyRegistered) {
-          const { error: otpErr } = await supabase.auth.signInWithOtp({
-            email,
-            options: { shouldCreateUser: false, emailRedirectTo: redirectTo() },
-          });
-          if (otpErr) throw otpErr;
-          setExistingSent(true);
-        } else if (!data.session) {
-          setConfirmSent(true);
-        } else {
-          router.push('/v2');
-          router.refresh();
-        }
-      } else {
-        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-        if (err) throw err;
-        router.push('/v2');
-        router.refresh();
-      }
+      const { error } = await createClient().auth.signInWithPassword({ email, password: senha });
+      if (error) throw error;
+      // location.href e não router.push: o middleware é quem decide o passo
+      // certo (app, pagamento ou questionário), e ele só roda numa navegação
+      // de verdade. Com push, o cliente ia pro /v2 e voltava.
+      window.location.href = '/v2';
     } catch (err) {
-      setError(friendlyAuthError(err));
+      setErro(friendlyAuthError(err));
+      setIndo(false);
     }
-    setLoading(false);
   };
 
-  // Reenvio pra quem não recebeu: confirmação de cadastro usa `resend`, os
-  // outros casos remandam o link (de acesso ou de redefinição).
-  const resend = async () => {
-    setError('');
-    setResent(false);
-    setResending(true);
-    const supabase = createClient();
+  const recuperar = async (e) => {
+    e.preventDefault();
+    setIndo(true);
+    setErro('');
     try {
-      if (confirmSent) {
-        const { error: err } = await supabase.auth.resend({
-          type: 'signup',
-          email,
-          options: { emailRedirectTo: redirectTo() },
-        });
-        if (err) throw err;
-      } else if (resetSent) {
-        const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: redirectTo('/auth/nova-senha'),
-        });
-        if (err) throw err;
-      } else {
-        const { error: err } = await supabase.auth.signInWithOtp({
-          email,
-          options: { shouldCreateUser: false, emailRedirectTo: redirectTo() },
-        });
-        if (err) throw err;
-      }
-      setResent(true);
+      const { error } = await createClient().auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/nova-senha`,
+      });
+      if (error) throw error;
+      setModo('enviado');
     } catch (err) {
-      setError(friendlyAuthError(err));
+      setErro(friendlyAuthError(err));
     }
-    setResending(false);
+    setIndo(false);
   };
 
-  const switchMode = (next) => {
-    setMode(next);
-    setError('');
-    setPassword('');
-    setConfirmPassword('');
-  };
+  if (modo === 'enviado') {
+    return (
+      <>
+        <SphereDefs />
+        <div id="phone" className="dark">
+          <Constellation />
+          <div id="view">
+            <div className="scr" style={{ justifyContent: 'center', textAlign: 'center' }}>
+              <Grow />
+              <Wordmark px={26} />
+              <h1 style={{ marginTop: 20 }}>Olha seu e-mail.</h1>
+              <Lede>Mandei um link pra <b>{email}</b>. Clicando nele você define uma senha nova e
+                entra direto.</Lede>
+              <Grow />
+              <Ghost onClick={() => trocar('entrar')}>voltar pro login</Ghost>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
-  const submitLabel = {
-    signup: 'Criar conta',
-    magic: 'Enviar link de acesso',
-    reset: 'Enviar link de redefinição',
-    signin: 'Entrar',
-  }[mode];
+  const recuperando = modo === 'recuperar';
 
   return (
-    <ThemeProviderV2>
-      <div className="v2-bg" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: 'var(--font-ui-v2)' }}>
-        <div style={{ width: '100%', maxWidth: 380 }}>
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <CadenceLogo word={28} />
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>você já sabe inglês. hora de aprender de vez</p>
-          </div>
-          <Card>
-            {sent ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <p style={{ margin: 0, fontSize: 14, color: 'var(--ink)' }}>
-                  {magicSent && 'Te enviamos um link de acesso pro seu e-mail — clica nele pra entrar.'}
-                  {confirmSent && 'Quase lá — te enviamos um e-mail de confirmação. Clica no link pra ativar sua conta e entrar.'}
-                  {existingSent && 'Esse e-mail já tem conta no Cadence — te enviamos um link de acesso pra entrar (a senha que você digitou agora não foi alterada).'}
-                  {resetSent && 'Te enviamos um link pra criar uma senha nova. Clica nele e escolhe a senha.'}
-                </p>
-                {resent && (
-                  <p style={{ margin: 0, fontSize: 12.5, color: 'var(--green-dark)' }}>Enviado de novo — olha sua caixa de entrada (e o spam).</p>
-                )}
-                {error && <p style={{ color: 'var(--red)', fontSize: 13, margin: 0 }}>{error}</p>}
-                <button type="button" onClick={resend} disabled={resending} style={{ ...linkBtnStyle, alignSelf: 'flex-start' }}>
-                  {resending ? 'Enviando…' : 'não recebeu? reenviar e-mail'}
-                </button>
-              </div>
+    <>
+      <SphereDefs />
+      <div id="phone" className="dark">
+        <Constellation />
+        <div id="view">
+          <div className="scr" style={{ justifyContent: 'center' }}>
+            <Grow />
+            <Wordmark px={26} />
+            {/* \n não vira quebra em JSX — precisa ser <br />. */}
+            <h1 style={{ textAlign: 'center', marginTop: 20 }}>
+              {recuperando
+                ? <>Vamos recuperar<br />sua conta.</>
+                : 'Bom te ver de volta.'}
+            </h1>
+            <Lede style={{ textAlign: 'center' }}>
+              {recuperando
+                ? 'Digita o e-mail da conta e eu te mando um link pra definir uma senha nova.'
+                : 'Sua constelação está do jeito que você deixou.'}
+            </Lede>
+
+            {recuperando ? (
+              <form onSubmit={recuperar} style={{ marginTop: 22 }}>
+                <Field label="E-mail" type="email" placeholder="voce@email.com" autoComplete="email"
+                  required value={email} onChange={(ev) => setEmail(ev.target.value)} />
+                <Cta disabled={indo || !email.trim()}>
+                  {indo ? 'enviando…' : 'enviar link de recuperação'}
+                </Cta>
+              </form>
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={signInWithGoogle}
-                  disabled={loading}
-                  style={{ ...btnStyle, background: 'var(--v2-card-bg)', color: 'var(--v2-card-fg)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%', marginBottom: 16 }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 18 18">
-                    <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z" />
-                    <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z" />
-                    <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z" />
-                    <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
-                  </svg>
-                  {loading ? 'Um momento…' : 'Continuar com Google'}
+              <form onSubmit={entrar} style={{ marginTop: 22 }}>
+                <button type="button" className="gbtn" onClick={porGoogle} disabled={indo}>
+                  <G />Continuar com o Google
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 16px' }}>
-                  <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-                  <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>ou</span>
-                  <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-                </div>
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {mode === 'signup' && (
-                    <label style={{ fontSize: 12, color: 'var(--ink-soft)' }}>
-                      Nome
-                      <input type="text" required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
-                    </label>
-                  )}
-                  <label style={{ fontSize: 12, color: 'var(--ink-soft)' }}>
-                    E-mail
-                    <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
-                  </label>
-                  {mode === 'signin' && (
-                    <PasswordInput label="Senha" value={password} onChange={setPassword} autoComplete="current-password" />
-                  )}
-                  {mode === 'signup' && (
-                    <NewPasswordFields
-                      password={password}
-                      confirm={confirmPassword}
-                      onPassword={setPassword}
-                      onConfirm={setConfirmPassword}
-                      labels={{ password: 'Senha', confirm: 'Confirmar senha' }}
-                    />
-                  )}
-                  {mode === 'reset' && (
-                    <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink-soft)' }}>
-                      Esqueceu a senha? Mandamos um link pro seu e-mail pra você criar uma nova.
-                    </p>
-                  )}
-                  {error && <p style={{ color: 'var(--red)', fontSize: 13, margin: 0 }}>{error}</p>}
-                  <button
-                    type="submit"
-                    disabled={loading || submitBlocked}
-                    style={{ ...btnStyle, opacity: loading || submitBlocked ? 0.5 : 1, cursor: submitBlocked ? 'not-allowed' : 'pointer' }}
-                  >
-                    {loading ? 'Um momento…' : submitLabel}
-                  </button>
-                </form>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
-                  <button type="button" onClick={() => switchMode(mode === 'signup' ? 'signin' : 'signup')} style={linkBtnStyle}>
-                    {mode === 'signup' ? 'já tenho conta' : 'criar conta'}
-                  </button>
-                  <button type="button" onClick={() => switchMode(mode === 'magic' ? 'signin' : 'magic')} style={linkBtnStyle}>
-                    {mode === 'magic' ? 'usar senha' : 'entrar direto pelo e-mail'}
-                  </button>
-                </div>
-                {mode !== 'signup' && (
-                  <div style={{ marginTop: 10 }}>
-                    <button type="button" onClick={() => switchMode(mode === 'reset' ? 'signin' : 'reset')} style={linkBtnStyle}>
-                      {mode === 'reset' ? 'voltar pro login' : 'esqueci minha senha'}
+                <div className="orsep"><span /><i>ou</i><span /></div>
+
+                <Field label="E-mail" type="email" placeholder="voce@email.com" autoComplete="email"
+                  required value={email} onChange={(ev) => setEmail(ev.target.value)} />
+
+                <div className="field">
+                  <label>Senha</label>
+                  <div className="fieldeye">
+                    <input type={vendo ? 'text' : 'password'} placeholder="sua senha" required
+                      autoComplete="current-password" value={senha}
+                      onChange={(ev) => setSenha(ev.target.value)} />
+                    <button type="button" onClick={() => setVendo((v) => !v)}
+                      aria-label={vendo ? 'Esconder senha' : 'Mostrar senha'}>
+                      <Icon name={vendo ? 'eyeOff' : 'eye'} />
                     </button>
                   </div>
-                )}
+                </div>
+
+                <Cta disabled={indo}>{indo ? 'entrando…' : 'entrar'}</Cta>
+              </form>
+            )}
+
+            {erro && <Erro>{erro}</Erro>}
+
+            {recuperando ? (
+              <Ghost onClick={() => trocar('entrar')}>voltar pro login</Ghost>
+            ) : (
+              <>
+                <Ghost onClick={() => trocar('recuperar')}>esqueci minha senha</Ghost>
+                {/* Criar conta é o onboarding inteiro: as 33 telas terminam na
+                    conta, e é lá que estão as respostas pra gravar junto. */}
+                <Ghost onClick={() => { window.location.href = '/'; }}>
+                  ainda não tenho conta · começar
+                </Ghost>
               </>
             )}
-          </Card>
+            <Grow />
+          </div>
         </div>
       </div>
-    </ThemeProviderV2>
+    </>
   );
 }

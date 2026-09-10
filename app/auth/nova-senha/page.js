@@ -1,122 +1,136 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/client';
-import { Card } from '../../../components/ui';
-import { ThemeProviderV2 } from '../../../components/v2/ThemeProviderV2';
-import { CadenceLogo } from '../../../components/v2/CadenceLogo';
-import { NewPasswordFields } from '../../../components/v2/PasswordInput';
+import { Constellation } from '../../../components/comecar/Constellation';
+import { Icon, SphereDefs } from '../../../components/comecar/ui';
+import { Cta, Ghost, Grow, Lede, Wordmark } from '../../../components/comecar/shell';
 import { friendlyAuthError } from '../../../lib/authErrors';
 
-const btnStyle = {
-  border: 'none', borderRadius: 12, padding: '13px 16px', fontWeight: 700,
-  background: 'var(--green)', color: '#fff', fontSize: 15,
-};
-const linkBtnStyle = {
-  border: 'none', background: 'none', color: 'var(--green-dark)', textDecoration: 'underline',
-  cursor: 'pointer', padding: 0, fontSize: 12.5, fontFamily: 'inherit',
-};
+/* Destino do link de "esqueci minha senha": o /auth/callback troca o código por
+   uma sessão de recuperação e manda pra cá. Este é o ÚNICO lugar onde dá pra
+   trocar a senha sem saber a antiga — o link no e-mail é a prova de quem é a
+   pessoa. (Trocar estando logado exige a senha atual: Perfil → Senha.)
 
-// Destino do link de "esqueci minha senha": o /auth/callback troca o código
-// por uma sessão de recuperação e manda pra cá. Aqui é o único lugar onde dá
-// pra trocar a senha SEM a senha antiga — o link no e-mail é a prova de quem é
-// a pessoa. (Trocar a senha estando logado normalmente exige a senha atual:
-// aba Perfil → Senha.)
+   Ficou com o design das 33 telas junto com o /login: sair de um visual e
+   chegar em outro no meio de um fluxo de senha é exatamente quando a pessoa
+   precisa reconhecer que continua no site certo. */
+
+function Casca({ children }) {
+  return (
+    <>
+      <SphereDefs />
+      <div id="phone" className="dark">
+        <Constellation />
+        <div id="view">
+          <div className="scr" style={{ justifyContent: 'center' }}>
+            <Grow />
+            <Wordmark px={26} />
+            {children}
+            <Grow />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function NovaSenhaPage() {
-  const router = useRouter();
-  const [checking, setChecking] = useState(true);
-  const [hasSession, setHasSession] = useState(false);
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [done, setDone] = useState(false);
+  const [checando, setChecando] = useState(true);
+  const [temSessao, setTemSessao] = useState(false);
+  const [senha, setSenha] = useState('');
+  const [confirma, setConfirma] = useState('');
+  const [vendo, setVendo] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState('');
+  const [pronto, setPronto] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session);
-      setChecking(false);
+    createClient().auth.getSession().then(({ data }) => {
+      setTemSessao(!!data.session);
+      setChecando(false);
     });
   }, []);
 
-  const blocked = password.length < 6 || password !== confirm;
+  // Igual à criação de conta: 8 caracteres e confirmação idêntica LETRA POR
+  // LETRA. Um espaço no fim é uma senha diferente na hora de entrar.
+  const curta = senha.length > 0 && senha.length < 8;
+  const naoBate = confirma.length > 0 && confirma !== senha;
+  const travado = senha.length < 8 || confirma !== senha;
 
-  const submit = async (e) => {
+  const salvar = async (e) => {
     e.preventDefault();
-    if (blocked) return;
-    setError('');
-    setSaving(true);
-    const supabase = createClient();
-    const { error: err } = await supabase.auth.updateUser({ password });
-    if (err) {
-      setError(friendlyAuthError(err));
-      setSaving(false);
+    if (travado) return;
+    setErro('');
+    setSalvando(true);
+    const { error } = await createClient().auth.updateUser({ password: senha });
+    if (error) {
+      setErro(friendlyAuthError(error));
+      setSalvando(false);
       return;
     }
-    // Registra no banco (password_set_at + histórico em user_events).
-    try {
-      await fetch('/api/account/password/record', { method: 'POST' });
-    } catch {
-      /* best-effort: a senha já trocou */
-    }
-    setDone(true);
-    setSaving(false);
+    // Registra no banco (password_set_at + histórico). Best-effort: a senha já
+    // trocou de verdade, e falhar o registro não pode desfazer isso.
+    try { await fetch('/api/account/password/record', { method: 'POST' }); } catch { /* noop */ }
+    setPronto(true);
+    setSalvando(false);
   };
 
+  if (checando) {
+    return <Casca><Lede style={{ textAlign: 'center' }}>Um momento…</Lede></Casca>;
+  }
+
+  if (pronto) {
+    return (
+      <Casca>
+        <h1 style={{ textAlign: 'center', marginTop: 20 }}>Senha trocada.</h1>
+        <Lede style={{ textAlign: 'center' }}>Agora você entra com o seu e-mail e essa senha nova.</Lede>
+        <Cta onClick={() => { window.location.href = '/v2'; }}>ir pro app</Cta>
+      </Casca>
+    );
+  }
+
+  if (!temSessao) {
+    return (
+      <Casca>
+        <h1 style={{ textAlign: 'center', marginTop: 20 }}>Esse link já venceu.</h1>
+        <Lede style={{ textAlign: 'center' }}>Links de recuperação valem por pouco tempo e só uma
+          vez. Pede um novo na tela de entrar.</Lede>
+        <Cta onClick={() => { window.location.href = '/login'; }}>pedir um link novo</Cta>
+      </Casca>
+    );
+  }
+
   return (
-    <ThemeProviderV2>
-      <div className="v2-bg" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: 'var(--font-ui-v2)' }}>
-        <div style={{ width: '100%', maxWidth: 380 }}>
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <CadenceLogo word={28} />
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>escolhe sua senha nova</p>
+    <Casca>
+      <h1 style={{ textAlign: 'center', marginTop: 20 }}>Escolhe sua<br />senha nova.</h1>
+      <form onSubmit={salvar} style={{ marginTop: 22 }}>
+        <div className="field">
+          <label>Senha nova</label>
+          <div className="fieldeye">
+            <input type={vendo ? 'text' : 'password'} placeholder="mínimo 8 caracteres" autoFocus
+              autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} />
+            <button type="button" onClick={() => setVendo((v) => !v)}
+              aria-label={vendo ? 'Esconder senha' : 'Mostrar senha'}>
+              <Icon name={vendo ? 'eyeOff' : 'eye'} />
+            </button>
           </div>
-          <Card>
-            {checking ? (
-              <p style={{ margin: 0, fontSize: 14, color: 'var(--ink-soft)' }}>Um momento…</p>
-            ) : done ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <p style={{ margin: 0, fontSize: 14, color: 'var(--ink)' }}>
-                  Senha alterada. Agora você entra com e-mail e senha.
-                </p>
-                <button type="button" onClick={() => { router.push('/v2'); router.refresh(); }} style={btnStyle}>
-                  Ir pro app
-                </button>
-              </div>
-            ) : !hasSession ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <p style={{ margin: 0, fontSize: 14, color: 'var(--ink)' }}>
-                  Esse link expirou ou já foi usado. Pede um novo link de redefinição na tela de login.
-                </p>
-                <button type="button" onClick={() => router.push('/login')} style={{ ...linkBtnStyle, alignSelf: 'flex-start' }}>
-                  voltar pro login
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <NewPasswordFields
-                  password={password}
-                  confirm={confirm}
-                  onPassword={setPassword}
-                  onConfirm={setConfirm}
-                  labels={{ password: 'Senha nova', confirm: 'Confirmar senha nova' }}
-                  autoFocus
-                />
-                {error && <p style={{ color: 'var(--red)', fontSize: 13, margin: 0 }}>{error}</p>}
-                <button
-                  type="submit"
-                  disabled={saving || blocked}
-                  style={{ ...btnStyle, opacity: saving || blocked ? 0.5 : 1, cursor: saving || blocked ? 'not-allowed' : 'pointer' }}
-                >
-                  {saving ? 'Salvando…' : 'Salvar senha nova'}
-                </button>
-              </form>
-            )}
-          </Card>
+          {curta && <p className="fielderr">A senha precisa de pelo menos 8 caracteres.</p>}
         </div>
-      </div>
-    </ThemeProviderV2>
+
+        <div className="field">
+          <label>Confirmar senha nova</label>
+          <input type={vendo ? 'text' : 'password'} placeholder="repita a senha"
+            autoComplete="new-password" className={naoBate ? 'ruim' : ''}
+            aria-invalid={naoBate ? 'true' : undefined}
+            value={confirma} onChange={(e) => setConfirma(e.target.value)} />
+          {naoBate && <p className="fielderr">As senhas não são iguais.</p>}
+        </div>
+
+        <Cta disabled={salvando || travado}>{salvando ? 'salvando…' : 'salvar senha nova'}</Cta>
+      </form>
+      {erro && <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--red)', textAlign: 'center' }}>{erro}</p>}
+      <Ghost onClick={() => { window.location.href = '/login'; }}>voltar pro login</Ghost>
+    </Casca>
   );
 }
