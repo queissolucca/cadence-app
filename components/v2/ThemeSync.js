@@ -11,8 +11,9 @@ export function ThemeSync({ profileTheme }) {
   const { setTheme } = useTheme();
 
   useEffect(() => {
-    // Default é claro; só 'dark' aplica o escuro (auto/legado caem pra claro).
-    setTheme(profileTheme === 'dark' ? 'dark' : 'light');
+    // Default é escuro; só quem escolheu 'light' explicitamente fica no claro
+    // (null/auto/legado caem pro escuro, que é o novo padrão do app).
+    setTheme(profileTheme === 'light' ? 'light' : 'dark');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileTheme]);
 

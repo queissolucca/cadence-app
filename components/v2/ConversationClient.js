@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
+import { CadyLive } from './CadyLive';
+import { aoTocarMute, decidirMute } from '../../lib/conversaMute';
 
 // Título curtinho pra listar na barra lateral: pega a 1ª fala do usuário com
 // substância; senão, cai pra data.
@@ -22,6 +24,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const [notConfigured, setNotConfigured] = useState(false);
   const [transcript, setTranscript] = useState([]);
   const [showTranscript, setShowTranscript] = useState(true); // aberta por padrão; usuário pode minimizar
+  // Quanto a boca está aberta (0..1) e se ela está no meio de uma correção.
+  const [nivel, setNivel] = useState(0);
+  const [corrigindo, setCorrigindo] = useState(false);
+  const corrigindoT = useRef(null);
   const startedAtRef = useRef(null);
   const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
   const scrollRef = useRef(null); // janela de transcrição com scroll próprio
@@ -125,6 +131,16 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       // no agente do ElevenLabs.)
       save_to_review: async ({ term, example, category } = {}) => {
         if (!term) return "I didn't catch what to save.";
+        // A cara brava sai de um evento REAL, não de adivinhar pelo texto: a
+        // Cady só chama esta ferramenta com category 'correction' quando de
+        // fato corrigiu alguma coisa. Se o agente não mandar a categoria, a
+        // cara simplesmente não muda — errar pra menos aqui é melhor que ela
+        // ficar brava no meio de um elogio.
+        if (category === 'correction') {
+          setCorrigindo(true);
+          clearTimeout(corrigindoT.current);
+          corrigindoT.current = setTimeout(() => setCorrigindo(false), 5200);
+        }
         try {
           await fetch('/api/review', {
             method: 'POST',
@@ -208,9 +224,20 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     }
   }, [conversation]);
 
+  // Verdadeiro só quando fomos NÓS que mudamos, porque ela começou a falar.
+  // É o que separa "silenciei sozinho e devo desfazer" de "a pessoa escolheu
+  // ficar muda e eu não tenho nada que desfazer isso".
+  const mudoPorNos = useRef(false);
+  // A pessoa tocou no botão durante esta fala dela — decisão automática pausada
+  // até ela calar.
+  const assumido = useRef(false);
+
   const toggleMute = useCallback(() => {
     try {
-      conversation.setMuted(!conversation.isMuted);
+      const d = aoTocarMute({ mudo: conversation.isMuted, falando: conversation.isSpeaking });
+      conversation.setMuted(d.mudar);
+      mudoPorNos.current = d.nosso;
+      assumido.current = d.assumido;
     } catch {
       /* noop */
     }
@@ -228,6 +255,72 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const connecting = starting || status === 'connecting';
   const muted = active && conversation.isMuted;
   const speaking = active && conversation.isSpeaking;
+
+  // Enquanto ela fala, o microfone fecha sozinho; quando ela para, abre de novo.
+  // A pessoa pode desmutar no meio pra interromper — o botão marca
+  // `mudoPorNos = false` e a gente não desfaz mais nada nesta rodada.
+  //
+  // O que se perde: o barge-in natural do ElevenLabs, que deixa cortar a fala
+  // dela só falando por cima. Aqui isso passa a exigir um toque.
+  useEffect(() => {
+    try {
+      const d = decidirMute({
+        ativo: active,
+        falando: speaking,
+        mudo: !!conversation.isMuted,
+        nosso: mudoPorNos.current,
+        assumido: assumido.current,
+      });
+      mudoPorNos.current = d.nosso;
+      assumido.current = d.assumido;
+      if (d.mudar !== null) conversation.setMuted(d.mudar);
+    } catch {
+      /* setMuted pode não existir antes da sessão abrir */
+    }
+    // conversation muda de identidade a cada render do hook; o que importa aqui
+    // são as bordas de `speaking` e `active`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speaking, active]);
+
+  // A boca segue a amplitude real da voz dela. Se o SDK não expuser o volume
+  // (versão mais antiga), cai numa oscilação enquanto `isSpeaking` — a boca
+  // ainda mexe, só não fica sincronizada com o som.
+  useEffect(() => {
+    if (!active) { setNivel(0); return undefined; }
+    let raf = 0;
+    const parado = matchMedia('(prefers-reduced-motion:reduce)').matches;
+    const temVolume = typeof conversation.getOutputVolume === 'function';
+    let suave = 0;
+    const passo = () => {
+      let alvo = 0;
+      if (conversation.isSpeaking) {
+        if (temVolume) {
+          const v = conversation.getOutputVolume() || 0;
+          // getOutputVolume devolve valores baixos; a raiz abre a faixa útil
+          // (senão a boca quase não sai do lugar em fala normal).
+          alvo = Math.min(1, Math.sqrt(v) * 1.9);
+        } else {
+          alvo = parado ? 0.5 : 0.45 + 0.45 * Math.abs(Math.sin(performance.now() / 130));
+        }
+      }
+      // suavização: sem ela a boca treme a cada quadro
+      suave += (alvo - suave) * (alvo > suave ? 0.45 : 0.18);
+      setNivel(suave);
+      raf = requestAnimationFrame(passo);
+    };
+    raf = requestAnimationFrame(passo);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  // O rosto: quem fala ganha da correção só na boca — a sobrancelha e o
+  // vermelho continuam enquanto ela estiver corrigindo.
+  let cara = 'idle';
+  if (connecting) cara = 'curious';
+  else if (active && muted) cara = 'mudo';
+  else if (active && speaking) cara = corrigindo ? 'corrigindo_falando' : 'talking';
+  else if (active && corrigindo) cara = 'corrigindo';
+  else if (active) cara = 'ouvindo';
 
   let statusLabel = unit ? 'Toque pra começar a lição' : isCard ? 'Toque pra praticar falando' : isReview ? 'Toque pra revisar falando' : resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
   if (connecting) statusLabel = 'Conectando…';
@@ -262,32 +355,41 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
         </div>
       )}
 
+      {/* A Cady é o botão. O orbe verde que ficava aqui era um disco genérico
+          com um ícone de microfone: não tinha rosto, não reagia à fala e não
+          dizia de quem era a voz. */}
       <button
         onClick={active ? stop : start}
         disabled={connecting}
         aria-label={active ? 'Encerrar conversa' : 'Começar conversa'}
-        className={speaking ? 'cadyOrbSpeaking' : undefined}
         style={{
-          width: 85, height: 85, borderRadius: '50%', border: 'none', cursor: connecting ? 'default' : 'pointer',
-          display: 'grid', placeItems: 'center', position: 'relative',
-          // Verde sólido nos dois modos (ícone branco sempre legível, tanto no
-          // fundo claro quanto no escuro).
-          background: active ? '#2E9E5B' : '#1E6B41', color: '#fff',
-          boxShadow: speaking ? '0 0 0 12px rgba(46,158,91,0.22)' : '0 10px 30px rgba(0,0,0,0.22)',
-          transition: 'box-shadow 180ms ease, background 180ms ease, transform 120ms ease',
+          border: 'none', background: 'none', padding: 0, position: 'relative',
+          cursor: connecting ? 'default' : 'pointer', lineHeight: 0,
+          filter: active ? 'none' : 'saturate(0.55) brightness(0.82)',
+          transition: 'filter 260ms ease, transform 120ms ease',
           transform: connecting ? 'scale(0.97)' : 'scale(1)',
         }}
       >
-        {active ? (
-          <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="6" y="6" width="12" height="12" rx="2.5" />
-          </svg>
-        ) : (
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="9" y="3" width="6" height="11" rx="3" />
-            <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-          </svg>
-        )}
+        <CadyLive estado={cara} nivel={nivel} size={196} />
+        {/* Selo de ação: o rosto sozinho não diz que dá pra tocar. */}
+        <span
+          style={{
+            position: 'absolute', right: 10, bottom: 10, width: 42, height: 42, borderRadius: '50%',
+            display: 'grid', placeItems: 'center', background: active ? '#2E9E5B' : '#1E6B41',
+            color: '#fff', boxShadow: '0 6px 18px rgba(0,0,0,0.38)',
+          }}
+        >
+          {active ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="6" y="6" width="12" height="12" rx="2.5" />
+            </svg>
+          ) : (
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="3" width="6" height="11" rx="3" />
+              <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+            </svg>
+          )}
+        </span>
       </button>
 
       <style jsx>{`

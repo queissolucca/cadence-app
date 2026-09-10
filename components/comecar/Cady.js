@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { cadySVG } from '../../lib/comecar/cady/cady';
-import { mountCady, CADY_CSS } from '../../lib/comecar/cady/cady-live';
+import { cadySVG } from '../../lib/cady/cady';
+import { mountCady, CADY_CSS } from '../../lib/cady/cady-live';
 
 /* A folha de estilo da Cady é entregue pelo próprio módulo (é ele que conhece a
    geometria). Injetada uma vez, no cliente — não dá pra colocar em globals.css
