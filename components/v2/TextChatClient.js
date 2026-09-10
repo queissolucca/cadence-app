@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { CadyLive } from './CadyLive';
 import { TypingDots } from './TypingDots';
 
 function deriveTitle(messages) {
@@ -33,6 +34,15 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
   const [notConfigured, setNotConfigured] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [savedFlash, setSavedFlash] = useState(0);
+  // Rosto da Cady no chat escrito. Aqui não existe áudio, então os estados vêm
+  // de eventos do próprio chat: esperando resposta, resposta chegando, e
+  // correção — esta última pelo MESMO sinal da voz, o save_to_review com
+  // category 'correction' que a /api/chat devolve em `saved`.
+  const [respondendo, setRespondendo] = useState(false);
+  const [corrigindo, setCorrigindo] = useState(false);
+  const respT = useRef(null);
+  const corrT = useRef(null);
+  useEffect(() => () => { clearTimeout(respT.current); clearTimeout(corrT.current); }, []);
 
   // Ao retomar, escreve na MESMA conversa (anexa o novo trecho).
   const convIdRef = useRef(resuming ? resumeId || null : null);
@@ -133,6 +143,16 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
       setMessages(withReply);
       if (Array.isArray(saved) && saved.length) setSavedFlash((n) => n + saved.length);
 
+      // Beat de "acabei de te responder", e a cara brava só se de fato corrigiu.
+      setRespondendo(true);
+      clearTimeout(respT.current);
+      respT.current = setTimeout(() => setRespondendo(false), 2000);
+      if (Array.isArray(saved) && saved.some((x) => x?.category === 'correction')) {
+        setCorrigindo(true);
+        clearTimeout(corrT.current);
+        corrT.current = setTimeout(() => setCorrigindo(false), 5200);
+      }
+
       if (!cardDrill) persist(withReply); // drill de card é micro-interação: não salva no histórico
       // Só conta pro streak se foi atividade real: uma lição de fato (>=4 trocas)
       // ou uma conversa aberta com troca real (>=2 mensagens suas). Card drill não conta.
@@ -181,18 +201,29 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
     );
   }
 
+  let cara = 'idle';
+  if (sending) cara = 'pensando';
+  else if (corrigindo && respondendo) cara = 'corrigindo_falando';
+  else if (corrigindo) cara = 'corrigindo';
+  else if (respondendo) cara = 'talking';
+
+  const legenda = sending ? '· pensando…'
+    : corrigindo ? '· corrigindo você'
+    : '· escrevendo com você';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 620, margin: '0 auto', gap: 12 }}>
-      {agent && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, alignSelf: 'center' }}>
-          <span style={{ width: 30, height: 30, borderRadius: 9, background: agent.accent, color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 }}>
-            {agent.name.charAt(0)}
-          </span>
-          <span style={{ fontSize: 14, color: 'var(--ink)' }}>
-            <strong>{agent.name}</strong> <span style={{ color: 'var(--ink-soft)' }}>· escrevendo com você</span>
-          </span>
-        </div>
-      )}
+      {/* A Cady miniatura: a mesma de sempre, só menor. Aqui ela não fala, então
+          o rosto conta o que está acontecendo no chat — pensando enquanto a
+          resposta não chega, respondendo quando chega, brava quando corrigiu.
+          `nivel={null}` avisa que não há áudio pra seguir. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'center' }}>
+        <CadyLive estado={cara} nivel={null} size={62} label={agent?.name || 'Cady'} />
+        <span style={{ fontSize: 14, color: 'var(--ink)' }}>
+          <strong>{agent?.name || 'Cady'}</strong>{' '}
+          <span style={{ color: 'var(--ink-soft)' }}>{legenda}</span>
+        </span>
+      </div>
 
       {resuming && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'center', fontSize: 12.5, color: 'var(--green-dark, var(--green))', background: 'var(--green-soft)', padding: '6px 12px', borderRadius: 999, maxWidth: '90%' }}>

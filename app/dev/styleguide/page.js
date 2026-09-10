@@ -5,6 +5,7 @@
 // lugar nenhum do app — acesso só por URL direta.
 
 import { Card, CardDark, CardGreen, Pill, Badge, SectionHead, ProgressBar, TabBar, AppHeader } from '../../../components/ui';
+import { CadyLive } from '../../../components/v2/CadyLive';
 
 export default function StyleguidePage() {
   return (
@@ -12,6 +13,21 @@ export default function StyleguidePage() {
       <div style={{ maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 28 }}>
 
         <AppHeader streak={12} avatarInitial="L" />
+
+        {/* Os rostos que a conversa usa, lado a lado e animados de verdade —
+            é aqui que dá pra ver a Cady se mexendo sem precisar abrir uma
+            sessão de voz. */}
+        <section data-cady-demo>
+          <h3 style={{ fontSize: 12, letterSpacing: '0.1em', color: 'var(--ink-soft)', textTransform: 'uppercase', marginBottom: 10 }}>Cady · estados da conversa</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {['idle', 'ouvindo', 'pensando', 'talking', 'mudo', 'corrigindo_falando'].map((e) => (
+              <div key={e} data-estado={e} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                <CadyLive estado={e} nivel={null} size={104} />
+                <span style={{ fontSize: 11, color: 'var(--ink-soft)', fontFamily: 'var(--font-mono-v2)' }}>{e}</span>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section>
           <h3 style={{ fontSize: 12, letterSpacing: '0.1em', color: 'var(--ink-soft)', textTransform: 'uppercase', marginBottom: 10 }}>Tokens</h3>
