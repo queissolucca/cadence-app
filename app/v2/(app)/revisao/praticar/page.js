@@ -3,6 +3,7 @@ import { createClient } from '../../../../../lib/supabase/server';
 import { DEFAULT_AGENT } from '../../../../../lib/track/sessionOptions';
 import { isDue } from '../../../../../lib/track/srs';
 import { ConversationClient } from '../../../../../components/v2/ConversationClient';
+import { identidade, perfilV2 } from '../../../../../lib/sessaoServidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,34 +11,34 @@ export const dynamic = 'force-dynamic';
 // deles (a Cady puxa item por item). Ao encerrar, cada card sobe de caixa.
 export default async function PraticarPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const eu = await identidade();
 
-  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+  // O nome e os cards não dependem um do outro: vão juntos. (O perfil já está
+  // no cache da requisição, então quem paga rede aqui é só a consulta dos
+  // cards.)
+  const [profile, rows] = await Promise.all([
+    perfilV2(),
+    // Vencidos primeiro; resiliente caso a migration 0017 não tenha rodado.
+    (async () => {
+      const withSrs = await supabase
+        .from('review_saved')
+        .select('id, term, example, category, box, due_at')
+        .eq('user_id', eu.id)
+        .neq('status', 'learned')
+        .order('due_at', { ascending: true })
+        .limit(30);
+      if (!withSrs.error) return withSrs.data || [];
+      const { data } = await supabase
+        .from('review_saved')
+        .select('id, term, example, category')
+        .eq('user_id', eu.id)
+        .neq('status', 'learned')
+        .order('created_at', { ascending: true })
+        .limit(30);
+      return data || [];
+    })(),
+  ]);
   const firstName = (profile?.full_name || '').trim().split(/\s+/)[0] || '';
-
-  // Vencidos primeiro; resiliente caso a migration 0017 não tenha rodado.
-  let rows = [];
-  const withSrs = await supabase
-    .from('review_saved')
-    .select('id, term, example, category, box, due_at')
-    .eq('user_id', user.id)
-    .neq('status', 'learned')
-    .order('due_at', { ascending: true })
-    .limit(30);
-  if (!withSrs.error) {
-    rows = withSrs.data || [];
-  } else {
-    const { data } = await supabase
-      .from('review_saved')
-      .select('id, term, example, category')
-      .eq('user_id', user.id)
-      .neq('status', 'learned')
-      .order('created_at', { ascending: true })
-      .limit(30);
-    rows = data || [];
-  }
 
   const dueRows = rows.filter((r) => isDue(r));
   const items = (dueRows.length ? dueRows : rows).slice(0, 8);

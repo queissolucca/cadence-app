@@ -1,16 +1,16 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { TrilhaView } from '../../../../components/v2/TrilhaView';
+import { identidade } from '../../../../lib/sessaoServidor';
 
 // C2/C3/C4 — a tela da trilha: nível (B1/B2) → módulos → lições, com progresso.
 export default async function TrilhaPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Identidade sem ida à rede (o layout já resolveu) — ver lib/sessaoServidor.
+  const eu = await identidade();
 
   // Unidades já concluídas (best-effort — tabela pode não existir ainda).
   let completedIds = [];
-  const { data } = await supabase.from('unit_progress').select('unit_id').eq('user_id', user.id);
+  const { data } = await supabase.from('unit_progress').select('unit_id').eq('user_id', eu.id);
   if (data) completedIds = data.map((r) => r.unit_id);
 
   return (

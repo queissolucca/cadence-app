@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { createClient } from '../../../../../lib/supabase/server';
 import { getUnit } from '../../../../../lib/track/units';
+import { perfilV2 } from '../../../../../lib/sessaoServidor';
 import { DEFAULT_AGENT } from '../../../../../lib/track/sessionOptions';
 import { LessonRunner } from '../../../../../components/v2/LessonRunner';
 
@@ -11,11 +11,9 @@ export default async function UnitPage({ params }) {
   const unit = getUnit(params.unitId);
   if (!unit) notFound();
 
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+  // O perfil já veio no cache da requisição (o layout do (app) o pediu), então
+  // esta tela não faz consulta nenhuma por conta própria.
+  const profile = await perfilV2();
   const firstName = (profile?.full_name || '').trim().split(/\s+/)[0] || '';
 
   return (

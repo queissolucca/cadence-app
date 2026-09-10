@@ -27,8 +27,20 @@ function buildResumeContext(messages, topic) {
 // Aba Conversar com histórico ao lado (estilo LLM). Painel esquerdo = galeria
 // de agentes + lista de conversas salvas; painel direito = a conversa ao vivo,
 // ou o transcript de uma conversa passada quando o usuário revisita um tema.
-export function ConversarView({ firstName, memoryText, openingGreeting }) {
+export function ConversarView({ firstName, memoryText }) {
   const [items, setItems] = useState([]);
+  /* A saudação personalizada da Cady vem depois, e de propósito.
+
+     Ela sai de uma chamada à Anthropic, e antes era esperada dentro do render
+     do server component — a aba mais usada do app só mandava o primeiro byte
+     de HTML 1 a 3 segundos depois de aberta, por causa de um texto que só é
+     usado quando a conversa começa.
+
+     Agora a busca sai junto com a montagem da tela, em paralelo com o
+     histórico. Ninguém espera por ela: até chegar, o ConversationClient já cai
+     na saudação padrão (`openingGreeting || 'Hi ...'`), e no tempo entre abrir
+     a aba e clicar em falar ela quase sempre já chegou. */
+  const [openingGreeting, setOpeningGreeting] = useState('');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null); // resumo em visualização, ou null = ao vivo
   const [detail, setDetail] = useState(null);
@@ -55,6 +67,18 @@ export function ConversarView({ firstName, memoryText, openingGreeting }) {
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
+
+  // Sem memória gravada a rota devolve string vazia sem chamar a Anthropic, e
+  // aí a saudação padrão é a resposta certa mesmo.
+  useEffect(() => {
+    if (!memoryText) return undefined;
+    const abortar = new AbortController();
+    fetch('/api/conversar/saudacao', { signal: abortar.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.line) setOpeningGreeting(d.line); })
+      .catch(() => { /* saudação padrão dá conta */ });
+    return () => abortar.abort();
+  }, [memoryText]);
 
   const openConversation = useCallback(async (it) => {
     setSelected(it);

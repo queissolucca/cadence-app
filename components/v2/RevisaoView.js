@@ -1,9 +1,22 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { isDue, boxProgress, SRS_STEPS } from '../../lib/track/srs';
-import { CardPracticeDialog } from './CardPracticeDialog';
+
+/* O pop-up de praticar um card puxa o SDK de voz do ElevenLabs (~100 kB
+   comprimidos). Ele só existe depois de a pessoa tocar num card — mas, estando
+   importado aqui de forma normal, vinha no primeiro carregamento da aba
+   Revisão, cujo trabalho é mostrar a LISTA. Era o SDK inteiro baixado e
+   interpretado antes de o primeiro cartão aparecer.
+
+   Fica carregado sob demanda, e aquecido na primeira folga (ver o efeito
+   abaixo): quando o toque vem, o pedaço já está no cache. */
+const CardPracticeDialog = dynamic(
+  () => import('./CardPracticeDialog').then((m) => ({ default: m.CardPracticeDialog })),
+  { ssr: false },
+);
 
 const CATS = {
   correction: { label: 'Correção', color: '#B0722C' },
@@ -59,6 +72,18 @@ export function RevisaoView({ initialItems = [], firstName = '' }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ term: '', example: '', category: 'phrase' });
   const [saving, setSaving] = useState(false);
+
+  // Aquece o pop-up de prática na primeira folga da thread: o download acontece
+  // enquanto a pessoa lê a lista, e não quando ela toca no cartão.
+  useEffect(() => {
+    const puxar = () => { import('./CardPracticeDialog'); };
+    if (typeof requestIdleCallback === 'function') {
+      const id = requestIdleCallback(puxar, { timeout: 2500 });
+      return () => cancelIdleCallback(id);
+    }
+    const t = setTimeout(puxar, 1500);
+    return () => clearTimeout(t);
+  }, []);
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState('');
 

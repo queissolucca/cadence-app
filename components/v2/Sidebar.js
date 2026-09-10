@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CadenceLogo } from './CadenceLogo';
+import { useDestinoPendente } from './NavegacaoPendente';
 
 function IconHome() {
   return (
@@ -42,6 +43,9 @@ const NAV_ITEMS = [
 // sempre no DOM pra evitar qualquer detecção de viewport via JS.
 export function Sidebar({ streak = 0, avatarUrl, avatarInitial, basePath = '/v2' }) {
   const pathname = usePathname();
+  // Mesmo motivo da TabBar: o item clicado acende no quadro do clique, sem
+  // esperar a tela nova. Ver components/v2/NavegacaoPendente.js.
+  const pendente = useDestinoPendente();
   const NAV = NAV_ITEMS.map((item) => ({ ...item, href: `${basePath}${item.href}` }));
 
   return (
@@ -50,9 +54,16 @@ export function Sidebar({ streak = 0, avatarUrl, avatarInitial, basePath = '/v2'
 
       <nav className="web-sidebar-nav">
         {NAV.map(({ href, label, Icon }) => {
-          const isActive = href === basePath ? pathname === href : pathname.startsWith(href);
+          const chegando = pendente === href;
+          const aqui = href === basePath ? pathname === href : pathname.startsWith(href);
+          const isActive = chegando || (!pendente && aqui);
           return (
-            <Link key={href} href={href} className={`web-nav-link ${isActive ? 'web-nav-active' : ''}`}>
+            <Link
+              key={href}
+              href={href}
+              aria-current={isActive ? 'page' : undefined}
+              className={`web-nav-link ${isActive ? 'web-nav-active' : ''} ${chegando ? 'web-nav-chegando' : ''}`}
+            >
               <Icon />
               <span>{label}</span>
             </Link>

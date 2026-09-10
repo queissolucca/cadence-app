@@ -1,31 +1,29 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { ConversarView } from '../../../../components/v2/ConversarView';
-import { loadMemoryBlock, buildOpeningGreeting } from '../../../../lib/memory';
+import { loadMemoryBlock } from '../../../../lib/memory';
+import { identidade, perfilV2 } from '../../../../lib/sessaoServidor';
 
 // Aba Conversar — a tela principal. Server component: pega o primeiro nome do
 // usuário (pro agente falar "Hey Lucca!") e renderiza a view com o histórico de
 // conversas ao lado + a conversa ao vivo.
+//
+// A SAUDAÇÃO PERSONALIZADA SAIU DAQUI. Ela é feita por uma chamada à Anthropic,
+// e esperar por ela aqui atrasava o primeiro byte da tela mais usada do app em
+// 1 a 3 segundos — por um texto que só é usado depois de a pessoa clicar em
+// "falar". Agora quem busca é a ConversarView, ao montar, em paralelo com o
+// resto (ver app/api/conversar/saudacao).
 export default async function ConversarPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const eu = await identidade();
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .maybeSingle();
+  const [profile, memoryText] = await Promise.all([
+    perfilV2(),
+    // Memória do usuário pra Cady já conhecer você na voz (best-effort). É uma
+    // consulta simples ao banco, barata — esta pode continuar no render.
+    loadMemoryBlock(supabase, eu.id),
+  ]);
 
   const firstName = (profile?.full_name || '').trim().split(/\s+/)[0] || '';
-  // Memória do usuário pra Cady já conhecer você na voz (best-effort).
-  const memoryText = await loadMemoryBlock(supabase, user.id);
-  // Saudação de abertura puxando a memória + dia da semana (Brasília). Sem
-  // memória → '' e o cliente cai na saudação padrão.
-  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'America/Sao_Paulo' }).format(new Date());
-  const openingGreeting = memoryText
-    ? await buildOpeningGreeting(supabase, user.id, firstName, memoryText, { weekday })
-    : '';
 
   return (
     <>
@@ -35,7 +33,7 @@ export default async function ConversarPage() {
           Bora destravar seu inglês agora! Comece aos poucos, mas tenha cadência de continuar aprendendo! <strong style={{ color: 'var(--ink)' }}>Não pense muito, apenas clique e comece agora!</strong>
         </p>
       </div>
-      <ConversarView firstName={firstName} memoryText={memoryText} openingGreeting={openingGreeting} />
+      <ConversarView firstName={firstName} memoryText={memoryText} />
     </>
   );
 }

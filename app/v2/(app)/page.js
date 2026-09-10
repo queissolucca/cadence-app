@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { createClient } from '../../../lib/supabase/server';
-import { dayKeySP, weekStartSP, addDays, todayKeySP } from '../../../lib/dates';
+import { identidade, perfilV2, diasComSessao } from '../../../lib/sessaoServidor';
+import { weekStartSP, addDays, todayKeySP } from '../../../lib/dates';
 import { streakFromDayKeys } from '../../../lib/streak';
 import { AppHeader } from '../../../components/ui';
 import { StreakCard } from '../../../components/v2/StreakCard';
@@ -12,10 +12,9 @@ function getGreeting() {
 }
 
 export default async function HojePageV2() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // As três coisas saem do cache de requisição do lib/sessaoServidor: o layout
+  // acima já pediu as mesmas, então aqui não custa ida à rede nenhuma.
+  const [user, profile, { dias: doneSet }] = await Promise.all([identidade(), perfilV2(), diasComSessao()]);
 
   const now = new Date();
   const todayKey = todayKeySP();
@@ -23,25 +22,7 @@ export default async function HojePageV2() {
   const [curYear, curMonth] = spYM.split('-').map(Number);
   const weekStart = weekStartSP(now);
 
-  const [profileRes, sessionsRes] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('full_name, avatar_url, streak_count, weekly_cadence_target')
-      .eq('id', user.id)
-      .single(),
-    // Cobre 2026 e 2027 pro calendário navegável — só volta os DIAS com sessão,
-    // então o dado é minúsculo (um Set de datas).
-    supabase
-      .from('sessions')
-      .select('started_at')
-      .eq('user_id', user.id)
-      .gte('started_at', '2026-01-01T00:00:00Z')
-      .lte('started_at', '2028-01-01T00:00:00Z'),
-  ]);
-
-  const profile = profileRes.data;
-  const doneDays = Array.from(new Set((sessionsRes.data || []).map((s) => dayKeySP(new Date(s.started_at)))));
-  const doneSet = new Set(doneDays);
+  const doneDays = Array.from(doneSet);
 
   const weekDots = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStart, i);
@@ -55,13 +36,16 @@ export default async function HojePageV2() {
   // dias completos, sem depender do contador incremental que podia dessincronizar.
   const streakCount = streakFromDayKeys(doneSet, todayKey);
 
-  // Recorde de streak (best-effort — coluna streak_max pode não existir ainda).
-  let streakMax = streakCount;
-  const { data: maxRow } = await supabase.from('profiles').select('streak_max').eq('id', user.id).maybeSingle();
-  if (maxRow && typeof maxRow.streak_max === 'number') streakMax = Math.max(streakMax, maxRow.streak_max);
+  // Recorde de streak: vem no mesmo select do perfil (best-effort — a coluna
+  // streak_max é da migration 0013 e pode não existir ainda).
+  const streakMax = typeof profile?.streak_max === 'number' ? Math.max(streakCount, profile.streak_max) : streakCount;
 
-  const memberSince = user.created_at
-    ? new Date(user.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })
+  // "Membro desde" saía de user.created_at, e era o ÚNICO campo desta tela que
+  // exigia o objeto de usuário completo (ou seja, uma ida à rede ao servidor de
+  // auth só por causa dele). profiles.created_at é a mesma data: a linha nasce
+  // no gatilho handle_new_user, junto com a conta.
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })
     : null;
 
   return (
@@ -70,8 +54,8 @@ export default async function HojePageV2() {
         <AppHeader
           streak={streakCount}
           avatarUrl={profile?.avatar_url}
-          avatarInitial={profile?.full_name || user.email}
-          profile={{ fullName: profile?.full_name || '', email: user.email, memberSince, streakMax }}
+          avatarInitial={profile?.full_name || user?.email}
+          profile={{ fullName: profile?.full_name || '', email: user?.email || '', memberSince, streakMax }}
         />
         <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>{getGreeting()}</p>
       </div>

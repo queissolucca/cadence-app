@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useDestinoPendente } from '../v2/NavegacaoPendente';
 
 function IconHome() {
   return (
@@ -40,14 +41,27 @@ const TABS = [
 // virar a rota raiz de verdade, sem precisar tocar em nada além disso.
 export function TabBar({ active, basePath = '' }) {
   const pathname = usePathname();
+  /* A aba tocada acende ANTES de a tela nova chegar. Sem isto, a resposta ao
+     toque era a tela nova — e até ela vir (uma ida ao servidor), a interface
+     ficava idêntica à de antes do toque, o que se lê como "não pegou".
+     Ver components/v2/NavegacaoPendente.js. */
+  const pendente = useDestinoPendente();
 
   return (
     <nav className="v2-tabbar">
       {TABS.map(({ key, href, label, Icon }) => {
         const fullHref = `${basePath}${href}` || '/';
-        const isActive = active ? active === key : pathname === fullHref;
+        const chegando = pendente === fullHref;
+        // Enquanto há destino pendente, ele manda: a aba de origem apaga junto,
+        // senão duas ficariam acesas ao mesmo tempo.
+        const isActive = chegando || (!pendente && (active ? active === key : pathname === fullHref));
         return (
-          <Link key={key} href={fullHref} className={`v2-tab-btn ${isActive ? 'v2-tab-active' : ''}`}>
+          <Link
+            key={key}
+            href={fullHref}
+            aria-current={isActive ? 'page' : undefined}
+            className={`v2-tab-btn ${isActive ? 'v2-tab-active' : ''} ${chegando ? 'v2-tab-chegando' : ''}`}
+          >
             <Icon />
             <span>{label}</span>
           </Link>
