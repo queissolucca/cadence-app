@@ -1,0 +1,721 @@
+/* ===================================================================
+   Nova interface (/comecar). Portado do site paralelo cadence-web, que por
+   sua vez veio do protótipo cadence-onboarding.html. As regras são as mesmas
+   — o que muda é o carregamento: aqui este arquivo entra só no bundle da rota
+   /comecar (App Router), então nada disto vaza pra /v2 nem pra landing.
+   =================================================================== */
+/* ===================================================================
+   Tokens — espelham app/globals.css do Cadence
+   =================================================================== */
+:root{
+  /* o layout raiz declara color-scheme:light — aqui a tela é preta, e sem
+     isto as barras de rolagem e os controles nativos saem claros */
+  color-scheme:dark;
+  --bg:#F8F8F1; --ink:#141412; --ink-soft:#7a7a72;
+  --green:#3E9B5F; --green-dark:#2c7347; --green-soft:#DFEEE3;
+  --line:#e7e7de; --red:#b0574a; --amber:#a5760a;
+  /* Cady — paleta rosa quartzo */
+  --cady-luz:#FFE0EA; --cady:#F58DAE; --cady-sombra:#A63E68;
+  --cady-coroa:#8FF0C0; --cady-rosa:#D9527A; --cady-fundo:#0C0A0C;
+  --cady-ink:#1B0E14;
+  --card:#fff; --dark:#0C0A0C; --dark-soft:#161316;
+  /* neutros do modo escuro. Os valores antigos tinham todos hue rosa (~330deg),
+     o que puxava a tela inteira pro vinho. Agora são quase acromáticos: o rosa
+     fica só na Cady, que é quem deve carregá-lo. */
+  --dk-line:#2A252A; --dk-soft:#9C9498; --dk-grid:#241F24; --dk-mute:#78727A;
+  --dk-dim:#665F66;
+  --radius:22px; --radius-sm:18px;
+  /* As duas famílias já são baixadas pelo layout raiz via next/font (servidas
+     do próprio domínio). Reaproveitar as variáveis dele evita uma segunda
+     requisição a fonts.googleapis.com só pra esta rota. */
+  --f-display:var(--font-ui-loaded),'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
+  --f-ui:var(--font-ui-loaded),'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
+  --f-mono:var(--font-mono-loaded),'Spline Sans Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+
+/* No celular isto é um app, não um documento: a página em si nunca rola.
+   `position:fixed` no html e no body é o que corta o rubber-band do iOS —
+   overflow:hidden sozinho não segura, o Safari continua deixando arrastar a
+   página inteira e revelando uma faixa branca em cima e embaixo. Quem rola é
+   só o #view, por dentro.
+   O preto vai no html (e não só no body) porque é o html que pinta a área
+   atrás das barras do navegador e dos recortes de tela. */
+/* `html:root` e não `html`: o globals.css do layout raiz pinta a página de
+   claro com `:root{background:#f4f2ec}`, e `:root` é um pseudo-classe —
+   especificidade de classe (0,1,0), que ganha de um seletor de tipo (0,0,1)
+   por mais tarde que ele venha na cascata. Somando os dois (0,1,1) esta regra
+   ganha sem depender da ordem em que o Next injeta as folhas. */
+html:root{background:var(--dark);}
+html,body{
+  height:100%;width:100%;
+  position:fixed;overflow:hidden;
+  overscroll-behavior:none;
+  /* mata o zoom por toque duplo, que o meta viewport sozinho não cobre */
+  touch-action:manipulation;
+  -webkit-text-size-adjust:100%;
+}
+body{
+  font-family:var(--f-ui);color:var(--ink);
+  background:var(--dark);
+  display:flex;align-items:center;justify-content:center;gap:22px;padding:0;
+}
+button{font:inherit;font-family:var(--f-ui);cursor:pointer;border:none;background:none;color:inherit}
+
+/* ===================================================================
+   Casca do app
+   =================================================================== */
+#phone{
+  width:100%;max-width:430px;height:100dvh;
+  background:var(--bg);overflow:hidden;position:relative;
+  display:flex;flex-direction:column;flex:0 0 auto;
+  /* viewport-fit=cover faz a página passar por baixo do recorte e da barra
+     inferior; o fundo preto ocupa tudo, e só o CONTEÚDO recua o suficiente
+     pra não ficar embaixo deles */
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+/* no desktop vira um cartão centrado; no celular sangra na tela inteira */
+@media(min-width:761px){
+  #phone{height:min(920px,calc(100dvh - 40px));border-radius:30px;
+    box-shadow:0 24px 64px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05)}
+  body{padding:20px}
+}
+#phone.dark{background:var(--dark);color:#f2f2ea}
+#canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;
+  opacity:0;transition:opacity .6s}
+#phone.dark #canvas{opacity:1}
+
+/* trilha de pontos = progresso */
+#trail{position:relative;z-index:3;padding:16px 22px 6px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+#trail.hide{visibility:hidden}
+.back{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  font-size:17px;color:var(--ink-soft);flex-shrink:0;border:1px solid var(--line)}
+#phone.dark .back{color:var(--dk-soft);border-color:var(--dk-line)}
+.back:disabled{opacity:.25}
+.nodes{flex:1;height:22px;position:relative;display:flex;align-items:center}
+.nodes .wire{position:absolute;left:0;right:0;height:2px;background:var(--line);border-radius:2px}
+#phone.dark .nodes .wire{background:var(--dk-line)}
+.nodes .wire-on{position:absolute;left:0;height:2px;background:var(--green);border-radius:2px;
+  transition:width .45s cubic-bezier(.4,0,.2,1)}
+.nodes .pt{position:absolute;width:8px;height:8px;border-radius:50%;
+  transform:translateX(-50%);transition:width .35s,height .35s;
+  background:radial-gradient(circle at 36% 28%,#3B353B 0%,#241F24 42%,#141114 100%);
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.14),inset 0 -1px 2px rgba(0,0,0,.6),
+    0 1px 2px rgba(0,0,0,.5)}
+.nodes .pt.on,.nodes .pt.now{
+  background:radial-gradient(circle at 36% 28%,#9FF0C4 0%,#39B26E 42%,#166B42 100%);
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.5),inset 0 -1px 2px rgba(6,32,18,.5),
+    0 1px 2px rgba(0,0,0,.45),0 0 0 3px rgba(46,158,91,.16),0 0 10px rgba(46,158,91,.3)}
+.nodes .pt.now{width:12px;height:12px;
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.55),inset 0 -1px 2px rgba(6,32,18,.5),
+    0 1px 3px rgba(0,0,0,.5),0 0 0 5px rgba(46,158,91,.2),0 0 14px rgba(46,158,91,.36)}
+#phone.dark 
+/* área da tela */
+#view{position:relative;z-index:2;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
+  padding:10px 22px 24px;display:flex;flex-direction:column;
+  /* sem quique ao chegar no fim, e sem passar a rolagem adiante pro documento */
+  overscroll-behavior:none;-webkit-overflow-scrolling:touch}
+#view::-webkit-scrollbar{width:0}
+.scr{display:flex;flex-direction:column;flex:1;animation:in .34s cubic-bezier(.2,.7,.3,1)}
+@keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.grow{flex:1}
+
+/* ===================================================================
+   Tipografia
+   =================================================================== */
+h1{font-family:var(--f-display);font-size:27px;line-height:1.16;letter-spacing:-.025em;font-weight:700}
+h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-.02em;font-weight:700}
+.lede{font-size:14.5px;line-height:1.5;color:var(--ink-soft);margin-top:10px}
+#phone.dark .lede{color:var(--dk-soft)}
+.kicker{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink-soft)}
+#phone.dark .kicker{color:var(--dk-soft)}
+.mono{font-family:var(--f-mono)}
+
+/* ===================================================================
+   Botões
+   =================================================================== */
+.cta{width:100%;background:var(--ink);color:#f8f8f1;border-radius:16px;padding:16px;
+  font-size:15px;font-weight:700;transition:transform .12s,opacity .2s;margin-top:14px}
+.cta:active{transform:scale(.985)}
+.cta:disabled{opacity:.28}
+#phone.dark .cta{background:var(--green);color:#08160e}
+.cta.green{background:var(--green);color:#08160e}
+.ghost{width:100%;padding:13px;font-size:13.5px;font-weight:600;color:var(--ink-soft);margin-top:2px}
+#phone.dark .ghost{color:var(--dk-soft)}
+
+/* opções */
+.opts{display:flex;flex-direction:column;gap:9px;margin-top:20px}
+.opt{width:100%;display:flex;align-items:center;gap:13px;text-align:left;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:15px 16px;transition:all .16s}
+#phone.dark .opt{background:var(--dark-soft);border-color:var(--dk-line)}
+.opt:active{transform:scale(.99)}
+.opt.sel{border-color:var(--green);background:var(--green-soft);box-shadow:0 0 0 1px var(--green)}
+#phone.dark .opt.sel{background:#132018;border-color:var(--green)}
+.opt .ic{width:34px;height:34px;border-radius:11px;background:var(--bg);display:grid;place-items:center;
+  font-size:16px;flex-shrink:0;border:1px solid var(--line)}
+#phone.dark .opt .ic{background:#141412;border-color:var(--dk-line)}
+.opt.sel .ic{background:#fff;border-color:var(--green)}
+.opt b{display:block;font-size:14.5px;font-weight:600}
+.opt small{display:block;font-size:12px;color:var(--ink-soft);margin-top:2px}
+#phone.dark .opt small{color:var(--dk-soft)}
+.opt .tick{margin-left:auto;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line);
+  flex-shrink:0;display:grid;place-items:center;font-size:11px;color:#fff}
+.opt.sel .tick{background:var(--green);border-color:var(--green)}
+
+/* chips multi-select */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:10px 15px;
+  font-size:13.5px;font-weight:600;transition:all .15s}
+#phone.dark .chip{background:var(--dark-soft);border-color:var(--dk-line)}
+.chip.sel{background:var(--green);border-color:var(--green);color:#fff}
+
+/* cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:17px}
+#phone.dark .card{background:var(--dark-soft);border-color:var(--dk-line)}
+.card-dark{background:var(--ink);color:#f8f8f1;border-radius:var(--radius);padding:19px}
+.card-green{background:var(--green-soft);border:1px solid rgba(62,155,95,.28);
+  border-radius:var(--radius);padding:17px}
+#phone.dark .card-green{background:#111C16;border-color:#2f5b41}
+
+/* ===================================================================
+   Constelação — o motivo visual central
+   =================================================================== */
+.constel{position:relative;width:100%;height:190px;margin:6px 0}
+.constel svg{width:100%;height:100%;overflow:visible}
+.cn-wire{stroke:var(--line);stroke-width:1.5;fill:none}
+#phone.dark .cn-wire{stroke:var(--dk-line)}
+.cn-wire.on{stroke:var(--green);stroke-width:2;
+  stroke-dasharray:var(--len);stroke-dashoffset:var(--len);
+  animation:draw .8s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.cn-pt{transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
+/* Batida de coração: duas pulsadas rápidas e ~1,8s de silêncio. Continua sendo
+   movimento curto (0,6s de 2,6s), mas com ritmo — é o ritmo que faz o ponto ler
+   como vivo, e não o tamanho do movimento. Só o ACESO bate; o apagado não tem
+   animação, e é isso que deixa um único ponto pulsando no "você está aqui". */
+.cn-pt.on{animation:pt-beat 2.6s ease-in-out infinite;animation-delay:inherit}
+@keyframes pt-beat{
+  0%,68%,100%{transform:scale(1)}
+  73%{transform:scale(1.10)}
+  78%{transform:scale(1)}
+  82%{transform:scale(1.05)}
+  87%{transform:scale(1)}}
+.cn-halo{fill:none;stroke:var(--green);stroke-width:1.5;opacity:0;
+  animation:halo 2.6s ease-out infinite}
+/* o anel sai junto da primeira pulsada do pt-beat — luz e tamanho na mesma
+   batida, senão parecem dois bichos diferentes */
+@keyframes halo{
+  0%,68%{r:8;opacity:0}
+  73%{r:9;opacity:.5}
+  100%{r:26;opacity:0}}
+.cn-lbl{font-family:var(--f-mono);font-size:9.5px;fill:var(--ink-soft);text-anchor:middle}
+
+/* --- Esferas em DOM ---------------------------------------------------------
+   Os pontos que não são SVG (trilha, semana, nós do ritual, paginador, abas)
+   usam a MESMA luz da Cady traduzida pra CSS: radial-gradient com o foco em
+   36%/28%, inset claro no topo pra luz de borda, inset escuro embaixo pra
+   oclusão, e uma sombra externa que dá o contato. `--sph-*` deixa cada uso
+   escolher só o tamanho e o tom. */
+.sph{display:block;border-radius:50%;position:relative;flex-shrink:0;
+  background:radial-gradient(circle at 36% 28%,#9FF0C4 0%,#39B26E 42%,#166B42 100%);
+  box-shadow:
+    inset 0 .5px 1px rgba(255,255,255,.55),
+    inset 0 -1px 2px rgba(6,32,18,.55),
+    0 1px 2px rgba(0,0,0,.45),
+    0 3px 7px rgba(0,0,0,.35),
+    0 0 0 4px rgba(46,158,91,.16),
+    0 0 12px rgba(46,158,91,.28)}
+/* o brilho especular é um filho falso — mais nítido que um segundo gradiente */
+.sph::after{content:'';position:absolute;left:16%;top:12%;width:42%;height:34%;
+  border-radius:50%;background:radial-gradient(circle at 50% 50%,
+    rgba(255,255,255,.62) 0%,rgba(255,255,255,.14) 55%,transparent 100%)}
+.sph.off{background:radial-gradient(circle at 36% 28%,#3B353B 0%,#241F24 42%,#141114 100%);
+  box-shadow:
+    inset 0 .5px 1px rgba(255,255,255,.16),
+    inset 0 -1px 2px rgba(0,0,0,.6),
+    0 1px 2px rgba(0,0,0,.5),
+    0 2px 5px rgba(0,0,0,.3)}
+.sph.off::after{opacity:.45}
+/* a semana da constelação */
+.wkday{display:flex;flex-direction:column;align-items:center;gap:8px}
+.sph.wk{width:26px;height:26px}
+.sph.wk:not(.off){animation:pt-beat 2.6s ease-in-out infinite}
+.wklbl{font-size:10px;color:var(--dk-soft)}
+#phone.dark .cn-lbl{fill:var(--dk-soft)}
+
+/* ============ Cady — host da spec (src/cady) ============ */
+.cady-host{width:var(--sz,150px);height:var(--sz,150px);margin:0 auto;position:relative;
+  display:grid;place-items:center;flex-shrink:0;touch-action:manipulation}
+.cady-host svg{width:100%;height:100%;display:block;overflow:visible}
+.wm{display:flex;align-items:center;justify-content:center;gap:.24em;font-family:var(--f-display);
+  font-weight:800;letter-spacing:-.038em;line-height:1}
+.wm .wmdot{width:.23em;height:.23em;border-radius:50%;background:var(--green);flex-shrink:0}
+
+/* ===================================================================
+   Microfone / gravação
+   =================================================================== */
+.mic{width:88px;height:88px;border-radius:50%;margin:0 auto;display:grid;place-items:center;
+  background:var(--green);color:#fff;font-size:31px;position:relative;
+  box-shadow:0 10px 30px rgba(62,155,95,.36)}
+.mic.rec{background:var(--red);box-shadow:0 10px 30px rgba(176,87,74,.4);animation:pulse 1.3s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.055)}}
+.wave{display:flex;align-items:center;justify-content:center;gap:3.5px;height:44px;margin-top:18px}
+.wave i{width:3.5px;border-radius:2px;background:var(--green);height:8px;
+  animation:wv .85s ease-in-out infinite}
+#phone.dark .wave i{background:#6fd08f}
+.wave.off i{animation:none;height:5px;background:var(--line);opacity:.6}
+@keyframes wv{0%,100%{height:7px}50%{height:34px}}
+
+/* ===================================================================
+   Diálogo da lição
+   =================================================================== */
+.bubble{max-width:86%;padding:13px 15px;border-radius:19px;font-size:14.5px;line-height:1.45}
+.bubble.them{background:var(--card);border:1px solid var(--line);border-bottom-left-radius:6px;
+  align-self:flex-start}
+#phone.dark .bubble.them{background:var(--dark-soft);border-color:var(--dk-line)}
+.bubble.you{background:var(--green);color:#fff;border-bottom-right-radius:6px;align-self:flex-end}
+.bubble .tr{display:block;font-size:12px;margin-top:6px;opacity:.62;font-style:italic}
+.chatline{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+
+/* barras / gráficos */
+.bars{display:flex;align-items:flex-end;gap:12px;height:120px;margin-top:18px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;
+  justify-content:flex-end}
+.bar{width:100%;border-radius:9px 9px 4px 4px;transition:height .9s cubic-bezier(.3,.9,.4,1)}
+.bar.a{background:var(--line)}
+.bar.b{background:var(--green)}
+.bar-lbl{font-family:var(--f-mono);font-size:9.5px;color:var(--ink-soft);text-align:center;line-height:1.3}
+#phone.dark .bar-lbl{color:var(--dk-soft)}
+
+.track{height:7px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:12px}
+#phone.dark .track{background:var(--dk-line)}
+.fill{height:100%;background:var(--green);border-radius:999px;transition:width .5s}
+
+/* lista do ritual */
+.ritual{display:flex;flex-direction:column;gap:0;margin-top:16px;position:relative}
+.rit{display:flex;gap:14px;align-items:flex-start;padding:13px 0;position:relative}
+.rit .knot{width:16px;height:16px;flex-shrink:0;margin-top:3px;z-index:2;
+  border-radius:50%;position:relative;
+  background:radial-gradient(circle at 36% 28%,#9FF0C4 0%,#39B26E 42%,#166B42 100%);
+  box-shadow:inset 0 .5px 1.5px rgba(255,255,255,.55),inset 0 -1.5px 3px rgba(6,32,18,.55),
+    0 1px 2px rgba(0,0,0,.45),0 3px 8px rgba(0,0,0,.35),
+    0 0 0 4px rgba(46,158,91,.15),0 0 13px rgba(46,158,91,.3)}
+.rit .knot::after{content:'';position:absolute;left:16%;top:12%;width:42%;height:34%;
+  border-radius:50%;background:radial-gradient(circle at 50% 50%,
+    rgba(255,255,255,.66) 0%,rgba(255,255,255,.15) 55%,transparent 100%)}
+.rit .knot.dim{
+  background:radial-gradient(circle at 36% 28%,#3B353B 0%,#241F24 42%,#141114 100%);
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.15),inset 0 -1.5px 3px rgba(0,0,0,.6),
+    0 1px 2px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.3)}
+.rit .knot.dim::after{opacity:.4}
+.rit::before{content:'';position:absolute;left:7.2px;top:23px;bottom:-9px;width:1.5px;
+  border-radius:2px;
+  background:linear-gradient(180deg,rgba(46,158,91,.55) 0%,var(--dk-line) 55%,var(--dk-line) 100%)}
+.rit:last-child::before{display:none}
+.rit b{font-size:14.5px;display:block}
+.rit small{font-size:12.5px;color:var(--ink-soft);display:block;margin-top:2px}
+#phone.dark .rit small{color:var(--dk-soft)}
+.rit .dur{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--ink-soft);flex-shrink:0}
+
+/* depoimentos mock */
+.quote{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:15px;margin-top:10px}
+#phone.dark .quote{background:var(--dark-soft);border-color:var(--dk-line)}
+.quote .who{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.quote .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+  font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
+.quote .who b{font-size:13.5px;display:block}
+.quote .who small{font-family:var(--f-mono);font-size:10px;color:var(--ink-soft);
+  letter-spacing:.06em;text-transform:uppercase}
+.quote p{font-size:13.5px;line-height:1.5;color:var(--ink-soft)}
+#phone.dark .quote p,#phone.dark .quote .who small{color:var(--dk-soft)}
+
+/* badge de conquista */
+.medal{width:96px;height:96px;margin:0 auto;border-radius:50%;display:grid;place-items:center;
+  background:var(--green-soft);border:2px solid var(--green);font-size:40px;position:relative}
+#phone.dark .medal{
+  background:radial-gradient(circle at 34% 26%,#332C34 0%,#1E1A20 46%,#100E12 100%);
+  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.12),inset 0 -2px 4px rgba(0,0,0,.55),
+    0 2px 5px rgba(0,0,0,.5),0 8px 22px rgba(0,0,0,.4)}
+
+/* login */
+.field{margin-top:13px}
+.field label{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-soft);display:block;margin-bottom:7px}
+.field input{width:100%;padding:14px 15px;border:1px solid var(--line);border-radius:14px;
+  background:var(--card);font-size:15px;color:var(--ink);outline:none;font-family:var(--f-ui)}
+.field input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(62,155,95,.13)}
+
+/* tabbar do app */
+.tabbar{display:flex;border-top:1px solid var(--line);background:var(--card);flex-shrink:0;
+  position:relative;z-index:3}
+.tab{flex:1;padding:11px 4px 14px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  color:var(--ink-soft);font-size:10.5px;font-weight:600}
+.tab.on{color:var(--ink)}
+.tab .tdot{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.tab.on .tdot{background:var(--green);box-shadow:0 0 0 3px rgba(62,155,95,.18)}
+
+/* ===================================================================
+   Painel lateral — índice de telas (fora do "celular")
+   =================================================================== */
+#side{width:250px;max-height:min(920px,calc(100vh - 40px));overflow-y:auto;flex:0 0 auto;
+  background:rgba(255,255,255,.72);backdrop-filter:blur(12px);border:1px solid var(--line);
+  border-radius:20px;padding:15px}
+#side h4{font-family:var(--f-display);font-size:14px;margin-bottom:3px}
+#side .hint{font-size:11px;color:var(--ink-soft);line-height:1.45;margin-bottom:12px}
+#side .grp{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-soft);margin:13px 0 5px}
+#side a{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:9px;font-size:12.5px;
+  color:var(--ink);text-decoration:none;cursor:pointer;line-height:1.3}
+#side a:hover{background:rgba(20,20,18,.055)}
+#side a.on{background:var(--ink);color:#f8f8f1}
+#side a i{font-family:var(--f-mono);font-size:10px;opacity:.5;font-style:normal;flex-shrink:0;
+  min-width:16px}
+#side a.on i{opacity:.7}
+.side-foot{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);
+  font-size:11px;color:var(--ink-soft);line-height:1.5}
+.reset{margin-top:9px;width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;
+  font-size:12px;font-weight:600;background:#fff}
+@media(max-width:760px){#side{display:none}body{padding:0}
+  #phone{width:100%;height:100vh;border-radius:0}}
+
+/* --- correções de especificidade: regras dark (com #id) venciam os estados
+       .on/.sel definidos só por classe, apagando o verde do modo escuro --- */
+#phone.dark .nodes .wire-on{background:var(--green)}
+#phone.dark .cn-wire.on{stroke:var(--green)}
+#phone.dark .wave.off i{background:var(--dk-line)}
+#phone.dark .chip.sel{background:var(--green);border-color:var(--green);color:#fff}
+
+/* ---- dark total: componentes que ainda liam tokens claros ---- */
+body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
+#side{background:rgba(30,30,27,.72);border-color:var(--dk-line);color:#f2f2ea}
+#side .hint,#side .grp,.side-foot{color:var(--dk-soft)}
+#side a{color:#f2f2ea}
+#side a:hover{background:rgba(255,255,255,.07)}
+#side a.on{background:var(--green);color:#08160e}
+.side-foot{border-top-color:var(--dk-line)}
+.reset{background:#1e1e1b;border-color:var(--dk-line);color:#f2f2ea}
+#phone.dark .field input{background:var(--dark-soft);border-color:var(--dk-line);color:#f2f2ea}
+#phone.dark .field input::placeholder{color:var(--dk-mute)}
+#phone.dark .tabbar{background:var(--dark-soft);border-top-color:var(--dk-line)}
+#phone.dark .tab{color:var(--dk-soft)}
+#phone.dark .tab.on{color:#f2f2ea}
+#phone.dark .tab .tdot{
+  background:radial-gradient(circle at 36% 28%,#3B353B 0%,#241F24 42%,#141114 100%);
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.14),0 1px 2px rgba(0,0,0,.5)}
+#phone.dark .tab.on .tdot{
+  background:radial-gradient(circle at 36% 28%,#9FF0C4 0%,#39B26E 42%,#166B42 100%);
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.5),0 1px 2px rgba(0,0,0,.45),
+    0 0 0 3px rgba(46,158,91,.18),0 0 10px rgba(46,158,91,.3)}
+#phone.dark .card-dark{background:var(--dark-soft)}
+#phone.dark .bar.a{background:var(--dk-line)}
+.rec{font-family:var(--f-mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
+  background:var(--green);color:#fff;border-radius:999px;padding:2.5px 7px;vertical-align:middle;
+  margin-left:5px;font-weight:600}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;
+  border-bottom:1px solid var(--dk-line)}
+.setrow:last-child{border-bottom:none}
+.setrow b{font-size:14px;font-weight:600}
+.setrow small{display:block;font-size:12px;color:var(--dk-soft);margin-top:2px}
+.setrow .val{font-family:var(--f-mono);font-size:12px;color:var(--dk-soft);flex-shrink:0}
+
+/* ---- Ícones -----------------------------------------------------------------
+   Eram traços de 1.5px soltos no escuro — chapados, "vetorizados". Agora cada
+   um mora numa pastilha com a mesma luz da Cady (foco em 30%/22%, inset claro
+   no topo, oclusão embaixo, sombra de contato), e o traço engrossa pra 1.7px
+   com uma sombra de 1px que o descola do fundo. Selecionado, a pastilha acende
+   verde e o glifo fica escuro — a inversão é o que faz o volume aparecer. */
+#phone.dark .opt .ic,.opt .ic{width:34px;height:34px;display:grid;place-items:center;
+  flex-shrink:0;border:none;border-radius:11px;color:#CFC6CB;position:relative;
+  background:radial-gradient(120% 120% at 30% 22%,#302A31 0%,#1D191E 46%,#100E11 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10),inset 0 -1px 1px rgba(0,0,0,.55),
+    0 1px 2px rgba(0,0,0,.5),0 4px 10px rgba(0,0,0,.34);
+  transition:background .2s,color .2s,box-shadow .2s}
+.opt .ic svg{width:20px;height:20px;stroke-width:1.7;
+  filter:drop-shadow(0 1px .5px rgba(0,0,0,.6))}
+#phone.dark .opt.sel .ic,.opt.sel .ic{border:none;color:#08150E;
+  background:radial-gradient(120% 120% at 30% 22%,#9FF0C4 0%,#39B26E 44%,#166B42 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1.5px 2px rgba(6,32,18,.45),
+    0 1px 2px rgba(0,0,0,.4),0 4px 12px rgba(46,158,91,.34),
+    0 0 0 3px rgba(46,158,91,.16)}
+.opt.sel .ic svg{filter:drop-shadow(0 1px .5px rgba(255,255,255,.4))}
+/* glifo avulso (fora de lista) segue sem caixa, mas ganha o mesmo relevo */
+.glyph svg{stroke-width:1.7;filter:drop-shadow(0 1px .5px rgba(0,0,0,.55))}
+.opt .ic.mono{font-family:var(--f-mono);font-size:11px;width:auto;min-width:24px}
+.opt .tick{border:none;background:none;width:18px;height:18px;color:var(--green);opacity:0;
+  transition:opacity .18s}
+.opt .tick svg{width:100%;height:100%}
+.opt.sel .tick{opacity:1}
+.glyph{display:inline-grid;place-items:center;width:var(--gs);height:var(--gs);flex-shrink:0}
+.glyph svg{width:100%;height:100%}
+
+/* ---- vitrine de idiomas ---- */
+.orbit{position:relative;width:340px;height:340px;margin:0 auto;flex-shrink:0}
+.orbit .center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.orbit .center .cady-host{margin:0}
+.lang{position:absolute;width:var(--ls,46px);height:var(--ls,46px);border-radius:50%;
+  transform:translate(-50%,-50%);display:grid;place-items:center;
+  background:var(--dark-soft);border:1px solid var(--dk-line);font-size:calc(var(--ls,46px) * .46);
+  line-height:1;padding:0;opacity:0;animation:langin .5s ease-out forwards;
+  transition:border-color .2s,box-shadow .2s,transform .2s}
+@keyframes langin{from{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+  to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.lang:hover{border-color:#463F46}
+.lang.on{border-color:var(--cady-luz);box-shadow:0 0 0 2px var(--cady-luz),0 6px 18px rgba(166,62,104,.4)}
+
+/* ---- paginador ---- */
+.pager{display:flex;justify-content:center;gap:6px;padding:2px 0 12px}
+.pager i{width:6px;height:6px;border-radius:999px;transition:all .3s;
+  background:radial-gradient(circle at 36% 28%,#3B353B 0%,#241F24 42%,#141114 100%);
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.14),0 1px 2px rgba(0,0,0,.5)}
+.pager i.on{width:18px;
+  background:linear-gradient(180deg,#FFFFFF 0%,#E4E4DA 45%,#A9A99E 100%);
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.8),0 1px 3px rgba(0,0,0,.5)}
+
+/* ===================================================================
+   Tela "gerando plano" — anel, selo de louros e mapa
+   =================================================================== */
+/* anel de progresso em volta da Cady: um circulo com o traco cortado por
+   dashoffset. A Cady mora dentro, no buraco. */
+.genwrap{position:relative;width:var(--gw,176px);height:var(--gw,176px);margin:0 auto;
+  flex-shrink:0;display:grid;place-items:center}
+.genwrap svg.ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);
+  overflow:visible}
+.ring .rtrack{fill:none;stroke:var(--dk-line);stroke-width:4}
+.ring .rbar{fill:none;stroke:#E9F7EE;stroke-width:4;stroke-linecap:round;
+  stroke-dasharray:1;stroke-dashoffset:1;
+  transition:stroke-dashoffset .28s linear;
+  filter:drop-shadow(0 0 5px rgba(159,240,196,.55))}
+.genwrap .cady-host{margin:0;width:74%;height:74%}
+.genpct{font-family:var(--f-display);font-size:34px;font-weight:800;letter-spacing:-.03em;
+  margin-top:14px;line-height:1}
+.genpct i{font-family:var(--f-mono);font-size:13px;font-weight:500;font-style:normal;
+  color:var(--dk-soft);margin-left:2px}
+.genstep{font-size:13.5px;color:var(--dk-soft);margin-top:6px;min-height:2.6em;
+  transition:opacity .22s}
+
+/* --- selo de louros --- */
+.laurel{display:flex;align-items:center;justify-content:center;gap:2px;margin-top:18px;
+  color:#CFC6CB}
+.lbranch{width:52px;height:70px;flex-shrink:0;opacity:.78}
+.lmid{text-align:center;padding:0 2px;max-width:224px}
+.lstars{font-size:12px;letter-spacing:.16em;color:#F0C24B;line-height:1;
+  text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.lquote{font-family:var(--f-display);font-size:15px;font-weight:700;line-height:1.28;
+  letter-spacing:-.02em;color:#F4F2EC;margin-top:7px;
+  text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.lsub{display:block;font-family:var(--f-mono);font-size:8.5px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dk-mute);margin-top:7px}
+
+/* --- mapa pontilhado --- */
+.wmap{position:relative;width:100%;margin-top:16px}
+.wmap svg{width:100%;height:auto;display:block;overflow:visible}
+.wm-land circle{fill:#3A343B}
+.wm-d{opacity:0;animation:wm-in .5s ease-out forwards}
+@keyframes wm-in{to{opacity:1}}
+.wm-w{fill:none;stroke:#8FF0C0;stroke-width:1.5;stroke-linecap:round;opacity:.9;
+  stroke-dasharray:1;stroke-dashoffset:1;
+  animation:wm-draw 1.15s cubic-bezier(.35,.1,.25,1) forwards;
+  filter:drop-shadow(0 0 3px rgba(46,158,91,.6))}
+@keyframes wm-draw{to{stroke-dashoffset:0}}
+.wm-p{opacity:0;animation:pop .42s ease-out forwards}
+/* as carinhas: DOM em cima do SVG, posicionadas em % pra acompanhar a escala */
+.wm-f{position:absolute;width:30px;height:30px;border-radius:50%;
+  transform:translate(-50%,-50%);opacity:0;display:grid;place-items:center;
+  animation:wm-face .42s cubic-bezier(.34,1.56,.64,1) forwards;
+  background:radial-gradient(circle at 34% 26%,
+    color-mix(in srgb,var(--k) 62%,#FFFFFF) 0%,var(--k) 48%,
+    color-mix(in srgb,var(--k) 55%,#000000) 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.34),inset 0 -1.5px 3px rgba(0,0,0,.4),
+    0 2px 6px rgba(0,0,0,.55),0 0 0 2px rgba(12,10,12,.9),
+    0 0 0 3.5px rgba(46,158,91,.5),0 0 12px rgba(46,158,91,.3)}
+.wm-i{font-family:var(--f-display);font-size:13px;font-weight:800;color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.5);line-height:1}
+@keyframes wm-face{from{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+  to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.wm-flag{position:absolute;right:-3px;bottom:-3px;font-size:11px;line-height:1;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
+@media (prefers-reduced-motion:reduce){
+  .wm-d,.wm-w,.wm-p,.wm-f{animation:none!important;opacity:1!important;
+    stroke-dashoffset:0!important}}
+
+/* ===================================================================
+   Memória — o que a Cady lembra de você
+   =================================================================== */
+.memlist{list-style:none;display:flex;flex-direction:column;gap:7px;margin-top:11px}
+.mem{display:flex;align-items:flex-start;gap:10px;padding:10px 11px;border-radius:12px;
+  background:radial-gradient(120% 140% at 30% 18%,#232027 0%,#191619 52%,#121013 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 1px 2px rgba(0,0,0,.45)}
+.mem p{flex:1;min-width:0;font-size:13px;line-height:1.45;color:#E6E1E4}
+/* o ponto do item usa a mesma esfera do resto da tela, em escala mínima.
+   Sem escopo de propósito: a lista do plano (.planlist) usa o mesmo ponto. */
+.memdot{display:block;width:7px;height:7px;margin-top:5px;border-radius:50%;flex-shrink:0;
+  background:radial-gradient(circle at 36% 28%,#9FF0C4 0%,#39B26E 42%,#166B42 100%);
+  box-shadow:inset 0 .5px .5px rgba(255,255,255,.5),0 0 6px rgba(46,158,91,.4)}
+.memx{width:24px;height:24px;flex-shrink:0;border-radius:8px;display:grid;place-items:center;
+  color:var(--dk-mute);font-size:15px;line-height:1;transition:color .16s,background .16s}
+.memx:hover,.memx:focus-visible{color:#F0908A;background:rgba(240,144,138,.12)}
+.memadd{display:flex;gap:8px;margin-top:11px}
+.memadd input{flex:1;min-width:0;padding:10px 12px;border-radius:11px;font-family:inherit;
+  font-size:13px;color:#f2f2ea;background:#121013;border:1px solid var(--dk-line)}
+.memadd input::placeholder{color:var(--dk-mute)}
+.memadd input:focus-visible{outline:none;border-color:var(--green);
+  box-shadow:0 0 0 3px rgba(46,158,91,.18)}
+.memadd button{flex-shrink:0;padding:0 15px;border-radius:11px;font-size:13px;font-weight:700;
+  color:#08150E;
+  background:radial-gradient(120% 160% at 30% 18%,#9FF0C4 0%,#39B26E 46%,#166B42 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 2px 6px rgba(46,158,91,.3)}
+.memadd button:disabled{opacity:.4}
+.memempty{font-size:12.5px;color:var(--dk-mute);margin-top:11px;line-height:1.5}
+
+/* ---- painéis que trocam durante a personalização ---- */
+/* O anel, o % e o passo ficam parados (são a âncora); o que muda é o painel
+   de baixo, um por etapa. Cada troca entra por baixo com um fade curto — a
+   tela dura ~4s, então nada de transição longa. */
+.genpanel{margin-top:18px;min-height:196px;display:flex;flex-direction:column;
+  justify-content:center}
+.genpanel > *{animation:panel-in .34s cubic-bezier(.2,.7,.3,1) both}
+@keyframes panel-in{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+.gcap{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dk-mute);text-align:center;margin-bottom:11px}
+/* barras de nível */
+.glevel{display:flex;align-items:flex-end;justify-content:center;gap:9px;height:78px}
+.glevel i{width:26px;border-radius:7px 7px 3px 3px;
+  background:radial-gradient(120% 100% at 30% 10%,#3B353B 0%,#241F24 50%,#141114 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 2px 5px rgba(0,0,0,.45);
+  animation:panel-in .32s cubic-bezier(.2,.7,.3,1) both}
+.glevel i.on{background:radial-gradient(120% 100% at 30% 10%,#9FF0C4 0%,#39B26E 46%,#166B42 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 2px 8px rgba(46,158,91,.32)}
+.glbl{display:flex;justify-content:center;gap:9px;margin-top:8px}
+.glbl span{width:26px;text-align:center;font-family:var(--f-mono);font-size:9px;
+  color:var(--dk-mute)}
+/* resumo final do plano */
+.gsum{display:flex;flex-direction:column;gap:7px}
+.gsum div{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:11px 13px;border-radius:12px;
+  background:radial-gradient(130% 200% at 30% 14%,#232027 0%,#191619 52%,#121013 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 1px 2px rgba(0,0,0,.45);
+  animation:panel-in .3s cubic-bezier(.2,.7,.3,1) both}
+.gsum b{font-size:13px;font-weight:600;color:#E6E1E4}
+.gsum span{font-family:var(--f-mono);font-size:11.5px;color:#8FF0C0}
+
+/* ---- plano trimestral ---- */
+.plancard{margin-top:18px;padding:19px 17px;border-radius:var(--radius);
+  background:radial-gradient(140% 180% at 26% 10%,#1B2C22 0%,#141C17 48%,#0E1211 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 0 0 1px rgba(46,158,91,.30),
+    0 10px 30px rgba(0,0,0,.45)}
+.plantag{display:inline-flex;align-items:center;gap:7px;font-family:var(--f-mono);font-size:9.5px;
+  font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#08150E;
+  border-radius:999px;padding:5px 10px;
+  background:radial-gradient(130% 200% at 30% 18%,#9FF0C4 0%,#39B26E 46%,#166B42 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 2px 7px rgba(46,158,91,.34)}
+.priceline{display:flex;align-items:baseline;gap:10px;margin-top:14px;flex-wrap:wrap}
+.priceold{font-family:var(--f-display);font-size:17px;font-weight:600;color:var(--dk-mute);
+  text-decoration:line-through;text-decoration-thickness:2px;
+  text-decoration-color:#F0908A}
+.pricenew{font-family:var(--f-display);font-size:36px;font-weight:800;letter-spacing:-.035em;
+  color:#F4F2EC;line-height:1}
+.priceoff{font-family:var(--f-mono);font-size:11px;font-weight:600;letter-spacing:.06em;
+  color:#08150E;border-radius:7px;padding:3px 8px;background:#8FF0C0;
+  box-shadow:0 2px 6px rgba(46,158,91,.3)}
+.priceunit{font-size:13px;color:var(--dk-soft);margin-top:5px}
+.planlist{list-style:none;display:flex;flex-direction:column;gap:8px;margin-top:15px}
+.planlist li{display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.45;
+  color:#DDD8DB}
+.planlist .memdot{margin-top:5px}
+.planfoot{font-size:12px;line-height:1.55;color:var(--dk-mute);margin-top:14px}
+
+/* ===================================================================
+   Linhas de navegação (Personalização, Ajuda) e a folha de memórias
+   =================================================================== */
+.navcard{margin-top:12px;border-radius:var(--radius);overflow:hidden;
+  background:radial-gradient(140% 200% at 26% 8%,#201D22 0%,#171418 48%,#111013 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 1px 2px rgba(0,0,0,.45),
+    0 8px 22px rgba(0,0,0,.32)}
+.navhead{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dk-mute);padding:14px 15px 0}
+.navrow{width:100%;display:flex;align-items:center;gap:12px;padding:13px 15px;text-align:left;
+  border-bottom:1px solid rgba(255,255,255,.05);transition:background .16s}
+.navrow:last-child{border-bottom:none}
+.navrow:hover,.navrow:focus-visible{background:rgba(255,255,255,.045);outline:none}
+/* pastilha do ícone: mesma luz da Cady, em verde bem baixo */
+.navrow .np{width:32px;height:32px;flex-shrink:0;border-radius:10px;display:grid;place-items:center;
+  color:#8FF0C0;
+  background:radial-gradient(120% 130% at 30% 20%,#20342A 0%,#17251E 52%,#101814 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 1px 2px rgba(0,0,0,.45)}
+.navrow .np svg{width:17px;height:17px;stroke-width:1.7}
+.navrow b{flex:1;min-width:0;font-size:14px;font-weight:600;color:#EDE9EB}
+.navrow .nch{width:16px;height:16px;flex-shrink:0;color:var(--dk-mute)}
+.navrow .nch svg{width:100%;height:100%;stroke-width:2}
+
+/* --- folha de memórias --- */
+.sheetbg{position:absolute;inset:0;z-index:40;background:rgba(4,3,4,.72);
+  backdrop-filter:blur(3px);display:flex;align-items:flex-end;
+  animation:sheetbg-in .22s ease-out both}
+@keyframes sheetbg-in{from{opacity:0}to{opacity:1}}
+.sheet{position:relative;width:100%;max-height:88%;display:flex;flex-direction:column;
+  border-radius:24px 24px 0 0;padding:20px 18px 0;
+  background:radial-gradient(120% 60% at 30% 0%,#221E24 0%,#171418 46%,#100E11 100%);
+  box-shadow:0 -2px 0 rgba(255,255,255,.07),0 -18px 50px rgba(0,0,0,.6);
+  animation:sheet-in .3s cubic-bezier(.2,.8,.3,1) both}
+@keyframes sheet-in{from{transform:translateY(14%)}to{transform:none}}
+.sheet h2{font-size:19px;padding-right:34px}
+.sheet .sub{font-size:13px;line-height:1.45;color:var(--dk-soft);margin-top:6px}
+.sheetx{position:absolute;right:16px;top:16px;width:30px;height:30px;border-radius:50%;
+  display:grid;place-items:center;font-size:19px;line-height:1;color:var(--dk-soft);
+  background:rgba(255,255,255,.05)}
+.sheetx:hover,.sheetx:focus-visible{color:#f2f2ea;background:rgba(255,255,255,.11);outline:none}
+.sheetscroll{flex:1;min-height:0;overflow-y:auto;margin:0 -18px;padding:2px 18px 20px}
+.sheetscroll::-webkit-scrollbar{width:0}
+.memgrp{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:#6FBF8C;margin:17px 0 8px}
+.memgrp:first-child{margin-top:6px}
+.memedit{flex:1;min-width:0;padding:7px 9px;border-radius:9px;font-family:inherit;font-size:13px;
+  color:#f2f2ea;background:#0E0C0F;border:1px solid var(--green)}
+.memedit:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(46,158,91,.2)}
+.memact{display:flex;gap:2px;flex-shrink:0}
+.memact button{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+  color:var(--dk-mute);transition:color .16s,background .16s}
+.memact button svg{width:15px;height:15px;stroke-width:1.7}
+.memact .mm-ed:hover,.memact .mm-ed:focus-visible{color:#8FF0C0;background:rgba(46,158,91,.14);outline:none}
+.memact .mm-rm:hover,.memact .mm-rm:focus-visible{color:#F0908A;background:rgba(240,144,138,.13);outline:none}
+.memnew{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:12px;border-radius:12px;font-size:13.5px;font-weight:700;color:#08150E;margin-top:14px;
+  background:radial-gradient(130% 200% at 30% 18%,#9FF0C4 0%,#39B26E 46%,#166B42 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 2px 8px rgba(46,158,91,.3)}
+.memnew svg{width:15px;height:15px;stroke-width:2.2}
+
+/* ---- entrar com Google ---- */
+.gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:13px 16px;border-radius:12px;font-size:15px;font-weight:700;color:#F4F2EC;
+  background:radial-gradient(130% 150% at 30% 18%,#2E2930 0%,#1C191E 50%,#121013 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.11),inset 0 -1px 1px rgba(0,0,0,.5),
+    0 2px 5px rgba(0,0,0,.5),0 6px 16px rgba(0,0,0,.32)}
+.gbtn svg{width:18px;height:18px;flex-shrink:0}
+.orsep{display:flex;align-items:center;gap:10px;margin:15px 0}
+.orsep span{flex:1;height:1px;background:var(--dk-line)}
+.orsep i{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;color:var(--dk-mute);
+  font-style:normal}
+
+/* ---- grafico de confianca ---- */
+.chart{margin-top:16px;padding:15px 15px 13px}
+.csvg{width:100%;height:auto;display:block;margin-top:8px;overflow:visible}
+.cgrid{stroke:var(--dk-grid);stroke-width:1;stroke-dasharray:2 5}
+.cline{fill:none;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;
+  animation:draw2 1.7s cubic-bezier(.35,.1,.25,1) .15s forwards}
+.cline.com{stroke:#f2f2ea;stroke-width:2.6}
+.cline.sem{stroke:var(--dk-dim);stroke-width:2}
+@keyframes draw2{to{stroke-dashoffset:0}}
+.cdot{opacity:0;animation:pop .34s ease-out forwards}
+@keyframes pop{from{opacity:0}to{opacity:1}}
+.cend{opacity:0;animation:pop .4s ease-out 1.75s forwards}
+.clabels{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+.cpill{font-family:var(--f-mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;
+  border-radius:999px;padding:4px 10px;opacity:0;animation:pop .4s ease-out 1.6s forwards}
+.cpill.com{background:#f2f2ea;color:#141412;font-weight:600}
+.cpill.sem{border:1px solid #3a3a35;color:#8a8a80}
+.cfoot{display:flex;justify-content:space-between;margin-top:10px;font-family:var(--f-mono);
+  font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--dk-mute)}
