@@ -82,7 +82,7 @@ export default function ProgressoWebPreviewPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10, marginBottom: 12 }}>
               {MOCK_TOP_ERRORS.map((err, idx) => (
                 <div key={err.label} className="v2-card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--ink)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{idx + 1}</span>
+                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--v2-brand)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{idx + 1}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <strong style={{ display: 'block', fontSize: 14 }}>{err.label}</strong>
                     <span style={{ display: 'block', fontSize: 12, color: 'var(--ink-soft)' }}>{err.detail}</span>

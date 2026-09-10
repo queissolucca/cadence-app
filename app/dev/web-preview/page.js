@@ -96,7 +96,7 @@ export default function HojeWebPreviewPage() {
           </div>
 
           <div className="v2-card-green" style={{ display: 'flex', alignItems: 'center', gap: 14, height: '100%' }}>
-            <div style={{ width: 50, height: 50, borderRadius: 15, background: 'var(--ink)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 20, flexShrink: 0 }}>S</div>
+            <div style={{ width: 50, height: 50, borderRadius: 15, background: 'var(--v2-brand)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 20, flexShrink: 0 }}>S</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <strong style={{ fontSize: 16 }}>Speaking</strong>

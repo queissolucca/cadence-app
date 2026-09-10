@@ -306,7 +306,16 @@ export function RevisaoView({ initialItems = [], firstName = '' }) {
             {f.label}
           </button>
         ))}
-        <button type="button" onClick={() => setAdding((v) => !v)} style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, padding: '6px 12px', borderRadius: 999, cursor: 'pointer', border: 'none', background: 'var(--ink)', color: 'var(--paper, #fff)' }}>
+        {/* Verde, e não `--ink`: aquele token INVERTE com o tema (#141412 no
+            claro, #f2f2ea no escuro), então no modo escuro o fundo virava
+            quase branco. E a cor do texto vinha de uma variável "paper" com
+            fallback branco — variável que não existe em lugar nenhum do
+            projeto, então caía sempre no branco: letra branca sobre fundo
+            branco, e com jeito de ser theme-aware sem nunca ter sido.
+            O texto é quase preto porque branco sobre --green dá 3,5:1, abaixo
+            do mínimo de 4,5:1 pra texto deste tamanho; sobre #08160e dá 5,4:1.
+            É o mesmo par que o .cta das telas de /comecar já usa. */}
+        <button type="button" onClick={() => setAdding((v) => !v)} style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, padding: '6px 12px', borderRadius: 999, cursor: 'pointer', border: 'none', background: 'var(--green)', color: '#08160e' }}>
           {adding ? 'fechar' : '+ adicionar'}
         </button>
       </div>
