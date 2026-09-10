@@ -3,7 +3,7 @@ import { createClient } from '../../../lib/supabase/server';
 import { createAdminClient } from '../../../lib/supabase/admin';
 import { getPlan } from '../../../lib/plans';
 import { createCheckout } from '../../../lib/abacatepay';
-import { maxInstallmentsFor, metodoRecusado } from '../../../lib/payments';
+import { corpoCheckout, maxInstallmentsFor, metodoRecusado } from '../../../lib/payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,22 +60,26 @@ export async function POST(request) {
   const base = baseUrl(request);
   const externalId = orderId || `cad_${user.id}_${Date.now()}`;
 
+  // SÓ PIX, por decisão de produto — e a loja também não tem cartão habilitado.
+  // A tela promete "pague via pix", então o pedido tem que combinar com ela.
+  const METODOS = ['PIX'];
+
   // Assinatura (cycle) cobra 1x por ciclo — sem parcelamento; compra avulsa
   // parcela dinamicamente respeitando o mínimo de R$ 10 por parcela.
   const installments = plan.cycle ? 1 : maxInstallmentsFor(plan.price);
-  const buildBody = (methods) => ({
-    items: [{ id: plan.prodId, quantity: 1 }],
+
+  const buildBody = (methods) => corpoCheckout({
+    prodId: plan.prodId,
     methods,
-    card: { maxInstallments: installments },
+    installments,
     externalId,
-    returnUrl: `${base}/pagamento`,
-    completionUrl: `${base}/obrigado`,
+    baseUrl: base,
     // metadata amarra o webhook ao usuário (o acesso é por email).
     metadata: { userId: user.id, email: user.email, plan: body.planId },
   });
 
   // Diagnóstico: mostra QUAL produto/ciclo este deploy está usando.
-  console.log('[checkout] criando', { plan: body.planId, prod: plan.prodId, cycle: plan.cycle });
+  console.log('[checkout] criando', { plan: body.planId, prod: plan.prodId, cycle: plan.cycle, metodos: METODOS });
 
   /* O AbacatePay recusa o checkout inteiro se QUALQUER método pedido estiver
      desabilitado na loja, com um 400 do tipo "CARD is not available for this
@@ -86,12 +90,10 @@ export async function POST(request) {
      Agora a recuperação segue o que o erro DIZ: tira do pedido o método que a
      loja não tem e tenta com o resto. PIX vem primeiro na lista porque é o que
      a tela promete ("pague via pix") e o que toda conta AbacatePay tem. */
-  const TODOS = ['PIX', 'CARD'];
-
   async function criarComFallback() {
-    let metodos = [...TODOS];
+    let metodos = [...METODOS];
     const removidos = [];
-    for (let tentativa = 0; tentativa < TODOS.length; tentativa++) {
+    for (let tentativa = 0; tentativa < METODOS.length; tentativa++) {
       try {
         return await createCheckout(buildBody(metodos));
       } catch (e) {

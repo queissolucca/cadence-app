@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import crypto from 'node:crypto';
-import { verifyWebhookSignature, maxInstallmentsFor, classifyEvent, threeMonthsFrom, metodoRecusado } from '../lib/payments.js';
+import { verifyWebhookSignature, maxInstallmentsFor, classifyEvent, threeMonthsFrom, metodoRecusado, corpoCheckout } from '../lib/payments.js';
 import { getPlan } from '../lib/plans.js';
 
 describe('verifyWebhookSignature (HMAC do webhook)', () => {
@@ -116,5 +116,44 @@ describe('metodoRecusado (qual método o AbacatePay não aceita)', () => {
   it('aceita as outras formas que a API usa pra dizer o mesmo', () => {
     expect(metodoRecusado('PIX unavailable')).toBe('PIX');
     expect(metodoRecusado('CARD is disabled for this account')).toBe('CARD');
+  });
+});
+
+describe('corpoCheckout (o formato que o AbacatePay valida)', () => {
+  const base = {
+    prodId: 'prod_x', installments: 9, externalId: 'ord_1',
+    baseUrl: 'https://cadenceenglish.app',
+    metadata: { userId: 'u1', email: 'a@b.com', plan: 'pro-trimestral' },
+  };
+
+  it('só PIX: NÃO manda o bloco card', () => {
+    // O 400 real: "card.maxInstallments requires CARD in methods".
+    const c = corpoCheckout({ ...base, methods: ['PIX'] });
+    expect(c.card).toBeUndefined();
+    expect('card' in c).toBe(false);   // nem a chave, nem undefined
+    expect(c.methods).toEqual(['PIX']);
+  });
+
+  it('com CARD: manda o parcelamento', () => {
+    const c = corpoCheckout({ ...base, methods: ['PIX', 'CARD'] });
+    expect(c.card).toEqual({ maxInstallments: 9 });
+  });
+
+  it('a coerência vale pra qualquer combinação', () => {
+    for (const methods of [['PIX'], ['CARD'], ['PIX', 'CARD'], []]) {
+      const c = corpoCheckout({ ...base, methods });
+      expect('card' in c, `methods=${JSON.stringify(methods)}`).toBe(methods.includes('CARD'));
+    }
+  });
+
+  it('leva o pedido, a volta e o vínculo com o usuário', () => {
+    const c = corpoCheckout({ ...base, methods: ['PIX'] });
+    expect(c.items).toEqual([{ id: 'prod_x', quantity: 1 }]);
+    expect(c.returnUrl).toBe('https://cadenceenglish.app/pagamento');
+    expect(c.completionUrl).toBe('https://cadenceenglish.app/obrigado');
+    // Sem metadata o webhook não sabe de quem é o pagamento e o acesso não
+    // chega em ninguém — era o bug que abriu este projeto.
+    expect(c.metadata.email).toBe('a@b.com');
+    expect(c.externalId).toBe('ord_1');
   });
 });
