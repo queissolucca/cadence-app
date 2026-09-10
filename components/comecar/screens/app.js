@@ -12,6 +12,7 @@ import {
   limparRetomada, mensagemDe, salvarRespostas, sessaoAtual, temRetomada,
 } from '../../../lib/comecar/conta';
 import { respostasCompletas } from '../../../lib/comecar/paraApi';
+import { PlanoCard } from '../PlanoCard';
 
 /* ---- primeira lição ----------------------------------------------------- */
 
@@ -220,28 +221,7 @@ export function Paywall({ a }) {
       <Kicker>Último passo</Kicker>
       <h1 style={{ marginTop: 8 }}>Seu plano está pronto.</h1>
       <Lede>Montei ele todo em cima das suas respostas. Pra ele começar a rodar, é aqui.</Lede>
-      <div className="plancard">
-        <span className="plantag">3 meses de acesso · lançamento</span>
-        <div className="priceline">
-          <span className="priceold">R$ 296,90</span>
-          <span className="priceoff">-70%</span>
-        </div>
-        <div className="priceday">
-          <span className="pricenew">R$ 89,90</span>
-          {/* Calculado, não escrito à mão: se o preço ou a duração mudarem, este
-              número muda junto em vez de virar mentira silenciosa. */}
-          <span className="perday">R$ {(89.90 / 90).toFixed(2).replace('.', ',')} / dia</span>
-        </div>
-        <p className="priceunit">pagamento único · 3 primeiros meses de acesso</p>
-        <ul className="planlist">
-          <li><span className="memdot" />conversa de {a.min || 5} minutos por dia, todo dia</li>
-          <li><span className="memdot" />correção direta, com o porquê de cada erro</li>
-          <li><span className="memdot" />revisão espaçada: hoje · amanhã · 1 sem · 1 mês</li>
-          <li><span className="memdot" />cenários ilimitados de escrita e fala</li>
-        </ul>
-        <p className="planfoot">O preço de lançamento vale pra quem entra agora. Depois dos 3 meses
-          você decide se continua — não renova sozinho.</p>
-      </div>
+      <PlanoCard minutos={a.min || 5} />
       <Grow />
       <Cta disabled={indo} onClick={pagar}>
         {indo ? 'abrindo o pagamento…' : 'garantir meu acesso'}

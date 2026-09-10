@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { updateSession } from './lib/supabase/middleware';
+import { apiLiberada, ehRotaApi } from './lib/apiAccess';
 
 // Redirects de rotas antigas/aposentadas — feitos aqui (não com redirect()
 // dentro da page) porque redirect() numa página 100% estática não gera
@@ -7,11 +8,14 @@ import { updateSession } from './lib/supabase/middleware';
 // de hidratar); NextResponse.redirect() no middleware sempre manda o header
 // certo, então esses paths viraram alias de verdade em vez de silenciosamente
 // dependerem de JS no cliente.
+// Rotas aposentadas. `/inicio` era a landing do funil antigo; hoje quem chega
+// nela quer entrar, então vai pro login. `/inicio/onboarding` era o questionário
+// pré-conta, cujo sucessor é a raiz (as 33 telas).
 const LEGACY_REDIRECTS = {
   '/cadence': '/',
-  '/cadence/onboarding': '/experimentar',
-  '/inicio': '/',
-  '/inicio/onboarding': '/experimentar',
+  '/cadence/onboarding': '/',
+  '/inicio': '/login',
+  '/inicio/onboarding': '/',
   '/v2/login': '/login',
 };
 
@@ -70,21 +74,49 @@ export async function middleware(request) {
   //   3) /v2/onboarding   → só o nome (último passo, depois de pagar)
   //   4) /v2              → app liberado
   // Requer as migrations 0026 (profiles.onboarded_at + tabela onboarding).
-  async function nextStep() {
-    const profileP = supabase.from('profiles').select('onboarded_at, full_name').eq('id', user.id).maybeSingle();
-    // Pago E dentro da validade (3 meses). Fallback: se a coluna expires_at
-    // ainda não existir (migration 0030), busca só o email e trata como válido.
+  // Tem linha em paid_emails, dentro da validade? É a única fonte de verdade do
+  // acesso. A tabela tem RLS com uma policy só (SELECT da própria linha) e
+  // nenhuma de escrita — só a service_role, a partir do webhook, cria linha.
+  async function acessoPago() {
+    // Fallback: se a coluna expires_at ainda não existir (migration 0030),
+    // busca só o email e trata como válido.
     let paid = await supabase.from('paid_emails').select('email, expires_at').eq('email', user.email).maybeSingle();
     if (paid.error) paid = await supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle();
-    const paidRow = paid.data;
+    const row = paid.data;
+    // expires_at null/ausente = acesso sem expiração (grandfathered).
+    return !!row && (!row.expires_at || new Date(row.expires_at) > new Date());
+  }
+
+  async function nextStep() {
+    const profileP = supabase.from('profiles').select('onboarded_at, full_name').eq('id', user.id).maybeSingle();
+    const pagoP = acessoPago();
     const { data: profile } = await profileP;
+    const pago = await pagoP;
 
     if (!profile?.onboarded_at) return '/onboarding';
-    // expires_at null/ausente = acesso sem expiração (grandfathered).
-    const active = !!paidRow && (!paidRow.expires_at || new Date(paidRow.expires_at) > new Date());
-    if (!active) return '/pagamento';
+    if (!pago) return '/pagamento';
     if (!profile?.full_name || !profile.full_name.trim()) return '/v2/onboarding';
     return null; // tudo pronto → app
+  }
+
+  // ROTAS DE API. O portão de página não as cobria: nenhuma começa com '/v2'
+  // (nem mesmo /api/v2/...), então todas caíam no `return response` do fim. Uma
+  // conta grátis chamando POST /api/chat tinha o produto pago inteiro.
+  //
+  // Nega com JSON, e não com redirect: quem chama isso é fetch, e um 307 pra
+  // uma página HTML vira erro de parse no cliente em vez de mensagem clara.
+  if (ehRotaApi(pathname)) {
+    if (apiLiberada(pathname)) return response;
+    const nega = (status, erro) => {
+      const r = NextResponse.json({ error: erro }, { status });
+      // Preserva o refresh de cookie feito pelo updateSession — senão negar uma
+      // chamada pode deslogar a pessoa no meio da sessão.
+      response.cookies.getAll().forEach((c) => r.cookies.set(c));
+      return r;
+    };
+    if (!user) return nega(401, 'not_authenticated');
+    if (!(await acessoPago())) return nega(402, 'payment_required');
+    return response;
   }
 
   // As 3 telas do funil: cada uma só aparece quando é o passo atual; caso
