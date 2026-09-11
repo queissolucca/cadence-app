@@ -81,11 +81,27 @@ export async function middleware(request) {
   // Tem linha em paid_emails, dentro da validade? É a única fonte de verdade do
   // acesso. A tabela tem RLS com uma policy só (SELECT da própria linha) e
   // nenhuma de escrita — só a service_role, a partir do webhook, cria linha.
+  /* FALHA DE LEITURA NÃO É PROVA DE NADA.
+
+     Este é o conserto de um bug que tirava a pessoa do meio da conversa. O
+     `maybeSingle()` devolve `{data:null, error:null}` quando não há linha e
+     `{data:null, error:<algo>}` quando a consulta FALHOU — e o código antigo
+     olhava só o `data`, então tratava os dois como "não pagou".
+
+     O estrago: o middleware roda a CADA requisição, e uma chamada de voz satura
+     a conexão. Um errinho de rede numa dessas consultas expulsava a pessoa pro
+     /pagamento; lá a consulta ia bem, ela já tinha pago, e o middleware a
+     mandava pro /v2. Da cadeira dela: estava conversando e, do nada, caiu na
+     tela de início — o pulo pelo /pagamento é rápido demais pra ser visto.
+
+     Agora `null` = não pagou (isso é evidência), e `undefined` = não deu pra
+     saber (isso não é). Quem chama decide o que fazer com a dúvida. */
   async function acessoPago() {
     // Fallback: se a coluna expires_at ainda não existir (migration 0030),
     // busca só o email e trata como válido.
     let paid = await supabase.from('paid_emails').select('email, expires_at').eq('email', user.email).maybeSingle();
     if (paid.error) paid = await supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle();
+    if (paid.error) return undefined;   // a consulta falhou: não sabemos
     const row = paid.data;
     // expires_at null/ausente = acesso sem expiração (grandfathered).
     return !!row && (!row.expires_at || new Date(row.expires_at) > new Date());
@@ -94,12 +110,16 @@ export async function middleware(request) {
   // Busca os dois fatos em paralelo e deixa a ORDEM com o lib/funil, que é onde
   // ela pode ser testada. Antes a ordem morava nesta função, dentro do
   // middleware, onde nenhum teste alcança.
+  //
+  // Devolve `undefined` quando alguma leitura falhou — diferente de `null`, que
+  // é "não falta nada". Ver proximoPasso em lib/funil.js.
   async function nextStep() {
     const profileP = supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
     const pagoP = acessoPago();
-    const { data: profile } = await profileP;
+    const perfil = await profileP;
     const pago = await pagoP;
-    return proximoPasso({ pago, nome: profile?.full_name });
+    if (perfil.error || pago === undefined) return undefined;
+    return proximoPasso({ pago, nome: perfil.data?.full_name });
   }
 
   // ROTAS DE API. O portão de página não as cobria: nenhuma começa com '/v2'
@@ -118,7 +138,12 @@ export async function middleware(request) {
       return r;
     };
     if (!user) return nega(401, 'not_authenticated');
-    if (!(await acessoPago())) return nega(402, 'payment_required');
+    const pago = await acessoPago();
+    // Aqui a dúvida NEGA, ao contrário das páginas: cada chamada liberada por
+    // engano queima token da Anthropic ou minuto do ElevenLabs, e errar pra
+    // menos custa uma tentativa repetida — errar pra mais custa dinheiro.
+    if (pago === undefined) return nega(503, 'try_again');
+    if (!pago) return nega(402, 'payment_required');
     return response;
   }
 
@@ -131,15 +156,25 @@ export async function middleware(request) {
   if (TELAS_DE_PASSO.includes(pathname)) {
     if (!user) return NextResponse.redirect(new URL('/login', request.url));
     const step = await nextStep();
+    // Não deu pra saber: fica onde está. Mandar pra algum lugar com base num
+    // palpite é o que embaralhava o funil quando o banco engasgava.
+    if (step === undefined) return response;
     const target = step || '/v2';
     if (target !== pathname) return NextResponse.redirect(new URL(target, request.url));
     return response;
   }
 
-  // Resto do app (/v2/*): exige login + funil completo (inclui pagamento).
+  /* Resto do app (/v2/*): exige login + funil completo (inclui pagamento).
+
+     Na dúvida (leitura falhou), a pessoa CONTINUA na página. Isso não é abrir a
+     porta: ela já está do lado de dentro, e passou pelo portão pra chegar aqui —
+     tirá-la por causa de um erro de rede é punir o usuário pelo soluço do banco.
+     A porta de verdade, a que custa dinheiro, é a das rotas de API logo acima, e
+     lá a dúvida continua NEGANDO. */
   if (LOGIN_REQUIRED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     if (!user) return NextResponse.redirect(new URL('/login', request.url));
     const step = await nextStep();
+    if (step === undefined) return response;
     if (step) return NextResponse.redirect(new URL(step, request.url));
     return response;
   }
