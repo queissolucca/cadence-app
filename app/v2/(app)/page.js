@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { identidade, perfilV2, diasComSessao } from '../../../lib/sessaoServidor';
-import { weekStartSP, addDays, todayKeySP } from '../../../lib/dates';
+import { dayKeySP, weekStartSP, addDays, todayKeySP } from '../../../lib/dates';
 import { streakFromDayKeys } from '../../../lib/streak';
 import { AppHeader } from '../../../components/ui';
 import { StreakCard } from '../../../components/v2/StreakCard';
