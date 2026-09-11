@@ -14,6 +14,10 @@ const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : null);
 // não tem onboarded_at volta pro /onboarding pra sempre. Por isso o upsert cai
 // em degraus: linha completa → só as colunas antigas → sem gender (0029).
 const COLUNAS_ANTIGAS = ['user_id', 'age', 'gender', 'level', 'reasons', 'challenges', 'daily_goal', 'updated_at'];
+// Sem a 0035, as quatro colunas novas derrubam o upsert inteiro — inclusive as
+// da 0034, que já funcionavam. Por isso ela ganhou um degrau próprio: o banco
+// sem a migração mais nova continua gravando tudo o que ele sabe guardar.
+const COLUNAS_0034 = [...COLUNAS_ANTIGAS, 'audio_pref', 'speaks_today', 'deadline', 'best_time', 'topics', 'tone', 'source'];
 const somente = (row, chaves) => Object.fromEntries(Object.entries(row).filter(([k]) => chaves.includes(k)));
 
 // POST → salva as respostas do onboarding do usuário e marca profiles.onboarded_at.
@@ -54,6 +58,12 @@ export async function POST(request) {
     best_time: str(body.bestTime, 40),
     topics: jarr(body.topics),
     tone: str(body.tone, 40),
+    // Colunas da 0035 — o que as telas perguntavam e nunca era gravado.
+    language: str(body.language, 40),
+    speech_sample: str(body.speechSample, 500),
+    invite_code: str(body.inviteCode, 40),
+    // Estado bruto: a rede embaixo das colunas tipadas (ver a 0035).
+    answers: body.answers && typeof body.answers === 'object' && !Array.isArray(body.answers) ? body.answers : null,
     source,
     updated_at: new Date().toISOString(),
   };
@@ -80,16 +90,25 @@ export async function POST(request) {
     .eq('id', user.id);
   if (profErr) return NextResponse.json({ error: 'save_failed', details: profErr.message }, { status: 500 });
 
-  // 2) Detalhes das respostas — best-effort (não travam o funil).
-  let up = await supabase.from('onboarding').upsert(row, { onConflict: 'user_id' });
-  if (up.error) {
-    up = await supabase.from('onboarding').upsert(somente(row, COLUNAS_ANTIGAS), { onConflict: 'user_id' });
-    if (up.error) {
-      await supabase
-        .from('onboarding')
-        .upsert(somente(row, COLUNAS_ANTIGAS.filter((c) => c !== 'gender')), { onConflict: 'user_id' });
-    }
+  /* 2) Detalhes das respostas. Continua sem travar o funil — quem já respondeu
+     28 telas não pode ficar preso porque uma migration não rodou — mas para de
+     ser SILENCIOSO: antes, se os quatro degraus falhassem, o `onboarded_at`
+     era marcado do mesmo jeito e as respostas sumiam sem ninguém ficar sabendo.
+     Agora o erro vai pro log do servidor e o `saved` volta na resposta. */
+  const DEGRAUS = [
+    row,                                                          // 0035
+    somente(row, COLUNAS_0034),                                   // sem a 0035
+    somente(row, COLUNAS_ANTIGAS),                                // sem a 0034
+    somente(row, COLUNAS_ANTIGAS.filter((c) => c !== 'gender')),  // sem a 0029
+  ];
+  let salvou = false;
+  let ultimoErro = null;
+  for (const tentativa of DEGRAUS) {
+    const up = await supabase.from('onboarding').upsert(tentativa, { onConflict: 'user_id' });
+    if (!up.error) { salvou = true; break; }
+    ultimoErro = up.error;
   }
+  if (!salvou) console.error('[onboarding] respostas não gravadas', { user: user.id, erro: ultimoErro?.message });
 
   // semeia a memória da Cady (best-effort) pra ela já conhecer o usuário
   try {
@@ -103,10 +122,13 @@ export async function POST(request) {
     if (row.tone) facts.push({ user_id: user.id, category: 'preferences', fact: `Prefere correção em tom ${row.tone === 'agressivo' ? 'direto — quer ser corrigido na hora, sem suavizar' : 'tranquilo — professor paciente, sem pressão'}`, importance: 5 });
     (row.topics || []).slice(0, 4).forEach((t) => facts.push({ user_id: user.id, category: 'preferences', fact: `Gosta de conversar sobre: ${t}`, importance: 3 }));
     if (row.best_time) facts.push({ user_id: user.id, category: 'preferences', fact: `Melhor horário pra praticar: ${row.best_time}`, importance: 2 });
+    // Só vira memória quando NÃO é inglês: "quer aprender inglês" é o padrão de
+    // todo mundo aqui, e memória que vale pra todos não personaliza nada.
+    if (row.language && row.language !== 'Inglês') facts.push({ user_id: user.id, category: 'goals', fact: `Escolheu aprender ${row.language}`, importance: 4 });
     if (facts.length) await supabase.from('user_memory').insert(facts);
   } catch {
     /* best-effort */
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, saved: salvou });
 }

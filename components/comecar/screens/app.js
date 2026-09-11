@@ -289,11 +289,15 @@ export function Conta({ go, a }) {
   const [erro, setErro] = useState('');
   const campo = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
 
+  /* O convite vive no formulário, não nas 33 telas — então ele entra por fora
+     do estado. Quem volta do Google nunca preencheu o campo (ele fica no
+     formulário de e-mail, que o caminho do Google pula), e aí `f.convite` é ''
+     e o payload manda null: mesma função, sem ramo. */
   const seguir = async (estado) => {
     setFase('enviando');
     setErro('');
     try {
-      await salvarRespostas(estado);
+      await salvarRespostas(estado, { convite: f.convite });
       go('paywall');
     } catch (e) {
       limparRetomada();
