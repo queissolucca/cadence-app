@@ -14,9 +14,9 @@ export function Splash({ go }) {
       <Grow />
       <Wordmark px={30} />
       <CadyViva size={150} />
-      <h1 style={{ marginTop: 18 }}>Oi, eu sou a Cady.</h1>
-      <Lede>Cada frase que você fala vira um ponto. Falar de novo conecta os pontos.
-        É assim que o inglês vira reflexo.</Lede>
+      <h1 style={{ marginTop: 18 }}>Oi! Eu sou a Cady!</h1>
+      <Lede>Cada frase que você fala vira mais um ponto. Quanto mais falar, mais se
+        conectam os pontos! É com essa cadência que o inglês vira fluência.</Lede>
       <Grow />
       <Pager n={0} />
       <Cta onClick={() => go('idioma')}>Começar</Cta>
@@ -60,8 +60,10 @@ export function Idioma({ go, a, set }) {
           );
         })}
       </div>
-      <h1 style={{ marginTop: 14 }}>Aprenda qualquer idioma<br />conversando comigo.</h1>
-      <Lede>Toque numa bandeira pra começar por aí. Inglês é o mais pedido — mas eu falo todos.</Lede>
+      {/* A quebra manual mantém o título em duas linhas, que é a proporção pela
+          qual a tela foi desenhada (o anel de bandeiras fica logo acima). */}
+      <h1 style={{ marginTop: 14 }}>Aprenda inglês<br />conversando comigo!</h1>
+      <Lede>Comece testando em inglês, que daqui a pouco teremos todas as outras línguas!</Lede>
       <Grow />
       <Pager n={1} />
       <Cta onClick={() => go('proposta')}>continuar</Cta>
