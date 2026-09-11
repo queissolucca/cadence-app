@@ -7,6 +7,7 @@ import { Icon, Laurel, WorldMap } from '../ui';
 import { Card, Cta, Ghost, Grow, Kicker, Lede, Opts } from '../shell';
 import { TEMAS } from '../../../lib/comecar/data';
 import { addDias, fmt, metaDias } from '../../../lib/comecar/datas';
+import { diagnosticoDe } from '../../../lib/comecar/diagnostico';
 
 const passo = (go, set, chave, destino) => v => { set(chave, v); go(destino); };
 
@@ -242,14 +243,14 @@ export function Gerando({ go, a }) {
 }
 
 export function Diagnostico({ go, a }) {
+  const { antes, forte } = diagnosticoDe(a);
   return (
     <div className="scr">
       <Kicker>O que eu entendi de você</Kicker>
       <h1 style={{ marginTop: 8 }}>
-        Seu nó é <span style={{ color: 'var(--cady-coroa)' }}>
-          {(a.bloqueio || 'travar na hora').toLowerCase()}</span>.
+        {antes}<span style={{ color: 'var(--cady-coroa)' }}>{forte}</span>!
       </h1>
-      <Lede>Então o plano inteiro é montado pra atacar isso — não pra você decorar gramática.</Lede>
+      <Lede>Então o plano inteiro é montado pra atacar isso! Não pra você decorar gramática.</Lede>
       <Card className="card-green" style={{ marginTop: 18 }}>
         <Kicker>Como eu ataco</Kicker>
         <div className="ritual">

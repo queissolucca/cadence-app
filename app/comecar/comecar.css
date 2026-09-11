@@ -133,7 +133,13 @@ button{font:inherit;font-family:var(--f-ui);cursor:pointer;border:none;backgroun
 h1{font-family:var(--f-display);font-size:27px;line-height:1.16;letter-spacing:-.025em;font-weight:700}
 h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-.02em;font-weight:700}
 .lede{font-size:14.5px;line-height:1.5;color:var(--ink-soft);margin-top:10px}
+/* Uma linha ACIMA do subtítulo na hierarquia: onde o .lede explica a mecânica,
+   esta carrega a promessa. Cor de tinta cheia (não a suave do .lede) porque o
+   contraste é metade do peso — só o tamanho faria uma frase grande e apagada. */
+.lede-forte{font-size:17px;line-height:1.4;font-weight:600;color:var(--ink);
+  margin-top:22px;letter-spacing:-.1px}
 #phone.dark .lede{color:var(--dk-soft)}
+#phone.dark .lede-forte{color:#f2f2ea}
 .kicker{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
   color:var(--ink-soft)}
 #phone.dark .kicker{color:var(--dk-soft)}
@@ -360,6 +366,18 @@ h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-
   margin:1px 0 0;border:1.5px solid var(--line);border-radius:7px;background:var(--card);
   display:grid;place-items:center;transition:background .16s,border-color .16s;cursor:pointer}
 .termos input:checked{background:var(--green);border-color:var(--green)}
+
+/* Caixinha cobrada: quem tentou criar conta sem aceitar é trazido até aqui, e
+   o destaque diz qual das seis condições do formulário estava faltando. Pisca
+   e sai sozinho — um destaque permanente vira decoração e para de ser aviso. */
+.termos.exigido{border-radius:10px;margin:0 -8px;padding:8px;
+  animation:termos-cobra 1.2s ease-out}
+.termos.exigido input{border-color:var(--green);box-shadow:0 0 0 3px rgba(62,155,95,.25)}
+@keyframes termos-cobra{
+  0%,100%{background:transparent}
+  15%,60%{background:rgba(62,155,95,.14)}}
+@media (prefers-reduced-motion:reduce){
+  .termos.exigido{animation:none;background:rgba(62,155,95,.14)}}
 .termos input:checked::after{content:'';width:10px;height:5.5px;
   border-left:2.2px solid #08160e;border-bottom:2.2px solid #08160e;
   transform:rotate(-45deg) translate(1px,-1.5px)}

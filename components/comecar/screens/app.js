@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Cady, CadyViva } from '../Cady';
 import { Constelacao, Glyph, Icon } from '../ui';
 import { Card, Cta, Field, Ghost, Grow, Kicker, Lede, NavCard, NavRow, Opts, Wordmark } from '../shell';
 import { Mic } from './abertura';
 import { agrupar, memorias } from '../../../lib/comecar/state';
-import { addDias, fmt, metaDias } from '../../../lib/comecar/datas';
+import { resumoDaMemoria } from '../../../lib/comecar/resumo';
 import {
   abrirCheckout, criarConta, entrarComGoogle, entrarComGoogleExistente, entrarComSenha,
   limparRetomada, mensagemDe, salvarRespostas, sessaoAtual, temRetomada,
@@ -92,7 +92,6 @@ export function LicaoFim({ go }) {
 /* ---- plano -------------------------------------------------------------- */
 
 export function Plano({ go, a }) {
-  const dias = metaDias(a.min);
   return (
     <div className="scr">
       <Kicker>Seu plano está pronto</Kicker>
@@ -106,14 +105,25 @@ export function Plano({ go, a }) {
             <span className="dur">{Math.max(3, (a.min || 5) - 2)} min</span></div>
           <div className="rit"><span className="knot" /><span><b>Revisar</b>
             <small>o que travou volta pra você</small></span><span className="dur">1 min</span></div>
+          {/* O quarto ponto não é um passo que a pessoa dá: é o que a Cady faz
+              sozinha, e é o diferencial dela. Por isso o nó vem `dim` (marca
+              que é de outra natureza) e o lugar do tempo diz "automático" —
+              justamente porque não custa minuto nenhum do plano. Os três
+              primeiros somam os `min` do dia; este não entra na conta. */}
+          <div className="rit"><span className="knot dim" /><span><b>Memorizar</b>
+            <small>eu guardo seus gostos, objetivos e o seu jeito — sozinha</small></span>
+            <span className="dur">automático</span></div>
         </div>
       </Card>
+      {/* Era "Meta: <data> · N dias de cadência" — uma data calculada, o app
+          falando de si. Trocado pelo que a pessoa acabou de contar: é a prova
+          de que a memória existe, e ela vale mais aqui do que uma contagem. */}
       <Card className="card-green"
         style={{ marginTop: 12, display: 'flex', gap: 13, alignItems: 'center' }}>
-        <Glyph name="target" size={24} />
-        <span><b style={{ fontSize: 14 }}>Meta: {fmt(addDias(dias))}</b>
+        <Glyph name="brain" size={24} />
+        <span><b style={{ fontSize: 14 }}>Memória</b>
           <small style={{ display: 'block', fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 2 }}>
-            {dias} dias de cadência</small></span>
+            {resumoDaMemoria(a)}</small></span>
       </Card>
       <Grow />
       <Cta onClick={() => go('compromisso')}>fechado, é isso</Cta>
@@ -148,13 +158,18 @@ export function Compromisso({ go, a }) {
   );
 }
 
-const DIAS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+/* Números, e não DSTQQSS. As iniciais dos dias da semana em português repetem
+   (S de segunda e de sábado, Q de quarta e de quinta), então a fila vira
+   "D S T Q Q S S" — que não se lê como semana nem como contagem. E aqui a
+   conversa é sobre o DIA 1 de uma sequência, não sobre que dia da semana é
+   hoje: contar 1..7 é a mesma informação sem a ambiguidade. */
+const DIAS = ['1', '2', '3', '4', '5', '6', '7'];
 
 export function ConstelacaoTela({ go }) {
   return (
     <div className="scr" style={{ textAlign: 'center' }}>
       <Kicker>Dia 1</Kicker>
-      <h1 style={{ marginTop: 8 }}>Sua constelação começou.</h1>
+      <h1 style={{ marginTop: 8 }}>Sua cadência começou!</h1>
       <Lede>Cada dia que você fala comigo, um ponto novo acende e se liga aos anteriores.</Lede>
       <div style={{ display: 'flex', justifyContent: 'center', gap: 9, marginTop: 26 }}>
         {DIAS.map((d, i) => (
@@ -164,6 +179,10 @@ export function ConstelacaoTela({ go }) {
           </div>
         ))}
       </div>
+      {/* Maior que o subtítulo de propósito: o subtítulo EXPLICA a mecânica, e
+          esta linha é a promessa que a mecânica serve. Quem lê só uma das duas
+          tem que ler esta. */}
+      <p className="lede-forte">Continue ligando os pontos e ganhe fluência no seu inglês!</p>
       <Grow />
       <Cta onClick={() => go('tonalidade')}>continuar</Cta>
     </div>
@@ -265,6 +284,7 @@ export function Conta({ go, a }) {
   const [fase, setFase] = useState('form'); // form | enviando | confirme | logado
   const [f, setF] = useState({ nome: '', sobrenome: '', email: '', senha: '', senha2: '', convite: '' });
   const [aceito, setAceito] = useState(false);
+  const [piscar, setPiscar] = useState(false);
   const [vendo, setVendo] = useState(false);
   const [erro, setErro] = useState('');
   const campo = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -298,16 +318,48 @@ export function Conta({ go, a }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* O ACEITE DOS TERMOS VALE PRAS DUAS PORTAS.
+
+     Ele já entrava no `podeEnviar` do formulário, mas o botão do Google não
+     passava por lugar nenhum — e ele fica no TOPO da tela, acima do formulário
+     e bem acima da caixinha. Na prática, quem entrava pelo Google criava conta
+     sem nunca ter visto os termos, que é o caminho mais usado dos dois.
+
+     E a caixinha desmarcada agora EXPLICA, em vez de só apagar o botão. Antes o
+     "criar conta" ficava morto com seis condições possíveis por trás
+     (nome, sobrenome, e-mail, senha, confirmação, aceite) e nenhuma pista de
+     qual faltava; a pessoa tocava, não acontecia nada, e não havia o que fazer
+     com isso. Por isso o aceite saiu do `podeEnviar`: o botão fica clicável e o
+     toque leva até a caixinha, que é a ação que destrava.
+
+     `aceiteRef` é pra rolar até ela: num celular a caixinha está fora da tela
+     quando o dedo está no botão do Google. Mandar a pessoa procurar o que ela
+     não vê é o mesmo que não avisar. */
+  const aceiteRef = useRef(null);
+  const exigirAceite = () => {
+    if (aceito) return true;
+    setErro('Pra criar a conta, você precisa aceitar os termos de uso e a política de privacidade.');
+    setPiscar(true);
+    setTimeout(() => setPiscar(false), 1200);
+    try {
+      aceiteRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      aceiteRef.current?.querySelector('input')?.focus({ preventScroll: true });
+    } catch { /* navegador sem scrollIntoView com opções */ }
+    return false;
+  };
+
   // A confirmação tem que bater LETRA POR LETRA — sem trim, sem ignorar caixa.
   // Um espaço no fim é uma senha diferente na hora de entrar.
   const senhaCurta = f.senha.length > 0 && f.senha.length < 8;
   const naoBate = f.senha2.length > 0 && f.senha2 !== f.senha;
   const podeEnviar = f.nome.trim() && f.sobrenome.trim() && f.email.trim()
-    && f.senha.length >= 8 && f.senha2 === f.senha && aceito && respostasCompletas(a);
+    // `aceito` NÃO entra aqui de propósito — ver exigirAceite acima.
+    && f.senha.length >= 8 && f.senha2 === f.senha && respostasCompletas(a);
 
   const porEmail = async (e) => {
     e.preventDefault();
     if (!podeEnviar) return;
+    if (!exigirAceite()) return;
     setFase('enviando');
     setErro('');
     try {
@@ -324,6 +376,7 @@ export function Conta({ go, a }) {
 
   const porGoogle = async () => {
     setErro('');
+    if (!exigirAceite()) return;
     try { await entrarComGoogle(); } catch { setErro('Não consegui abrir o Google. Tenta de novo.'); }
   };
 
@@ -347,8 +400,7 @@ export function Conta({ go, a }) {
       <Grow />
       <Wordmark px={26} />
       <h1 style={{ textAlign: 'center', marginTop: 18 }}>Falta só guardar<br />o seu progresso.</h1>
-      <Lede style={{ textAlign: 'center' }}>
-        Sua constelação fica salva na conta — você troca de aparelho e ela continua de onde parou.</Lede>
+      <Lede style={{ textAlign: 'center' }}>Crie sua conta agora!</Lede>
 
       {fase === 'logado' ? (
         <>
@@ -396,8 +448,9 @@ export function Conta({ go, a }) {
             <Field label="Código de convite (opcional)" type="text" placeholder="tem um código? cola aqui"
               autoComplete="off" value={f.convite} onChange={campo('convite')} />
 
-            <label className="termos">
-              <input type="checkbox" checked={aceito} onChange={e => setAceito(e.target.checked)} />
+            <label className={`termos ${piscar ? 'exigido' : ''}`} ref={aceiteRef}>
+              <input type="checkbox" required aria-required="true" checked={aceito}
+                onChange={e => { setAceito(e.target.checked); if (e.target.checked) setErro(''); }} />
               <span>Aceito os <a href="/termos" target="_blank" rel="noreferrer">termos de uso</a> e a{' '}
                 <a href="/privacy" target="_blank" rel="noreferrer">política de privacidade</a>.</span>
             </label>
