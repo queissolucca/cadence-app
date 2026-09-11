@@ -93,114 +93,145 @@ export function Proposta({ go }) {
 /* ATENÇÃO: estes depoimentos são inventados. A tela tinha uma linha dizendo
    "dados ilustrativos · protótipo", que era o que os mantinha honestos, e ela
    foi retirada a pedido — então hoje eles aparecem como se fossem de clientes
-   reais, num site que cobra. Isso é exposição sob o CDC (art. 37).
+   reais, num site que cobra, e com nota de 4-5 estrelas por cima. Isso é
+   exposição sob o CDC (art. 37).
 
    Trocar por depoimentos de verdade é mudar só este array.
 
-   CAMPOS: n nome · c cor do rosto · f bandeira · d quando avaliou · w há
-   quanto tempo usa · t a frase. O campo opcional `nota` (1 a 5) acende as
-   estrelas douradas no palco; ele está desligado em todos de propósito —
-   depoimento inventado já é uma coisa, uma NOTA inventada é outra, e essa é a
-   que o art. 37 pega mais rápido. Quando os depoimentos forem reais, é só
-   escrever nota: 5.
+   CAMPOS: n nome · nota 1..5 · c cor do avatar · w tempo de uso · t a frase.
 
-   TETO EDITORIAL DE t: ~110 caracteres. O palco trava a frase em três linhas
-   (altura fixa, pra o mural logo acima não pular a cada troca); acima disso
-   ela trunca com reticências em vez de quebrar o layout.
+   REGRAS DE CONTEÚDO:
+   • w vai de 1 a 8 SEMANAS. Nunca meses: a promessa da tela é destravar
+     rápido, e um "6 meses de uso" aqui contaria a história contrária.
+   • quanto menor o tempo, mais modesto o ganho — quem tem 1 semana não faz
+     entrevista em inglês, faz uma frase sair sem traduzir antes.
+   • t tem teto de ~88 caracteres: o cartão trava a frase em 3 linhas de ~30
+     caracteres e o que passa disso é cortado com reticências.
 
-   As cores saíram de 4 pra 6 (entraram #5FBFB4 e #8E6DE8, que já vêm do
-   WM_PEOPLE): com 4 em rodízio o mural fica com dois verdes quase iguais
-   colados um no outro. */
+   A ORDEM IMPORTA: os pares vão pra faixa de cima e os ímpares pra de baixo
+   (índice % 2), então alternar tempos e cores aqui é o que mantém as duas
+   faixas variadas. */
 const DEPOIMENTOS = [
-  { n: 'Marina L.',  nota: 5, c: '#3E9B5F', f: '🇧🇷', d: 'hoje',        w: '8 semanas', t: 'Reunião em inglês era pânico. Hoje eu abro a câmera e falo.' },
-  { n: 'Rafael T.',  nota: 5, c: '#2c7347', f: '🇧🇷', d: 'há 1 dia',    w: '3 semanas', t: 'O formato de 5 minutos foi o único que eu consegui manter.' },
-  { n: 'Camila V.',  nota: 5, c: '#a5760a', f: '🇧🇷', d: 'há 2 dias',   w: '8 semanas', t: 'Viajei e pedi tudo sozinha. Sem tradutor, sem gaguejar.' },
-  { n: 'Juliana P.', nota: 4, c: '#D9527A', f: '🇧🇷', d: 'há 2 dias',   w: '2 semanas', t: 'A correção na hora é o que faltava. Eu errava e ninguém dizia nada.' },
-  { n: 'Diego M.',   nota: 5, c: '#5FBFB4', f: '🇧🇷', d: 'há 3 dias',   w: '3 semanas', t: 'Parei de montar a frase na cabeça antes de falar. Agora ela sai.' },
-  { n: 'Thiago A.',  nota: 5, c: '#8E6DE8', f: '🇧🇷', d: 'há 4 dias',   w: '8 semanas', t: 'A daily do time deixou de ser o pior momento do meu dia.' },
-  { n: 'Beatriz S.', nota: 4, c: '#3E9B5F', f: '🇧🇷', d: 'há 5 dias',   w: '3 semanas', t: 'Eu entendia tudo e não respondia nada. Isso acabou.' },
-  { n: 'Amanda R.',  nota: 5, c: '#a5760a', f: '🇧🇷', d: 'há 1 semana', w: '2 semanas', t: 'Cinco minutos antes de dormir. Virou hábito sem eu perceber.' },
-  { n: 'Lucas F.',   nota: 5, c: '#D9527A', f: '🇧🇷', d: 'há 1 semana', w: '8 semanas', t: 'Tive entrevista em inglês semana passada. Não travei uma vez.' },
-  { n: 'Pedro H.',   nota: 4, c: '#5FBFB4', f: '🇧🇷', d: 'há 2 semanas', w: '3 semanas', t: 'O sotaque continua. Travar, não — e era isso que me atrapalhava.' },
+  { n: 'Marina L.',   nota: 5, c: '#3E9B5F', w: '8 semanas', t: 'Reunião em inglês era pânico. Hoje eu abro a câmera e falo.' },
+  { n: 'Larissa M.',  nota: 5, c: '#2c7347', w: '1 semana',  t: 'Falei uma frase inteira sem traduzir antes. Só uma, mas saiu.' },
+  { n: 'Rafael T.',   nota: 5, c: '#a5760a', w: '3 semanas', t: 'O formato de 5 minutos foi o único que eu consegui manter.' },
+  { n: 'Gustavo N.',  nota: 4, c: '#D9527A', w: '1 semana',  t: 'Nunca tinha ouvido minha própria voz em inglês. Estranho e bom.' },
+  { n: 'Camila V.',   nota: 5, c: '#5FBFB4', w: '8 semanas', t: 'Viajei e pedi tudo sozinha. Sem tradutor, sem gaguejar.' },
+  { n: 'Fernanda C.', nota: 5, c: '#8E6DE8', w: '1 semana',  t: 'Comecei dizendo só oi. Cinco dias depois, contei meu fim de semana.' },
+  { n: 'Juliana P.',  nota: 4, c: '#3E9B5F', w: '2 semanas', t: 'A correção na hora é o que faltava. Eu errava e ninguém dizia nada.' },
+  { n: 'Otávio B.',   nota: 5, c: '#2c7347', w: '2 semanas', t: 'Pedi um café em inglês na padaria do hotel e a moça me entendeu.' },
+  { n: 'Diego M.',    nota: 5, c: '#a5760a', w: '3 semanas', t: 'Parei de montar a frase na cabeça antes de falar. Agora ela sai.' },
+  { n: 'Priscila D.', nota: 5, c: '#D9527A', w: '2 semanas', t: 'A Cady me corrigiu o mesmo verbo três vezes. Na quarta eu acertei.' },
+  { n: 'Thiago A.',   nota: 5, c: '#5FBFB4', w: '8 semanas', t: 'A daily do time deixou de ser o pior momento do meu dia.' },
+  { n: 'Henrique Z.', nota: 5, c: '#8E6DE8', w: '3 semanas', t: 'Voltei a estudar depois de doze anos parado. Sem caderno, sem prova.' },
+  { n: 'Beatriz S.',  nota: 4, c: '#3E9B5F', w: '3 semanas', t: 'Eu entendia tudo e não respondia nada. Isso acabou.' },
+  { n: 'Natália F.',  nota: 5, c: '#2c7347', w: '3 semanas', t: 'Assisti um episódio sem legenda e entendi o bastante pra rir.' },
+  { n: 'Amanda R.',   nota: 5, c: '#a5760a', w: '2 semanas', t: 'Cinco minutos antes de dormir. Virou hábito sem eu perceber.' },
+  { n: 'Débora K.',   nota: 5, c: '#D9527A', w: '3 semanas', t: 'Sou tímida em português. Falando com uma IA eu não fico com vergonha.' },
+  { n: 'Lucas F.',    nota: 5, c: '#5FBFB4', w: '8 semanas', t: 'Tive entrevista em inglês semana passada. Não travei uma vez.' },
+  { n: 'Vinícius R.', nota: 5, c: '#8E6DE8', w: '4 semanas', t: 'No jogo online eu só digitava. Agora eu entro na call e falo.' },
+  { n: 'Pedro H.',    nota: 4, c: '#3E9B5F', w: '3 semanas', t: 'O sotaque continua. Travar, não — e era isso que me atrapalhava.' },
+  { n: 'Carolina T.', nota: 5, c: '#2c7347', w: '4 semanas', t: 'Errar na frente de gente me travava. Na frente da Cady, não trava.' },
+  { n: 'Mariana Q.',  nota: 5, c: '#a5760a', w: '5 semanas', t: 'Respondi o cliente em inglês na call sem pedir socorro pra ninguém.' },
+  { n: 'Rodrigo V.',  nota: 4, c: '#D9527A', w: '4 semanas', t: 'Não começo mais a frase pedindo desculpa pelo meu inglês ruim.' },
+  { n: 'Everton S.',  nota: 5, c: '#5FBFB4', w: '6 semanas', t: 'Minha sogra é americana. Este ano eu conversei com ela de verdade.' },
+  { n: 'Igor L.',     nota: 5, c: '#8E6DE8', w: '5 semanas', t: 'O atendente do hotel puxou assunto e eu fui até o fim da conversa.' },
 ];
 
-/* 5200ms = 2 × 2,6s, a batida da casa (pt-beat, halo). O palco troca sempre na
-   mesma fase do murmúrio do mural: um relógio só pra tela inteira. */
+/* A conta do loop, e ela é uma conta só: PASSO = largura do cartão + margem.
+   A trilha anda exatamente N × PASSO e volta pro começo — ver o comentário
+   grande do .vztrilha no comecar.css, que explica por que não pode ser gap
+   nem -50%. */
+const PASSO = 255;      // 244 de cartão + 11 de margem
+const CLONES = 2;       // 2 × 255 = 510px, cobre a viewport mais larga (430)
+const VEL_A = 40;       // px por segundo, faixa de cima
+const VEL_B = 34;       // a de baixo anda mais devagar de propósito
 
-/* CSS não para um setTimeout, então o modo calmo precisa ser lido no JS. Com
-   listener de 'change' pra atender quem liga a preferência com a tela aberta.
-   Lido dentro do efeito e não no corpo: matchMedia não existe no servidor. */
+const FAIXA_A = DEPOIMENTOS.filter((_, i) => i % 2 === 0);
+const FAIXA_B = DEPOIMENTOS.filter((_, i) => i % 2 === 1);
 
-/* Mural de vozes.
-
-   A versão anterior empilhava os 10 depoimentos: 1378px de tela contra 483px
-   de espaço no iPhone SE, ou seja, o botão "continuar" nascia 895px abaixo da
-   dobra e ninguém via prova social nenhuma — via um paredão de texto parado.
-
-   Aqui os 10 estão TODOS na tela o tempo todo, como dez rostos quadrados que
-   murmuram na batida de 2,6s da casa (o mesmo pt-beat dos pontos da
-   constelação, com atraso de n × 0,26s: 10 × 0,26 = 2,6s exatos, então a luz
-   atravessa o mural em onda contínua e nunca reinicia). Embaixo, um palco
-   mostra uma pessoa por vez e troca sozinho.
-
-   Três fontes de vida em cadências diferentes — a onda do mural, a barra do
-   palco e a Cady do cabeçalho, que segue o dedo. Nada com TEXTO dentro se
-   desloca: depoimento que se move é depoimento que não se lê. */
-export function Social({ go }) {
-  const fila = useRef(null);
-  const [pulando, setPulando] = useState(-1);
-
-  /* Arrastar com o MOUSE. No toque o navegador já rola sozinho, e interceptar
-     ali só atrapalharia (roubaria o gesto vertical da página). Por isso o
-     arraste manual é só pra ponteiro de mouse. */
+/* CSS não para uma animação por conta do usuário, mas o modo calmo precisa
+   trocar a faixa de "andando" pra "arrastável" — e isso é decisão de JS.
+   Lido dentro do efeito porque matchMedia não existe no servidor, e com
+   listener de 'change' pra atender quem liga a preferência com a tela aberta. */
+function useCalmo() {
+  const [calmo, setCalmo] = useState(false);
   useEffect(() => {
-    const el = fila.current;
-    if (!el) return undefined;
-    let ativo = false, x0 = 0, s0 = 0, andou = 0;
-
-    const desce = e => {
-      if (e.pointerType !== 'mouse') return;
-      ativo = true; andou = 0;
-      x0 = e.clientX; s0 = el.scrollLeft;
-      el.classList.add('arrastando');
-    };
-    const move = e => {
-      if (!ativo) return;
-      const d = e.clientX - x0;
-      andou = Math.max(andou, Math.abs(d));
-      el.scrollLeft = s0 - d;
-    };
-    const sobe = () => {
-      if (!ativo) return;
-      ativo = false;
-      el.classList.remove('arrastando');
-      // Arrastou de verdade? Então o clique que vem a seguir é resíduo do
-      // gesto, não intenção — senão o cartão "pula" toda vez que se arrasta.
-      if (andou > 6) {
-        const comer = ev => { ev.stopPropagation(); ev.preventDefault(); };
-        el.addEventListener('click', comer, { capture: true, once: true });
-        setTimeout(() => el.removeEventListener('click', comer, { capture: true }), 60);
-      }
-    };
-
-    el.addEventListener('pointerdown', desce);
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', sobe);
-    window.addEventListener('pointercancel', sobe);
-    return () => {
-      el.removeEventListener('pointerdown', desce);
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', sobe);
-      window.removeEventListener('pointercancel', sobe);
-    };
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const ler = () => setCalmo(mq.matches);
+    ler();
+    mq.addEventListener('change', ler);
+    return () => mq.removeEventListener('change', ler);
   }, []);
+  return calmo;
+}
 
-  // O pulo é uma classe que sai sozinha: repetir o clique tem que repetir a
-  // animação, e uma classe que ficasse grudada só animaria na primeira vez.
-  const pular = n => {
-    setPulando(n);
-    setTimeout(() => setPulando(v => (v === n ? -1 : v)), 380);
-  };
+function Cartao({ p, clone }) {
+  return (
+    <span className={`vzcard ${clone ? 'vzclone' : ''}`} style={{ '--k': p.c }}
+      aria-hidden={clone ? 'true' : undefined}>
+      <span className="vzwho">
+        <span className="vzav"><b>{p.n[0]}</b></span>
+        <span className="vzid">
+          <b>{p.n}</b>
+          <span className="vzmeta">
+            <span className="lstars" aria-hidden="true">
+              {'★'.repeat(p.nota)}<i>{'★'.repeat(5 - p.nota)}</i>
+            </span>
+            <small>{p.w} de uso</small>
+          </span>
+        </span>
+      </span>
+      <span className="vzq">&ldquo;{p.t}&rdquo;</span>
+    </span>
+  );
+}
+
+/* Uma faixa. A trilha leva a lista inteira MAIS os dois primeiros cartões
+   clonados no fim: quando o transform chega em N × PASSO, o que está na tela
+   são justamente esses clones, e o salto de volta pro zero mostra os mesmos
+   dois cartões. A costura não existe.
+
+   Clonar só dois (e não a lista toda, que é o marquee de manual) não é
+   economia de código, é o que mantém a camada composta abaixo do limite de
+   textura da GPU: 24 únicos por faixa dariam 12.240px, que a 3x são 36.720px
+   device — acima dos 16.384 do chip, e aí o WebKit desiste de compor e passa
+   a repintar na main thread a cada quadro. Com 12 + 2 são 3.570px (10.710
+   device), e cabe. */
+function Faixa({ lista, sentido, vel, atraso }) {
+  const volta = lista.length * PASSO;
+  const cartoes = [...lista, ...lista.slice(0, CLONES)];
+  return (
+    <div className="vzfaixa">
+      <div className={`vztrilha ${sentido}`}
+        style={{
+          '--volta': `${volta}px`,
+          '--dur': `${(volta / vel).toFixed(1)}s`,
+          animationDelay: atraso,
+        }}>
+        {cartoes.map((p, k) => (
+          <Cartao key={`${p.n}-${k}`} p={p} clone={k >= lista.length} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Duas faixas em contracorrente.
+
+   A versão anterior era uma fila só, que exigia arrastar pra descobrir que
+   havia mais gente. Aqui as duas faixas andam sozinhas em sentidos opostos —
+   é o movimento que conta "tem fila" sem pedir gesto nenhum — e o toque
+   TRAVA as duas pra ler com calma.
+
+   Por que travar em vez de diminuir a velocidade: a 40px/s um cartão cruza a
+   tela em 6s, o que dá pra ler de passagem mas não dá pra reler. Quem quer
+   reler para. */
+export function Social({ go }) {
+  const [travado, setTravado] = useState(false);
+  const calmo = useCalmo();
+
+  const alternar = () => setTravado(v => !v);
 
   return (
     <div className="scr">
@@ -212,28 +243,31 @@ export function Social({ go }) {
         </div>
       </div>
 
-      {/* Fila horizontal com encaixe: no celular o dedo já arrasta nativo, e o
-          scroll-snap faz cada cartão parar centralizado em vez de meio fora. */}
-      <div className="vzrow" ref={fila}>
-        {DEPOIMENTOS.map((p, n) => (
-          <button key={p.n} type="button"
-            className={`quote vzcard ${pulando === n ? 'pulo' : ''}`}
-            style={{ '--k': p.c }} onClick={() => pular(n)}
-            aria-label={`depoimento de ${p.n}, ${p.nota} de 5 estrelas`}>
-            <span className="vzwho">
-              <span className="vzav"><b>{p.n[0]}</b></span>
-              <span className="vzid">
-                <b>{p.n}</b>
-                <small>{p.w} de uso</small>
-              </span>
-            </span>
-            <span className="lstars" aria-hidden="true">{'★'.repeat(p.nota)}<i>{'★'.repeat(5 - p.nota)}</i></span>
-            <span className="vzq">&ldquo;{p.t}&rdquo;</span>
-          </button>
-        ))}
+      {/* Dois .grow: o título fica colado no topo (ligado à trilha de pontos) e
+          as faixas ficam centradas no espaço que sobra, em vez de o vazio todo
+          se acumular acima do botão. Num Pro Max isso são ~230px de folga de
+          cada lado — ar, não abandono. */}
+      <Grow />
+
+      {/* A zona inteira é o alvo de toque: mirar num cartão que está andando é
+          pedir pra pessoa acertar um alvo em movimento. */}
+      <div className="vzzone" data-travado={travado ? '1' : '0'}
+        role="button" tabIndex={0} aria-pressed={travado}
+        aria-label={travado ? 'soltar as faixas de depoimentos' : 'travar as faixas de depoimentos para ler'}
+        onClick={alternar}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); }
+        }}>
+        <Faixa lista={FAIXA_A} sentido="dir" vel={VEL_A} atraso="0s" />
+        {/* Atraso NEGATIVO: positivo deixaria a faixa parada esperando. */}
+        <Faixa lista={FAIXA_B} sentido="esq" vel={VEL_B} atraso="-12s" />
       </div>
 
-      <p className="vzhint">arraste para ver os outros</p>
+      <p className="vzhint">
+        {calmo ? 'arraste as faixas pra ler'
+          : travado ? 'travado · toque pra soltar'
+            : 'toque pra travar e ler'}
+      </p>
 
       <Grow />
       <Cta onClick={() => go('audio')}>continuar</Cta>
