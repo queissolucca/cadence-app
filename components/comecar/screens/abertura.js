@@ -348,7 +348,7 @@ export function Mic({ onDone, reconhecer = false, hintInicial = 'toque para fala
       <div className={`wave ${fase === 'ouvindo' ? '' : 'off'}`} ref={ondas}>
         {Array.from({ length: 21 }, (_, i) => <i key={i} />)}
       </div>
-      <button className={`mic ${fase === 'ouvindo' ? 'rec' : ''}`} style={{ marginTop: 14 }}
+      <button className={`mic ${fase === 'ouvindo' ? 'gravando' : ''}`} style={{ marginTop: 14 }}
         disabled={fase === 'fim'}
         onClick={() => {
           if (reconhecer && fala.supported) fala.toggle();
@@ -358,7 +358,7 @@ export function Mic({ onDone, reconhecer = false, hintInicial = 'toque para fala
         {fase === 'ouvindo' && <Glyph name="stop" size={26} />}
         {fase === 'fim' && <Glyph name="clock" size={28} />}
       </button>
-      <Kicker style={{ marginTop: 16 }}>{hint}</Kicker>
+      <p className="mic-hint">{hint}</p>
     </>
   );
 }
@@ -375,7 +375,7 @@ export function Fala({ go, set }) {
       </Card>
       <Grow />
       <Mic reconhecer onDone={texto => { set('fala', texto); go('feedback'); }}
-        hintOuvindo="estou te ouvindo… toque quando terminar"
+        hintOuvindo="toque pra parar quando terminar"
         hintFim="analisando sua fala…" />
       <Grow />
     </div>

@@ -266,7 +266,21 @@ h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-
 .mic{width:88px;height:88px;border-radius:50%;margin:0 auto;display:grid;place-items:center;
   background:var(--green);color:#fff;font-size:31px;position:relative;
   box-shadow:0 10px 30px rgba(62,155,95,.36)}
-.mic.rec{background:var(--red);box-shadow:0 10px 30px rgba(176,87,74,.4);animation:pulse 1.3s infinite}
+/* `gravando`, e não `rec`. Havia OUTRO `.rec` neste arquivo — o selo
+   "recomendado" das opções (font-size:9px, padding, margin-left:5px) — e o
+   botão do microfone virava `class="mic rec"` ao gravar. Mesma especificidade,
+   e o selo aparece DEPOIS no arquivo: o `margin-left:5px` dele matava o
+   `margin:0 auto` do botão, que saía de centralizado pra encostado na esquerda,
+   meio fora da tela. Herdava também padding e font-size de um selo de texto.
+   Dois donos para um nome é um acidente esperando a ordem do arquivo mudar. */
+.mic.gravando{background:var(--red);box-shadow:0 10px 30px rgba(176,87,74,.4);animation:pulse 1.3s infinite}
+
+/* A frase abaixo do microfone. Era um `.kicker` — 10.5px, o tamanho de rótulo
+   de seção — numa linha que é INSTRUÇÃO, e instrução precisa ser lida à
+   distância de um braço com o telefone na mão e a pessoa falando inglês. */
+.mic-hint{font-family:var(--f-mono);font-size:13px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dk-soft);text-align:center;margin-top:16px;
+  line-height:1.4}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.055)}}
 .wave{display:flex;align-items:center;justify-content:center;gap:3.5px;height:44px;margin-top:18px}
 .wave i{width:3.5px;border-radius:2px;background:var(--green);height:8px;
