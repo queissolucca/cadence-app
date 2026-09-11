@@ -81,7 +81,7 @@ export function Proposta({ go }) {
         { x: 250, y: 52, l: 'dia 40' }, { x: 308, y: 88, l: 'fluência', below: true },
       ]} />
       <h1>Conversa curta,<br />todo dia.</h1>
-      <Lede>Sem aula, sem lição de casa. Você fala 5 minutos comigo e a constelação cresce sozinha.</Lede>
+      <Lede>Sem aula, sem lição de casa. Você fala 5 minutos comigo e a sua cadência vira fluência.</Lede>
       <Grow />
       <Pager n={2} />
       <Cta onClick={() => go('social')}>continuar</Cta>
