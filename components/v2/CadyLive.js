@@ -46,16 +46,32 @@ function injetarCSS() {
   cssInjetado = true;
 }
 
-const FALANDO = new Set(['talking', 'corrigindo_falando']);
+/* Quais estados são "ela está emitindo som". Continua existindo como PALPITE:
+   quem renderiza a Cady da conversa passa `falando` de verdade (é o
+   `isSpeaking` do SDK), e aí este conjunto não é consultado. Ele resolve os
+   casos em que não há sinal nenhum — a prévia do styleguide, por exemplo. */
+const FALANDO = new Set(['talking', 'corrigindo_falando', 'rindo', 'elogiando']);
 const BRAVA = new Set(['corrigindo', 'corrigindo_falando']);
+// Estados de riso: a boca nunca fecha de todo, mesmo nas pausas da frase.
+const RINDO = new Set(['rindo', 'elogiando']);
 // Olhos que fazem sentido piscar. Em 'mudo' o olho já é um traço, e piscar um
 // traço não lê como nada.
 const PISCAVEL = new Set(['eye-dot', 'eye-track', 'eye-track-big', 'eye-sparkle']);
 
 /* Formato da boca pela amplitude. Um degrau só (esticar uma elipse) lê como
    boneco; trocar a forma é o que dá leitura de fala. */
-function bocaPor(nivel, brava) {
+function bocaPor(nivel, brava, rindo) {
   if (brava) return nivel < 0.30 ? 'm-grit' : 'm-open';
+  /* Rindo, a rampa não desce até a boca fechada. Com a rampa normal, cada pausa
+     entre frases fechava a boca em `m-small` e o riso apagava e reacendia várias
+     vezes por segundo — lia como boca mastigando, não como alguém rindo. Aqui o
+     piso é o "o" e o topo é a boca aberta com língua, então o que a amplitude
+     controla é QUANTO ela ri, não SE ela ri. */
+  if (rindo) {
+    if (nivel < 0.18) return 'm-o';
+    if (nivel < 0.42) return 'm-talk';
+    return 'm-open';
+  }
   if (nivel < 0.12) return 'm-small';
   if (nivel < 0.30) return 'm-o';
   if (nivel < 0.58) return 'm-talk';
@@ -68,14 +84,15 @@ const sorteio = (a, b) => a + Math.random() * (b - a);
    Aí a boca oscila sozinha enquanto ela "responde" — e isso não é fingir
    sincronia com som, porque som não há: é só o sinal de que ela está falando
    com você. Com áudio, `nivel` é a amplitude de verdade e a boca segue ela. */
-export function CadyLive({ estado = 'idle', nivel = 0, size = 190, label = 'Cady' }) {
+export function CadyLive({ estado = 'idle', nivel = 0, size = 190, label = 'Cady', falando = null }) {
   const host = useRef(null);
   const svg = useRef(null);
   const camadas = useRef([]);
   // Lidos dentro do loop sem reiniciá-lo a cada quadro.
-  const vivo = useRef({ estado, nivel });
+  const vivo = useRef({ estado, nivel, falando });
   vivo.current.estado = estado;
   vivo.current.nivel = nivel;
+  vivo.current.falando = falando;
 
   useEffect(() => {
     injetarCSS();
@@ -98,7 +115,10 @@ export function CadyLive({ estado = 'idle', nivel = 0, size = 190, label = 'Cady
     const quadro = (t) => {
       const { estado: e } = vivo.current;
       const bruto = vivo.current.nivel;
-      const falandoAgora = FALANDO.has(e);
+      /* Quem sabe se ela está falando é o SDK, não o nome do estado. Antes isso
+         era deduzido do estado, e uma cara de reação no meio da fala (elogiando,
+         por exemplo) congelava a boca — a fala continuava, o rosto parava. */
+      const falandoAgora = vivo.current.falando != null ? !!vivo.current.falando : FALANDO.has(e);
       // Sem áudio, o envelope é o produto de duas ondas: uma rápida, que faz as
       // sílabas, e uma lenta, que faz as pausas da frase. Uma senóide só nunca
       // desce o bastante e a boca fica permanentemente aberta — parecia um
@@ -134,7 +154,7 @@ export function CadyLive({ estado = 'idle', nivel = 0, size = 190, label = 'Cady
       }
 
       const olho = (piscaAte || beatAte) ? 'eye-arc' : olhoBase;
-      const boca = falando && !parado ? bocaPor(n, brava) : bocaBase;
+      const boca = falando && !parado ? bocaPor(n, brava, RINDO.has(e)) : bocaBase;
       const ligadas = [olho, boca, ...resto];
       const chave = ligadas.join('|');
       if (chave !== ultimo) {

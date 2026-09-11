@@ -16,6 +16,17 @@ function deriveTitle(messages) {
   return `Conversa · ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
 }
 
+/* Quanto tempo uma reação fica no rosto. 3,8s: abaixo de ~3s a expressão passa
+   rápido demais pra ser lida como reação (a pessoa vê "mudou alguma coisa" e
+   não o quê), e acima de ~5s ela para de parecer resposta a algo e vira o
+   humor padrão dela. */
+const REACAO_MS = 3800;
+
+// Qual reação ganha de qual, quando as duas chegam dentro da trava. Corrigir é
+// mais urgente que elogiar: perder um elogio custa carinho, perder uma correção
+// custa a aula.
+const FORCA = { elogiando: 1, corrigindo: 2 };
+
 function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting }) {
   const isReview = Array.isArray(reviewItems) && reviewItems.length > 0;
   const isCard = !!(cardDrill && cardDrill.term); // drill relâmpago de 1 card da Revisão
@@ -26,8 +37,38 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const [showTranscript, setShowTranscript] = useState(true); // aberta por padrão; usuário pode minimizar
   // Quanto a boca está aberta (0..1) e se ela está no meio de uma correção.
   const [nivel, setNivel] = useState(0);
-  const [corrigindo, setCorrigindo] = useState(false);
-  const corrigindoT = useRef(null);
+  /* UMA REAÇÃO POR VEZ, E ELA DURA O SUFICIENTE PRA SER VISTA.
+
+     Antes só existia a cara brava, e ela era ligada com um `setTimeout` solto.
+     Duas coisas estavam erradas nisso:
+
+     1. Só a correção virava cara. Salvar uma frase boa — que é a Cady
+        APROVANDO — não mudava nada, e o estado `elogiando` existia no catálogo
+        sem ninguém nunca usar.
+     2. Uma reação nova reiniciava o relógio da anterior sem critério. Duas
+        correções seguidas e a primeira cara sumia antes de alguém ver.
+
+     Agora é um slot só, com prioridade e tempo mínimo: a reação fica 3,8s no
+     rosto e, dentro desse tempo, só é substituída por uma MAIS forte (corrigir
+     ganha de elogiar). Abaixo de ~3s uma expressão passa como glitch — a pessoa
+     vê o rosto mudar mas não consegue dizer pra quê. */
+  const [reacao, setReacao] = useState(null);   // null | 'elogiando' | 'corrigindo'
+  const reacaoT = useRef(null);
+  const reacaoAte = useRef(0);
+  useEffect(() => () => clearTimeout(reacaoT.current), []);
+  const reagir = useCallback((tipo) => {
+    if (!FORCA[tipo]) return;
+    const agora = Date.now();
+    // Dentro da trava, só entra quem é mais forte que quem já está no rosto.
+    setReacao((atual) => {
+      if (atual && agora < reacaoAte.current && FORCA[tipo] <= FORCA[atual]) return atual;
+      reacaoAte.current = agora + REACAO_MS;
+      clearTimeout(reacaoT.current);
+      reacaoT.current = setTimeout(() => setReacao(null), REACAO_MS);
+      return tipo;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const startedAtRef = useRef(null);
   const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
   const scrollRef = useRef(null); // janela de transcrição com scroll próprio
@@ -136,11 +177,11 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
         // fato corrigiu alguma coisa. Se o agente não mandar a categoria, a
         // cara simplesmente não muda — errar pra menos aqui é melhor que ela
         // ficar brava no meio de um elogio.
-        if (category === 'correction') {
-          setCorrigindo(true);
-          clearTimeout(corrigindoT.current);
-          corrigindoT.current = setTimeout(() => setCorrigindo(false), 5200);
-        }
+        // A categoria que a Cady manda é o evento REAL — nada de adivinhar pelo
+        // texto. 'correction' = ela corrigiu algo; 'phrase'/'word' = ela achou
+        // bom o bastante pra guardar, e isso é aprovação, não bronca.
+        if (category === 'correction') reagir('corrigindo');
+        else if (category === 'phrase' || category === 'word') reagir('elogiando');
         try {
           await fetch('/api/review', {
             method: 'POST',
@@ -313,19 +354,39 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
-  // O rosto: quem fala ganha da correção só na boca — a sobrancelha e o
-  // vermelho continuam enquanto ela estiver corrigindo.
+  /* O rosto, e a ORDEM aqui é o conserto de um bug que estava em produção.
+
+     `mudo` vinha antes de `falando`. Só que o microfone fecha SOZINHO enquanto
+     ela fala (lib/conversaMute.js — é o preço que se paga por não ter mais o
+     barge-in do ElevenLabs), então `muted` é verdadeiro justamente durante toda
+     a fala dela. Resultado: a cara de mudo — olho de traço, boca reta — cobria
+     cada frase que ela dizia, e as caras de fala nunca chegavam à tela.
+
+     Agora falar ganha de mudo, que é o que a informação pede: enquanto ela
+     fala, o rosto é sobre ELA; quando ela cala, o rosto relata o microfone. E o
+     estado do microfone não se perde — o botão fica verde, com aria-pressed, e
+     a linha de status diz. Cara não é o único lugar onde isso está escrito.
+
+     FALANDO, O PADRÃO É RIR. Era `talking` — olho de bolinha, boca esticando:
+     a cara de quem emite som, não de quem está gostando da conversa. A reação
+     ganha enquanto dura, e a boca acompanha a voz em qualquer uma delas (o
+     `falando` vai por fora, ver CadyLive). */
   let cara = 'idle';
   if (connecting) cara = 'curious';
+  else if (active && reacao === 'corrigindo') cara = speaking ? 'corrigindo_falando' : 'corrigindo';
+  else if (active && reacao === 'elogiando') cara = 'elogiando';
+  else if (active && speaking) cara = 'rindo';
   else if (active && muted) cara = 'mudo';
-  else if (active && speaking) cara = corrigindo ? 'corrigindo_falando' : 'talking';
-  else if (active && corrigindo) cara = 'corrigindo';
   else if (active) cara = 'ouvindo';
 
   let statusLabel = unit ? 'Toque pra começar a lição' : isCard ? 'Toque pra praticar falando' : isReview ? 'Toque pra revisar falando' : resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
   if (connecting) statusLabel = 'Conectando…';
-  else if (muted) statusLabel = 'Microfone mudo — desmute para voltar a falar';
+  // Mesma inversão da cara, e pelo mesmo motivo: com o mute automático, esta
+  // linha dizia "Microfone mudo — desmute para voltar a falar" durante toda a
+  // fala dela. Ou seja, mandava a pessoa desmutar exatamente no momento em que
+  // o mudo era nosso e ia se desfazer sozinho.
   else if (speaking) statusLabel = `${agent?.name || 'Coach'} falando…`;
+  else if (muted) statusLabel = 'Microfone mudo — desmute para voltar a falar';
   else if (active) statusLabel = 'Pode falar — estou ouvindo';
 
   return (
@@ -370,7 +431,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           transform: connecting ? 'scale(0.97)' : 'scale(1)',
         }}
       >
-        <CadyLive estado={cara} nivel={nivel} size={196} />
+        <CadyLive estado={cara} nivel={nivel} falando={speaking} size={196} />
         {/* Selo de ação: o rosto sozinho não diz que dá pra tocar. */}
         <span
           style={{

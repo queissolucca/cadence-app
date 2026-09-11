@@ -20,9 +20,9 @@ export default function StyleguidePage() {
         <section data-cady-demo>
           <h3 style={{ fontSize: 12, letterSpacing: '0.1em', color: 'var(--ink-soft)', textTransform: 'uppercase', marginBottom: 10 }}>Cady · estados da conversa</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-            {['idle', 'ouvindo', 'pensando', 'talking', 'mudo', 'corrigindo_falando'].map((e) => (
+            {['idle', 'ouvindo', 'rindo', 'elogiando', 'mudo', 'corrigindo_falando'].map((e) => (
               <div key={e} data-estado={e} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <CadyLive estado={e} nivel={null} size={104} />
+                <CadyLive estado={e} nivel={null} falando size={104} />
                 <span style={{ fontSize: 11, color: 'var(--ink-soft)', fontFamily: 'var(--font-mono-v2)' }}>{e}</span>
               </div>
             ))}

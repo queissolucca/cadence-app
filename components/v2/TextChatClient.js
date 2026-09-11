@@ -205,7 +205,10 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
   if (sending) cara = 'pensando';
   else if (corrigindo && respondendo) cara = 'corrigindo_falando';
   else if (corrigindo) cara = 'corrigindo';
-  else if (respondendo) cara = 'talking';
+  // Mesmo padrão da conversa por voz: respondendo, ela ri. Aqui não há áudio
+  // (`nivel={null}`), então a boca oscila sozinha — e com a rampa de riso ela
+  // oscila entre "o" e boca aberta, sem nunca fechar.
+  else if (respondendo) cara = 'rindo';
 
   const legenda = sending ? '· pensando…'
     : corrigindo ? '· corrigindo você'
@@ -218,7 +221,7 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
           resposta não chega, respondendo quando chega, brava quando corrigiu.
           `nivel={null}` avisa que não há áudio pra seguir. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'center' }}>
-        <CadyLive estado={cara} nivel={null} size={62} label={agent?.name || 'Cady'} />
+        <CadyLive estado={cara} nivel={null} falando={respondendo} size={62} label={agent?.name || 'Cady'} />
         <span style={{ fontSize: 14, color: 'var(--ink)' }}>
           <strong>{agent?.name || 'Cady'}</strong>{' '}
           <span style={{ color: 'var(--ink-soft)' }}>{legenda}</span>
