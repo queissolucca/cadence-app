@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { updateSession } from './lib/supabase/middleware';
 import { apiLiberada, ehRotaApi } from './lib/apiAccess';
+import { proximoPasso, TELAS_DE_PASSO } from './lib/funil';
 
 // Redirects de rotas antigas/aposentadas — feitos aqui (não com redirect()
 // dentro da page) porque redirect() numa página 100% estática não gera
@@ -68,12 +69,15 @@ export async function middleware(request) {
     return response;
   }
 
-  // Funil pós-cadastro, em ORDEM fixa (pagamento é o ÚLTIMO passo):
-  //   1) /onboarding      → perguntas (idade, gênero, nível, motivos, desafios, meta) + termos
-  //   2) /pagamento       → paga depois de já ter preenchido tudo
-  //   3) /v2/onboarding   → só o nome (último passo, depois de pagar)
-  //   4) /v2              → app liberado
-  // Requer as migrations 0026 (profiles.onboarded_at + tabela onboarding).
+  // Funil pós-cadastro, em ORDEM fixa:
+  //   1) /pagamento       → paga
+  //   2) /v2/onboarding   → só o nome
+  //   3) /v2              → app liberado
+  // O /onboarding (idade, gênero, nível, motivos…) SAIU deste funil — as 28
+  // telas antes da conta já perguntam tudo, e mantê-lo era pedir de novo, em
+  // outra ordem, o que a pessoa acabou de responder. Ver o comentário do
+  // nextStep. Requer as migrations 0026 (profiles.onboarded_at + tabela
+  // onboarding).
   // Tem linha em paid_emails, dentro da validade? É a única fonte de verdade do
   // acesso. A tabela tem RLS com uma policy só (SELECT da própria linha) e
   // nenhuma de escrita — só a service_role, a partir do webhook, cria linha.
@@ -87,16 +91,15 @@ export async function middleware(request) {
     return !!row && (!row.expires_at || new Date(row.expires_at) > new Date());
   }
 
+  // Busca os dois fatos em paralelo e deixa a ORDEM com o lib/funil, que é onde
+  // ela pode ser testada. Antes a ordem morava nesta função, dentro do
+  // middleware, onde nenhum teste alcança.
   async function nextStep() {
-    const profileP = supabase.from('profiles').select('onboarded_at, full_name').eq('id', user.id).maybeSingle();
+    const profileP = supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
     const pagoP = acessoPago();
     const { data: profile } = await profileP;
     const pago = await pagoP;
-
-    if (!profile?.onboarded_at) return '/onboarding';
-    if (!pago) return '/pagamento';
-    if (!profile?.full_name || !profile.full_name.trim()) return '/v2/onboarding';
-    return null; // tudo pronto → app
+    return proximoPasso({ pago, nome: profile?.full_name });
   }
 
   // ROTAS DE API. O portão de página não as cobria: nenhuma começa com '/v2'
@@ -121,7 +124,11 @@ export async function middleware(request) {
 
   // As 3 telas do funil: cada uma só aparece quando é o passo atual; caso
   // contrário, manda pro passo certo (ou pro app, se já concluiu tudo).
-  if (pathname === '/onboarding' || pathname === '/v2/onboarding' || pathname === '/pagamento') {
+  // `/onboarding` continua na lista pra ser EXPULSO: ele não é mais um passo,
+  // então `nextStep()` nunca o devolve, e quem cair nele (link velho, favorito,
+  // e-mail antigo) é mandado pro passo de verdade em vez de ver um formulário
+  // aposentado.
+  if (TELAS_DE_PASSO.includes(pathname)) {
     if (!user) return NextResponse.redirect(new URL('/login', request.url));
     const step = await nextStep();
     const target = step || '/v2';

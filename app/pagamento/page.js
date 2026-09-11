@@ -1,5 +1,6 @@
 import { createClient } from '../../lib/supabase/server';
 import { PagamentoTela } from './PagamentoTela';
+import { EnviaRespostas } from './EnviaRespostas';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,15 +29,26 @@ export default async function PagamentoPage() {
   // cobrança. A consulta é a linha do próprio usuário (o que a RLS permite).
   let expirado = false;
   let minutos = 5;
+  // Quem confirma o e-mail cai aqui direto, e nesse instante as respostas das 33
+  // telas ainda estão só no navegador dele. `onboarded_at` é como se sabe se
+  // elas já chegaram ao banco.
+  let jaEnviou = true;
   if (user) {
-    const [pago, onboarding] = await Promise.all([
+    const [pago, onboarding, perfil] = await Promise.all([
       supabase.from('paid_emails').select('expires_at').eq('email', user.email).maybeSingle(),
       supabase.from('onboarding').select('daily_goal').eq('user_id', user.id).maybeSingle(),
+      supabase.from('profiles').select('onboarded_at').eq('id', user.id).maybeSingle(),
     ]);
     const linha = pago.data;
     expirado = !!linha?.expires_at && new Date(linha.expires_at) <= new Date();
     minutos = minutosDe(onboarding.data?.daily_goal);
+    jaEnviou = !!perfil.data?.onboarded_at;
   }
 
-  return <PagamentoTela email={user?.email || ''} minutos={minutos} expirado={expirado} />;
+  return (
+    <>
+      <EnviaRespostas jaEnviou={jaEnviou} />
+      <PagamentoTela email={user?.email || ''} minutos={minutos} expirado={expirado} />
+    </>
+  );
 }
