@@ -126,7 +126,31 @@ describe('a conversa não pode ser travada pela nossa API', () => {
      repouso calada nos dois casos. */
   it('queda de conexão é dita, encerramento pedido não', () => {
     expect(CONV).toContain('pediuParar.current = true;');
-    expect(CONV).toMatch(/if \(!pediuParar\.current && startedAt\)/);
     expect(CONV).toMatch(/A conexão caiu/);
+  });
+
+  /* O SDK diz POR QUE a conversa acabou — 'user', 'agent' ou 'error', com
+     closeCode — e a gente jogava fora. Era por isso que "ela para do nada"
+     ficava sem explicação: os três desfechos chegavam na tela iguais.
+
+     A distinção que mais importa é `agent`: aí quem encerrou foi o agente do
+     ElevenLabs, não a rede nem a pessoa, e o limite está na configuração de lá.
+     É a diferença entre procurar no lugar certo e no errado. */
+  it('o motivo da desconexão é lido, mostrado e registrado', () => {
+    expect(CONV).toMatch(/onDisconnect: \(detalhes\)/);
+    expect(CONV).toMatch(/detalhes\?\.reason/);
+    expect(CONV).toMatch(/motivo === 'agent'/);
+    expect(CONV).toMatch(/encerrada pelo agente de voz/);
+    expect(CONV).toMatch(/cadenceTrack\?\.\('voz_encerrada'/);
+    // closeCode é o que separa um limite do agente de uma queda de rede.
+    expect(CONV).toMatch(/closeCode/);
+  });
+
+  /* Mede diretamente a suspeita de estouro de contexto: system prompt +
+     prior_context (~4500 chars) + memória podem encher a janela em poucos
+     turnos, e modelo sem espaço para de responder. */
+  it('o uso de contexto do LLM é acompanhado e vai junto no encerramento', () => {
+    expect(CONV).toMatch(/onContextUsage: \(uso\)/);
+    expect(CONV).toMatch(/contexto: usoDeContexto\.current/);
   });
 });

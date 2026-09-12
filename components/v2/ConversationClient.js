@@ -74,6 +74,8 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
      — a tela volta pro repouso calada — e quem caiu no meio da conversa não tem
      como saber se foi ela que encostou no botão ou se o produto desistiu. */
   const pediuParar = useRef(false);
+  // Último relato de uso de contexto do LLM (ver onContextUsage).
+  const usoDeContexto = useRef(null);
   const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
   const scrollRef = useRef(null); // janela de transcrição com scroll próprio
 
@@ -87,21 +89,53 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       setTranscript(base);
       setErrorMsg('');
     },
-    onDisconnect: () => {
+    onDisconnect: (detalhes) => {
       const startedAt = startedAtRef.current;
       startedAtRef.current = null;
       const messages = messagesRef.current;
 
-      /* Caiu sem ninguém pedir. Antes isto era indistinguível de encerrar de
-         propósito: a tela voltava pro repouso e pronto. Quem estava no meio de
-         uma frase ficava sem saber se tinha encostado no botão sem querer ou se
-         o produto tinha desistido — e "ela para do nada" é exatamente como isso
-         é relatado. O que estava dito continua na transcrição, e retomar é o
-         mesmo toque de sempre. */
-      if (!pediuParar.current && startedAt) {
-        setErrorMsg('A conexão caiu. Toque pra continuar — o que vocês já falaram está salvo.');
-      }
+      /* POR QUE A CONVERSA ACABOU — o SDK diz, e a gente jogava fora.
+
+         `onDisconnect` recebe um objeto com `reason` ('user' | 'agent' |
+         'error'), e nos dois últimos casos ainda traz `closeCode`,
+         `closeReason` e `message`. Ignorar isso é o motivo de "ela para do
+         nada" ter ficado sem explicação por tanto tempo: os três desfechos
+         chegavam na tela como a mesma coisa — o repouso, calado.
+
+         A distinção que mais importa é `agent`: quando o motivo é esse, quem
+         encerrou foi o AGENTE, não a rede nem a pessoa. Ou seja, o limite está
+         na configuração do ElevenLabs (duração máxima, turnos, contexto do
+         LLM), e não em nada que este código possa consertar. É a diferença
+         entre procurar no lugar certo e procurar no errado.
+
+         O registro vai pro /api/track/event — a mesma trilha que já grava
+         navegação —, então o próximo caso deixa de ser relato e vira dado. */
+      const motivo = detalhes?.reason || (pediuParar.current ? 'user' : 'desconhecido');
+      const pedido = motivo === 'user' || pediuParar.current;
       pediuParar.current = false;
+
+      if (startedAt && !pedido) {
+        setErrorMsg(motivo === 'agent'
+          ? 'A conversa foi encerrada pelo agente de voz. Toque pra recomeçar — o que vocês já falaram está salvo.'
+          : 'A conexão caiu. Toque pra continuar — o que vocês já falaram está salvo.');
+      }
+
+      if (startedAt && !pedido) {
+        try {
+          window.cadenceTrack?.('voz_encerrada', {
+            motivo,
+            closeCode: detalhes?.closeCode ?? null,
+            closeReason: detalhes?.closeReason ?? null,
+            mensagem: typeof detalhes?.message === 'string' ? detalhes.message.slice(0, 300) : null,
+            turnos: messages.length,
+            segundos: Math.round((Date.now() - startedAt) / 1000),
+            agente: agent?.id || null,
+            contexto: usoDeContexto.current,
+          });
+        } catch {
+          /* telemetria nunca atrapalha a conversa */
+        }
+      }
 
       if (!startedAt) return;
       const seconds = Math.round((Date.now() - startedAt) / 1000);
@@ -181,7 +215,21 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       messagesRef.current = [...messagesRef.current, line];
       setTranscript((t) => [...t, line]);
     },
-    onError: () => setErrorMsg('Algo deu errado na conexão de voz. Tenta de novo.'),
+    onError: (mensagem, contexto) => {
+      setErrorMsg('Algo deu errado na conexão de voz. Tenta de novo.');
+      try {
+        window.cadenceTrack?.('voz_erro', {
+          mensagem: typeof mensagem === 'string' ? mensagem.slice(0, 300) : null,
+          contexto: contexto ? String(contexto).slice(0, 200) : null,
+        });
+      } catch { /* noop */ }
+    },
+    /* Quanto do contexto do LLM já foi usado. É a medida DIRETA de uma das
+       suspeitas — o system prompt somado ao `prior_context` (que pode ter ~4500
+       caracteres) e à memória do usuário pode encher a janela em poucos turnos,
+       e um modelo sem espaço para de responder. Guardado num ref e mandado
+       junto no encerramento: assim dá pra ver se a conversa morreu cheia. */
+    onContextUsage: (uso) => { usoDeContexto.current = uso || null; },
     clientTools: {
       // A Cady chama isso quando o usuário pede pra salvar/memorizar algo —
       // vai pra aba Revisão. (Precisa do client tool 'save_to_review' declarado
