@@ -322,10 +322,30 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
       const pedido = motivo === 'user' || pediuParar.current;
       pediuParar.current = false;
 
+      /* O RESUMO DA LATÊNCIA VAI SEMPRE, E EM EVENTO PRÓPRIO.
+
+         Ele estava pendurado no `voz_encerrada`, que só é registrado quando a
+         conversa cai SOZINHA. Ou seja: quem encerrasse no botão — o caso normal,
+         a maioria esmagadora das conversas — não deixava medida nenhuma. A média
+         seria feita só das conversas que deram errado, que é o pior recorte
+         possível pra decidir onde otimizar. */
+      const latenciaResumo = medidor.current?.resumo() || null;
+      if (latenciaResumo) {
+        try {
+          window.cadenceTrack?.('voz_latencia', {
+            ...latenciaResumo,
+            agente: agent?.id || null,
+            encerrouPedido: pedido,
+          });
+        } catch {
+          /* telemetria nunca atrapalha a conversa */
+        }
+      }
+
       if (!pedido) {
         try {
           window.cadenceTrack?.('voz_encerrada', {
-            latencia: medidor.current?.resumo() || null,
+            latencia: latenciaResumo,
             motivo,
             closeCode: detalhes?.closeCode ?? null,
             closeReason: detalhes?.closeReason ?? null,
@@ -1018,6 +1038,42 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
   else if (active && muted) cara = 'mudo';
   else if (active) cara = 'ouvindo';
 
+  /* A LINHA DA MEDIÇÃO — E ELA FALA MESMO SEM TER NÚMERO AINDA.
+
+     A primeira versão só aparecia depois de um turno completo. Quem ligava o
+     `?latencia=1` e olhava a tela via exatamente nada, sem saber se o
+     interruptor tinha pegado, se a medição existia, ou se estava tudo quebrado.
+     Instrumento que não diz "estou ligado" é indistinguível de instrumento
+     quebrado — e o silêncio dele custa mais confiança do que o número vale.
+
+     `resposta` é o silêncio inteiro (só existe quando o agente manda vad_score);
+     `pensar` é a metade de trás — LLM + TTS —, que é a que sempre dá pra medir e
+     a que se conserta trocando modelo ou encurtando prompt. */
+  let linhaLatencia = null;
+  if (mostrarLatencia) {
+    const r = latencia?.resumo;
+    if (!latencia) {
+      linhaLatencia = connecting
+        ? 'medição ligada · conectando…'
+        : active
+          ? 'medindo — fale uma frase e espere a resposta'
+          : 'medição ligada · toque pra começar';
+    } else {
+      const partes = [];
+      if (latencia.total != null) partes.push(`resposta ${latencia.total}ms`);
+      if (latencia.ouvir != null) partes.push(`ouvir ${latencia.ouvir}`);
+      if (latencia.pensar != null) partes.push(`pensar ${latencia.pensar}`);
+      if (latencia.ferramentas > 0) partes.push(`${latencia.ferramentas} ferramenta${latencia.ferramentas > 1 ? 's' : ''}`);
+      if (r && r.turnos > 1) {
+        const mediana = r.medianaMs != null ? r.medianaMs : r.pensarMedianaMs;
+        if (mediana != null) partes.push(`mediana ${mediana}ms em ${r.turnos} turnos`);
+      }
+      if (r && r.microfoneMedianaMs != null) partes.push(`mic ${r.microfoneMedianaMs}ms`);
+      if (r && r.semVad === r.turnos) partes.push('(sem vad_score: só a 2ª metade)');
+      linhaLatencia = partes.join(' · ');
+    }
+  }
+
   let statusLabel = unit ? 'Toque pra começar a lição' : isCard ? 'Toque pra praticar falando' : isReview ? 'Toque pra revisar falando' : resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
   // A retomada ganha do "Conectando…": ela explica um reconectar que a pessoa
   // não pediu, e sem isso a tela some do ar por um segundo sem dizer por quê.
@@ -1108,6 +1164,12 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
 
       <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--ink)', minHeight: 22, textAlign: 'center' }}>{statusLabel}</p>
 
+      {linhaLatencia && (
+        <p style={{ margin: '-10px 0 0', fontSize: 11.5, lineHeight: 1.5, color: 'var(--ink-soft)', fontFamily: 'var(--font-mono-v2, monospace)', textAlign: 'center', maxWidth: 300 }}>
+          {linhaLatencia}
+        </p>
+      )}
+
       {active && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <button
@@ -1142,16 +1204,6 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
             Encerrar
           </button>
         </div>
-      )}
-
-      {mostrarLatencia && latencia && (
-        <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-soft)', fontFamily: 'var(--font-mono-v2, monospace)', textAlign: 'center' }}>
-          resposta {Math.round(latencia.total)}ms
-          {latencia.ouvir != null && ` · ouvir ${Math.round(latencia.ouvir)} · pensar ${Math.round(latencia.pensar)}`}
-          {latencia.ferramentas > 0 && ` · ${latencia.ferramentas} ferramenta${latencia.ferramentas > 1 ? 's' : ''}`}
-          {latencia.resumo?.turnos > 1 && ` — mediana ${latencia.resumo.medianaMs}ms em ${latencia.resumo.turnos} turnos`}
-          {latencia.resumo?.microfoneMedianaMs != null && ` · mic abre em ${latencia.resumo.microfoneMedianaMs}ms`}
-        </p>
       )}
 
       {errorMsg && (

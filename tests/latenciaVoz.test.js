@@ -27,7 +27,7 @@ describe('o relógio da resposta', () => {
     em(1200); m.vad(0.05);       // parou de falar
     em(1500); m.transcreveu();   // a transcrição dela chegou
     em(2300);
-    expect(m.respondeu()).toEqual({ total: 2300 - 1200, ouvir: 300, pensar: 800, ferramentas: 0 });
+    expect(m.respondeu()).toEqual({ total: 2300 - 1200, ouvir: 300, pensar: 800, ferramentas: 0, parcial: false });
   });
 
   /* O marco é o ÁUDIO, e não o texto da resposta, de propósito: a transcrição da
@@ -47,7 +47,7 @@ describe('o relógio da resposta', () => {
     const { m, em } = medidorDe();
     em(0); m.vad(0.8); em(700); m.vad(0.1);
     em(1900);
-    expect(m.respondeu()).toEqual({ total: 1200, ouvir: null, pensar: null, ferramentas: 0 });
+    expect(m.respondeu()).toEqual({ total: 1200, ouvir: null, pensar: null, ferramentas: 0, parcial: false });
   });
 });
 
@@ -160,15 +160,18 @@ describe('o medidor está de fato ligado na conversa', () => {
     expect(FONTE).toMatch(/if \(role === 'you'\) medidor\.current\?\.transcreveu\(\)/);
   });
 
-  it('o resumo vai junto no encerramento, medindo ou não na tela', () => {
+  it('o resumo vai pro banco, medindo ou não na tela', () => {
     // A leitura na tela é opcional; o registro não é. É dele que sai a média de
     // quem está usando de verdade, não a de quem estava testando.
-    expect(FONTE).toMatch(/latencia: medidor\.current\?\.resumo\(\) \|\| null/);
+    expect(FONTE).toMatch(/const latenciaResumo = medidor\.current\?\.resumo\(\) \|\| null/);
+    expect(FONTE).toContain("window.cadenceTrack?.('voz_latencia'");
   });
 
   it('a leitura na tela fica atrás de um interruptor', () => {
-    expect(FONTE).toContain("cadence.latencia");
-    expect(FONTE).toMatch(/mostrarLatencia && latencia/);
+    expect(FONTE).toContain('cadence.latencia');
+    expect(FONTE).toMatch(/if \(mostrarLatencia\) \{/);
+    // e nada aparece pra quem não ligou
+    expect(FONTE).toMatch(/let linhaLatencia = null;/);
   });
 });
 
@@ -193,5 +196,80 @@ describe('o que estava no caminho entre o toque e a primeira palavra', () => {
     const codigo = ROTA.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
     expect(codigo).toContain('const eu = await identidade()');
     expect(codigo, 'ida à rede de volta no caminho crítico').not.toContain('auth.getUser()');
+  });
+});
+
+describe('quando o agente não manda vad_score', () => {
+  /* `vad_score` é um evento que o servidor do ElevenLabs pode simplesmente não
+     mandar, dependendo da configuração do agente. Sem plano B, o medidor ficava
+     MUDO — nenhum turno, nenhum número, nada na tela explicando. Instrumento que
+     falha em silêncio é pior que não ter instrumento. */
+  it('a transcrição vira o marco, e o `pensar` continua medido', () => {
+    const { m, em } = medidorDe();
+    em(1000); m.transcreveu();
+    em(1800);
+    expect(m.respondeu()).toEqual({ total: null, ouvir: null, pensar: 800, ferramentas: 0, parcial: true });
+  });
+
+  it('cada turno recomeça do zero — não herda o marco do anterior', () => {
+    // Sem resetar o marco, o 2º turno media desde a transcrição do 1º e dava um
+    // número absurdo que parecia lentidão do agente.
+    const { m, em } = medidorDe();
+    em(1000); m.transcreveu(); em(1800); m.respondeu();
+    em(5000); m.transcreveu(); em(5600);
+    expect(m.respondeu().pensar).toBe(600);
+    expect(m.resumo().pensarMedianaMs).toBe(800);
+  });
+
+  it('o resumo diz que foi sem vad — isso é informação sobre a configuração', () => {
+    const { m, em } = medidorDe();
+    em(1000); m.transcreveu(); em(1800); m.respondeu();
+    const r = m.resumo();
+    expect(r.semVad).toBe(1);
+    expect(r.turnos).toBe(1);
+    expect(r.medianaMs, 'sem vad não há total honesto a reportar').toBeNull();
+  });
+
+  it('um `pensar` absurdo continua sendo descartado', () => {
+    const { m, em } = medidorDe();
+    em(0); m.transcreveu();
+    em(TETO_MS + 1);
+    expect(m.respondeu()).toBeNull();
+  });
+});
+
+describe('a linha na tela fala mesmo sem número', () => {
+  const FONTE = readFileSync('components/v2/ConversationClient.js', 'utf8');
+  it('diz que está ligada antes do primeiro turno', () => {
+    // Ligar o interruptor e ver a tela idêntica é o mesmo que ele não existir.
+    expect(FONTE).toContain('medição ligada · toque pra começar');
+    expect(FONTE).toContain('medindo — fale uma frase e espere a resposta');
+  });
+
+  it('fica junto da linha de status, não escondida no rodapé', () => {
+    const i = FONTE.indexOf('{statusLabel}</p>');
+    expect(FONTE.slice(i, i + 400)).toContain('linhaLatencia');
+  });
+
+  it('avisa quando só deu pra medir a segunda metade', () => {
+    expect(FONTE).toContain('sem vad_score');
+  });
+});
+
+describe('o resumo chega no banco em TODA conversa', () => {
+  const FONTE = readFileSync('components/v2/ConversationClient.js', 'utf8');
+  /* Estava pendurado no `voz_encerrada`, que só é registrado quando a conversa
+     cai sozinha. Quem encerrasse no botão — o caso normal — não deixava medida.
+     A média sairia só das conversas que deram errado: o pior recorte possível
+     pra decidir onde otimizar. */
+  it('evento próprio, fora do caminho do encerramento anormal', () => {
+    expect(FONTE).toContain("'voz_latencia'");
+    const i = FONTE.indexOf("window.cadenceTrack?.('voz_latencia'");
+    const j = FONTE.indexOf('if (!pedido) {', FONTE.indexOf('const latenciaResumo'));
+    expect(i, 'o registro tem que vir ANTES da condição de encerramento anormal').toBeLessThan(j);
+  });
+
+  it('marca se foi a pessoa que encerrou, pra dar pra separar depois', () => {
+    expect(FONTE).toContain('encerrouPedido: pedido');
   });
 });
