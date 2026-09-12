@@ -202,7 +202,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     setStarting(true);
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      const res = await fetch('/api/convai/signed-url');
+      // A voz escolhida na galeria. Vai como CHAVE — o id do agente é resolvido
+      // no servidor (lib/agentesVoz.js).
+      const voz = agent?.id || 'cadi';
+      const res = await fetch(`/api/convai/signed-url?agente=${encodeURIComponent(voz)}`);
       if (res.status === 503) {
         setNotConfigured(true);
         return;
