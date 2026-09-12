@@ -323,6 +323,40 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speaking, active]);
 
+  /* REDE DE SEGURANÇA DO MICROFONE.
+
+     Todo o fechar-e-abrir automático depende de uma coisa só: `isSpeaking` ir
+     pra false quando a Cady termina. Se esse sinal não chega — o WebSocket
+     engasgou, o áudio acabou sem o evento, a aba ficou em segundo plano no meio
+     da fala —, o microfone que NÓS fechamos nunca reabre. E o sintoma disso não
+     parece um bug de microfone: parece que ela parou de responder. A pessoa
+     fala, fala de novo, e não acontece nada, porque não está sendo ouvida.
+
+     Era o pior tipo de falha que este produto podia ter, porque o produto É a
+     fala, e porque ela é silenciosa — nada na tela dizia que o microfone estava
+     fechado por nossa conta.
+
+     Então: se o mudo é nosso e ela não está falando há mais de 1,2s, abre. Não
+     substitui a lógica de cima (que continua sendo quem decide no caso normal),
+     é só o que garante que o estado "fechado" nunca é permanente. Mexe apenas
+     no que nós fechamos — quem se mutou sozinho continua mudo. */
+  useEffect(() => {
+    if (!active || speaking) return undefined;
+    const t = setTimeout(() => {
+      try {
+        if (mudoPorNos.current && conversation.isMuted && !conversation.isSpeaking) {
+          conversation.setMuted(false);
+          mudoPorNos.current = false;
+          assumido.current = false;
+        }
+      } catch {
+        /* setMuted pode sumir se a sessão fechar nesse meio-tempo */
+      }
+    }, 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speaking, active, conversation.isMuted]);
+
   // A boca segue a amplitude real da voz dela. Se o SDK não expuser o volume
   // (versão mais antiga), cai numa oscilação enquanto `isSpeaking` — a boca
   // ainda mexe, só não fica sincronizada com o som.

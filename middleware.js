@@ -33,7 +33,32 @@ const LEGACY_REDIRECTS = {
 const LOGIN_REQUIRED_PREFIXES = ['/v2'];
 
 export async function middleware(request) {
-  const { response, user, supabase } = await updateSession(request);
+  const { response, user, supabase, temCookieDeSessao } = await updateSession(request);
+
+  /* NUNCA DESLOGAR POR DÚVIDA.
+
+     `user` nulo tinha um significado só — "anônimo" — e anônimo vira redirect
+     pro /login. Mas ele fica nulo por DOIS motivos bem diferentes: não há
+     sessão nenhuma, ou não deu pra confirmar a que existe (rede caída no meio
+     de uma chamada de voz, JWKS que não respondeu, token em renovação). O
+     segundo caso deslogava alguém no meio da conversa.
+
+     `precisaLogar` é o único lugar que decide isso agora: sem cookie de sessão,
+     é anônimo de verdade. Com cookie e sem confirmação, a pessoa FICA onde
+     está — a dúvida não tira ninguém de lugar nenhum, é a mesma regra do
+     portão de pagamento logo abaixo. */
+  const precisaLogar = !user && !temCookieDeSessao;
+  const semConfirmar = !user && temCookieDeSessao;
+
+  /* Sem identidade, a tela do app não tem como ser montada — ela é feita do
+     perfil, do streak, das conversas da pessoa. Servir a página levaria a um
+     erro; deslogar é o que a gente acabou de parar de fazer. A terceira saída é
+     esta: um REWRITE pra uma tela que só diz "reconectando" e recarrega em 2s.
+
+     Rewrite e não redirect de propósito: a URL na barra continua sendo a que a
+     pessoa estava (/v2/conversar, por exemplo), então o reload volta exatamente
+     pra lá. Nada se perde, e o caso se resolve sozinho. */
+  const reconectando = () => NextResponse.rewrite(new URL('/reconectando', request.url));
   const { pathname } = request.nextUrl;
 
   if (LEGACY_REDIRECTS[pathname]) {
@@ -137,6 +162,9 @@ export async function middleware(request) {
       response.cookies.getAll().forEach((c) => r.cookies.set(c));
       return r;
     };
+    // Sem confirmar ≠ sem sessão: 401 aqui faria o cliente tratar como sessão
+    // morta. 503 diz "tenta de novo", que é o que de fato aconteceu.
+    if (semConfirmar) return nega(503, 'try_again');
     if (!user) return nega(401, 'not_authenticated');
     const pago = await acessoPago();
     // Aqui a dúvida NEGA, ao contrário das páginas: cada chamada liberada por
@@ -154,7 +182,8 @@ export async function middleware(request) {
   // e-mail antigo) é mandado pro passo de verdade em vez de ver um formulário
   // aposentado.
   if (TELAS_DE_PASSO.includes(pathname)) {
-    if (!user) return NextResponse.redirect(new URL('/login', request.url));
+    if (precisaLogar) return NextResponse.redirect(new URL('/login', request.url));
+    if (semConfirmar) return reconectando();
     const step = await nextStep();
     // Não deu pra saber: fica onde está. Mandar pra algum lugar com base num
     // palpite é o que embaralhava o funil quando o banco engasgava.
@@ -172,7 +201,8 @@ export async function middleware(request) {
      A porta de verdade, a que custa dinheiro, é a das rotas de API logo acima, e
      lá a dúvida continua NEGANDO. */
   if (LOGIN_REQUIRED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
-    if (!user) return NextResponse.redirect(new URL('/login', request.url));
+    if (precisaLogar) return NextResponse.redirect(new URL('/login', request.url));
+    if (semConfirmar) return reconectando();
     const step = await nextStep();
     if (step === undefined) return response;
     if (step) return NextResponse.redirect(new URL(step, request.url));
