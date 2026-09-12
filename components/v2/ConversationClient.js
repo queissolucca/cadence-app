@@ -70,6 +70,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const startedAtRef = useRef(null);
+  /* Quem encerrou: a pessoa ou a conexão? Sem isto, os dois casos são idênticos
+     — a tela volta pro repouso calada — e quem caiu no meio da conversa não tem
+     como saber se foi ela que encostou no botão ou se o produto desistiu. */
+  const pediuParar = useRef(false);
   const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
   const scrollRef = useRef(null); // janela de transcrição com scroll próprio
 
@@ -87,6 +91,18 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       const startedAt = startedAtRef.current;
       startedAtRef.current = null;
       const messages = messagesRef.current;
+
+      /* Caiu sem ninguém pedir. Antes isto era indistinguível de encerrar de
+         propósito: a tela voltava pro repouso e pronto. Quem estava no meio de
+         uma frase ficava sem saber se tinha encostado no botão sem querer ou se
+         o produto tinha desistido — e "ela para do nada" é exatamente como isso
+         é relatado. O que estava dito continua na transcrição, e retomar é o
+         mesmo toque de sempre. */
+      if (!pediuParar.current && startedAt) {
+        setErrorMsg('A conexão caiu. Toque pra continuar — o que vocês já falaram está salvo.');
+      }
+      pediuParar.current = false;
+
       if (!startedAt) return;
       const seconds = Math.round((Date.now() - startedAt) / 1000);
 
@@ -182,16 +198,32 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
         // bom o bastante pra guardar, e isso é aprovação, não bronca.
         if (category === 'correction') reagir('corrigindo');
         else if (category === 'phrase' || category === 'word') reagir('elogiando');
-        try {
-          await fetch('/api/review', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ term, example, category }),
-          });
-          return 'Saved to your Revisão tab!';
-        } catch {
-          return "I couldn't save that right now, but let's keep going.";
-        }
+
+        /* RESPONDE NA HORA, GRAVA POR FORA.
+
+           Enquanto isto era `await fetch(...)`, a conversa INTEIRA esperava a
+           nossa API responder: o agente do ElevenLabs fica parado até o client
+           tool devolver alguma coisa. E a Cady chama esta ferramenta sozinha a
+           cada correção — ou seja, quase todo turno. Uma requisição lenta (banco
+           ocupado, rede oscilando, função fria) travava a fala dela no meio da
+           conversa, e o sintoma era "ela parou de responder do nada".
+
+           Nada aqui justifica segurar a conversa: guardar um card na Revisão é
+           trabalho de fundo, e o valor devolvido é só uma frase que ela pode
+           mencionar. Então a gravação vai solta, com teto de tempo pra não ficar
+           pendurada, e a resposta sai imediatamente.
+
+           O custo assumido: se a gravação falhar, ela já terá dito que salvou.
+           Preferível a travar a aula — e a falha aparece na aba Revisão (o card
+           não está lá), não no meio da frase. */
+        fetch('/api/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ term, example, category }),
+          signal: AbortSignal.timeout(8000),
+        }).catch(() => { /* best-effort: a conversa não depende disto */ });
+
+        return 'Saved to your Revisão tab!';
       },
     },
   });
@@ -199,6 +231,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const start = useCallback(async () => {
     setErrorMsg('');
     setNotConfigured(false);
+    pediuParar.current = false;
     setStarting(true);
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -261,6 +294,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   }, [conversation, firstName, agent, resumeContext, unit, isReview, reviewItems, memoryText, isCard, cardDrill, openingGreeting]);
 
   const stop = useCallback(async () => {
+    pediuParar.current = true;
     try {
       await conversation.endSession();
     } catch {

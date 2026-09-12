@@ -104,3 +104,29 @@ describe('o microfone nunca fica fechado pra sempre', () => {
     expect(trecho).not.toMatch(/setMuted\(false\);\s*\n\s*\}\s*catch/); // não é incondicional
   });
 });
+
+describe('a conversa não pode ser travada pela nossa API', () => {
+  const CONV = readFileSync('components/v2/ConversationClient.js', 'utf8');
+
+  /* O agente do ElevenLabs fica PARADO até um client tool devolver. A Cady
+     chama `save_to_review` sozinha a cada correção — quase todo turno —, então
+     um `await fetch` ali fazia a conversa inteira esperar a nossa API. Uma
+     requisição lenta travava a fala dela no meio, e o sintoma era "ela parou de
+     responder depois de algumas interações". */
+  it('save_to_review responde na hora e grava por fora', () => {
+    const i = CONV.indexOf('save_to_review:');
+    const fim = CONV.indexOf('},', CONV.indexOf('return \'Saved to your'));
+    const tool = CONV.slice(i, fim);
+    expect(tool, 'esperar a nossa API trava a conversa').not.toMatch(/await fetch\('\/api\/review'/);
+    expect(tool).toMatch(/AbortSignal\.timeout\(/);
+    expect(tool).toMatch(/return 'Saved to your/);
+  });
+
+  /* Cair e encerrar de propósito eram indistinguíveis: a tela voltava pro
+     repouso calada nos dois casos. */
+  it('queda de conexão é dita, encerramento pedido não', () => {
+    expect(CONV).toContain('pediuParar.current = true;');
+    expect(CONV).toMatch(/if \(!pediuParar\.current && startedAt\)/);
+    expect(CONV).toMatch(/A conexão caiu/);
+  });
+});
