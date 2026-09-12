@@ -82,6 +82,32 @@ button{font:inherit;font-family:var(--f-ui);cursor:pointer;border:none;backgroun
   body{padding:20px}
 }
 #phone.dark{background:var(--dark);color:#f2f2ea}
+
+/* ===================================================================
+   NADA DE SELECIONAR TEXTO NESTE FLUXO
+
+   Arrastar o dedo (ou o mouse) sobre um título aqui selecionava a palavra e
+   abria o balão do navegador — "copiar", "buscar", o ícone do Google Tradutor.
+   Num site isso é esperado; num fluxo que se atravessa TOCANDO, não: o gesto
+   de tocar e arrastar de leve é o mesmo que a pessoa usa pra rolar, e o
+   resultado era uma tela cheia de destaque azul com um menu por cima do
+   conteúdo.
+
+   Vale pra tudo que usa a casca `#phone` — as 33 telas, o /login, o
+   /pagamento e o /auth/nova-senha —, que é exatamente o conjunto que importa
+   o comecar.css.
+
+   `-webkit-touch-callout` é a outra metade, e a que mais importa no iPhone:
+   sem ela o toque longo continua abrindo a lupa e o menu de copiar, mesmo com
+   a seleção desligada.
+
+   OS CAMPOS SÃO A EXCEÇÃO, e não é detalhe: sem elas ninguém consegue
+   posicionar o cursor pra corrigir um e-mail digitado errado, nem selecionar a
+   senha pra apagar. Vale pra todo input, textarea e qualquer coisa editável.
+   =================================================================== */
+#phone{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#phone input,#phone textarea,#phone [contenteditable="true"]{
+  -webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 #canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;
   opacity:0;transition:opacity .6s}
 #phone.dark #canvas{opacity:1}

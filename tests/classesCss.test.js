@@ -77,3 +77,24 @@ describe('a instrução abaixo do microfone', () => {
     expect(FONTES).toContain('toque pra parar quando terminar');
   });
 });
+
+describe('seleção de texto no fluxo', () => {
+  it('a casca do fluxo não deixa selecionar texto', () => {
+    expect(CSS).toMatch(/#phone\{[^}]*user-select:none/);
+    // A metade que vale no iPhone: sem ela o toque longo continua abrindo a
+    // lupa e o menu de copiar, mesmo com a seleção desligada.
+    expect(CSS).toMatch(/#phone\{[^}]*-webkit-touch-callout:none/);
+  });
+
+  /* Esta é a que protege o cadastro. Sem a exceção, ninguém consegue
+     posicionar o cursor pra corrigir um e-mail digitado errado nem selecionar
+     a senha pra apagar — e não há sintoma nenhum: o campo aceita digitação, só
+     não deixa mexer no que já está lá. */
+  it('mas os campos continuam selecionáveis — senão ninguém corrige o que digitou', () => {
+    const regra = CSS.match(/#phone input[^{]*\{[^}]*\}/);
+    expect(regra, 'precisa existir uma regra de exceção pros campos').toBeTruthy();
+    expect(regra[0]).toMatch(/user-select:text/);
+    expect(regra[0]).toContain('textarea');
+    expect(regra[0]).toContain('contenteditable');
+  });
+});
