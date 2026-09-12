@@ -692,8 +692,14 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     };
   }, [persistir]);
 
-  const status = conversation.status; // 'disconnected' | 'connecting' | 'connected'
+  const status = conversation.status; // 'disconnected' | 'connecting' | 'connected' | 'error'
   const active = status === 'connected';
+  /* 'error' NÃO é fim de sessão. O SDK do React inventa esse status em qualquer
+     onError (ConversationStatus.js) e não encosta na conexão — o socket segue
+     aberto. Pra tudo que cuida do MICROFONE o que importa é existir uma sessão,
+     não ela estar saudável: era com `active` que a rede de segurança desligava
+     justamente no momento em que ela era mais necessária. */
+  const sessaoViva = status !== 'disconnected';
   const connecting = starting || status === 'connecting';
   const muted = active && conversation.isMuted;
   const speaking = active && conversation.isSpeaking;
@@ -742,7 +748,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
      é só o que garante que o estado "fechado" nunca é permanente. Mexe apenas
      no que nós fechamos — quem se mutou sozinho continua mudo. */
   useEffect(() => {
-    if (!active) return undefined;
+    if (!sessaoViva) return undefined;
     let mudoDesde = 0;
     const t = setInterval(() => {
       const v = vivoRef.current;
@@ -770,7 +776,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     }, 700);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
+  }, [sessaoViva]);
 
   /* TRAVOU OU CAIU? Os dois chegam iguais na tela — ela para de falar —, e é essa
      ambiguidade que impedia de saber onde procurar. Um socket que cai dispara

@@ -64,8 +64,23 @@ describe('microfone durante a conversa', () => {
     expect(r.nosso).toBe(false);
   });
 
-  it('sessão fechada não mexe no microfone', () => {
+  it('sessão fechada não mexe num microfone que já está aberto', () => {
     expect(decidirMute({ ativo: false, falando: true, mudo: false, nosso: true, assumido: true }).mudar).toBe(null);
+  });
+
+  /* Mas se ela fecha com o microfone fechado POR NOSSA CONTA, a dívida é paga
+     antes de a memória sumir. O caso real: o SDK do React põe `status` em
+     'error' em qualquer onError sem encostar na conexão; se isso cai no meio da
+     fala da Cady, o microfone está fechado por nós, e a versão anterior
+     esquecia disso. A pessoa falava e não era ouvida — e o que ela via era a
+     Cady tendo parado de responder. */
+  it('sessão fechada devolve o microfone que fomos NÓS que fechamos', () => {
+    expect(decidirMute({ ativo: false, falando: true, mudo: true, nosso: true, assumido: true }))
+      .toEqual({ mudar: false, nosso: false, assumido: false });
+  });
+
+  it('e continua sem mexer no que a pessoa fechou sozinha', () => {
+    expect(decidirMute({ ativo: false, falando: false, mudo: true, nosso: false, assumido: false }).mudar).toBe(null);
   });
 });
 

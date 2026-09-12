@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { contextoDeRetomada, deveRetomar, MAX_RETOMADAS, MINIMO_MS, ORCAMENTO } from '../lib/retomada.js';
+import { decidirMute } from '../lib/conversaMute.js';
 
 /* DOIS SINTOMAS, UM DEFEITO DE DESENHO.
 
@@ -264,5 +265,26 @@ describe('lista vazia e lista que não carregou não podem ser o mesmo pixel', (
     expect(VIEW).toMatch(/if \(!res\.ok\) \{ setErroHistorico\(true\); return; \}/);
     expect(VIEW).toMatch(/não quer dizer que/);
     expect(VIEW).toContain('Tentar de novo');
+  });
+});
+
+describe("status 'error' não pode deixar o microfone fechado", () => {
+  /* O SDK do React põe `status` em 'error' em qualquer onError — inclusive nos
+     que não derrubam a conexão — e não encosta no socket. Se isso acontece
+     enquanto a Cady fala, o microfone está fechado por nossa conta. */
+  it('ao perder a sessão, devolvemos o microfone que fechamos', () => {
+    expect(decidirMute({ ativo: false, falando: true, mudo: true, nosso: true, assumido: false }))
+      .toEqual({ mudar: false, nosso: false, assumido: false });
+  });
+
+  it('mas não mexemos no que a pessoa fechou sozinha', () => {
+    expect(decidirMute({ ativo: false, falando: false, mudo: true, nosso: false, assumido: false }))
+      .toEqual({ mudar: null, nosso: false, assumido: false });
+  });
+
+  it('a rede de segurança acompanha a SESSÃO, não a saúde dela', () => {
+    expect(FONTE).toContain("const sessaoViva = status !== 'disconnected'");
+    const i = FONTE.indexOf('REDE DE SEGURANÇA DO MICROFONE');
+    expect(FONTE.slice(i, i + 2400)).toContain('if (!sessaoViva) return undefined;');
   });
 });
