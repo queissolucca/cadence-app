@@ -84,7 +84,16 @@ const sorteio = (a, b) => a + Math.random() * (b - a);
    Aí a boca oscila sozinha enquanto ela "responde" — e isso não é fingir
    sincronia com som, porque som não há: é só o sinal de que ela está falando
    com você. Com áudio, `nivel` é a amplitude de verdade e a boca segue ela. */
-export function CadyLive({ estado = 'idle', nivel = 0, size = 190, label = 'Cady', falando = null }) {
+/* `nivelRef` existe pra quem tem áudio de verdade pra seguir (a conversa por
+   voz). O `nivel` é uma prop, e prop só muda com re-render: seguir a amplitude
+   da voz por prop obriga quem chama a dar um setState POR QUADRO, e isso
+   re-renderiza a árvore inteira da tela 60 vezes por segundo — inclusive a
+   lista da transcrição, que só cresce. Numa conversa longa, num celular, é a
+   thread principal que paga, e é lá que mora o áudio.
+
+   Passando um ref, o loop daqui lê a amplitude direto a cada quadro e ninguém
+   re-renderiza nada. O `nivel` continua valendo pra quem não tem áudio. */
+export function CadyLive({ estado = 'idle', nivel = 0, nivelRef = null, size = 190, label = 'Cady', falando = null }) {
   const host = useRef(null);
   const svg = useRef(null);
   const camadas = useRef([]);
@@ -93,6 +102,7 @@ export function CadyLive({ estado = 'idle', nivel = 0, size = 190, label = 'Cady
   vivo.current.estado = estado;
   vivo.current.nivel = nivel;
   vivo.current.falando = falando;
+  vivo.current.ref = nivelRef;
 
   useEffect(() => {
     injetarCSS();
@@ -114,7 +124,7 @@ export function CadyLive({ estado = 'idle', nivel = 0, size = 190, label = 'Cady
 
     const quadro = (t) => {
       const { estado: e } = vivo.current;
-      const bruto = vivo.current.nivel;
+      const bruto = vivo.current.ref ? vivo.current.ref.current : vivo.current.nivel;
       /* Quem sabe se ela está falando é o SDK, não o nome do estado. Antes isso
          era deduzido do estado, e uma cara de reação no meio da fala (elogiando,
          por exemplo) congelava a boca — a fala continuava, o rosto parava. */

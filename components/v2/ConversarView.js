@@ -5,23 +5,12 @@ import { ConversationClient } from './ConversationClient';
 import { TextChatClient } from './TextChatClient';
 import { ConversationHistory } from './ConversationHistory';
 import { AGENTS, DEFAULT_AGENT } from '../../lib/track/sessionOptions';
+import { contextoDeRetomada } from '../../lib/retomada';
 
 function fullDateTime(iso) {
   return new Date(iso).toLocaleString('pt-BR', {
     day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit',
   });
-}
-
-// Contexto de retomada pro agente — só o trecho recente (custo controlado),
-// não a conversa inteira.
-function buildResumeContext(messages, topic) {
-  const all = messages || [];
-  const lines = all.map((m) => `${m.role === 'you' ? 'Student' : 'Coach'}: ${m.text}`).join('\n');
-  const head = `You and the student were already having this conversation${topic ? ` about "${topic}"` : ''}. Here's the transcript so far:\n\n`;
-  const tail = `\n\nContinue naturally from exactly where it left off — you remember all of this, so don't restart and don't make them repeat themselves.`;
-  const budget = 4500; // mantém o trecho mais recente sem estourar o prompt
-  const body = lines.length > budget ? `…${lines.slice(-budget)}` : lines;
-  return head + body + tail;
 }
 
 // Aba Conversar com histórico ao lado (estilo LLM). Painel esquerdo = galeria
@@ -42,6 +31,14 @@ export function ConversarView({ firstName, memoryText }) {
      a aba e clicar em falar ela quase sempre já chegou. */
   const [openingGreeting, setOpeningGreeting] = useState('');
   const [loading, setLoading] = useState(true);
+  /* UMA LISTA VAZIA NÃO PROVA QUE NADA FOI SALVO.
+
+     Quando esta busca falha — 401, 402 do portão de pagamento, 500 do banco —,
+     o `catch` mantinha o que tinha (nada) e a tela ficava idêntica a "você
+     ainda não tem conversas". Foi uma das razões de "não está salvando nada"
+     ser impossível de diagnosticar: o sintoma de não gravar e o de não
+     conseguir ler são o mesmo pixel. */
+  const [erroHistorico, setErroHistorico] = useState(false);
   const [selected, setSelected] = useState(null); // resumo em visualização, ou null = ao vivo
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -53,12 +50,12 @@ export function ConversarView({ firstName, memoryText }) {
   const fetchHistory = useCallback(async () => {
     try {
       const res = await fetch('/api/conversations');
-      if (res.ok) {
-        const { conversations } = await res.json();
-        setItems(conversations || []);
-      }
+      if (!res.ok) { setErroHistorico(true); return; }
+      const { conversations } = await res.json();
+      setItems(conversations || []);
+      setErroHistorico(false);
     } catch {
-      /* mantém o que tem */
+      setErroHistorico(true);   // mantém o que tem, mas diz que não conseguiu ler
     } finally {
       setLoading(false);
     }
@@ -109,7 +106,7 @@ export function ConversarView({ firstName, memoryText }) {
   const resumeConversation = useCallback((targetMode = 'voice') => {
     if (!detail) return;
     const topic = detail.title || selected?.title || 'nossa conversa';
-    setResume({ context: buildResumeContext(detail.messages, topic), topic, id: detail.id, messages: detail.messages || [] });
+    setResume({ context: contextoDeRetomada(detail.messages, topic), topic, id: detail.id, messages: detail.messages || [] });
     setMode(targetMode);
     setSelected(null);
     setDetail(null);
@@ -160,6 +157,12 @@ export function ConversarView({ firstName, memoryText }) {
       </button>
 
       <aside className={`conv-rail ${railOpen ? 'open' : ''}`}>
+        {erroHistorico && (
+          <p style={{ margin: '0 0 10px', fontSize: 12.5, lineHeight: 1.45, color: 'var(--ink-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '8px 10px' }}>
+            Não consegui carregar suas conversas agora — isso não quer dizer que
+            elas se perderam. <button type="button" onClick={fetchHistory} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--green-dark, var(--green))', font: 'inherit', fontWeight: 600, cursor: 'pointer' }}>Tentar de novo</button>
+          </p>
+        )}
         <ConversationHistory
           items={items}
           selectedId={selected?.id}
@@ -255,7 +258,12 @@ export function ConversarView({ firstName, memoryText }) {
             ) : (
               <ConversationClient
                 firstName={firstName}
-                onSaved={() => { fetchHistory(); setResume(null); }}
+                /* `onSaved` agora roda DURANTE a conversa (ela é gravada turno a
+                   turno), então ele só atualiza a lista. Zerar a retomada aqui
+                   trocaria `resumeId` no meio da conversa — o fim dela é o
+                   momento certo pra isso, e é o que o `onEncerrada` marca. */
+                onSaved={fetchHistory}
+                onEncerrada={() => setResume(null)}
                 agent={activeAgent}
                 resumeContext={resume?.context}
                 resumeTopic={resume?.topic}

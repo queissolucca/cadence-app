@@ -47,7 +47,12 @@ function limpar(src) {
   return src
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
-    .replace(/`(?:\\.|\$\{[^}]*\}|[^`\\])*`/g, '``')
+    /* O `${}` de dentro pode ter chaves (um ternário com outro template, por
+       exemplo). Com `[^}]*` o casamento terminava na PRIMEIRA chave fechada e a
+       limpeza engolia o resto do arquivo — e um arquivo engolido some do radar
+       inteiro, em silêncio, que é o pior desfecho possível pra um teste assim.
+       Um nível de aninhamento cobre o que aparece de verdade no projeto. */
+    .replace(/`(?:\\.|\$\{(?:[^{}]|\{[^{}]*\})*\}|[^`\\])*`/g, '``')
     .replace(/'(?:\\.|[^'\\])*'/g, "''")
     .replace(/"(?:\\.|[^"\\])*"/g, '""');
 }
@@ -93,9 +98,16 @@ describe('nenhum nome do projeto é usado sem import', () => {
       for (const m of src.matchAll(/([A-Za-z_$][\w$]*)\s*:/g)) naMao.add(m[1]);
       for (const m of src.matchAll(/^\s*([A-Za-z_$][\w$]*)\s*\([^()]*\)\s*\{/gm)) naMao.add(m[1]);
 
-      // Chamadas: `nome(` que não venha depois de um ponto.
-      for (const m of src.matchAll(/(^|[^.\w$])([A-Za-z_$][\w$]*)\s*\(/g)) {
-        const nome = m[2];
+      /* Chamadas: `nome(` que não venha depois de um ponto.
+
+         Olha pra trás em vez de CONSUMIR o caractere anterior, e a diferença não
+         é de estilo. Consumindo, `if (validar(x))` escapava inteiro: o match de
+         `if (` levava junto o parêntese, e `validar` começava sem nenhum
+         caractere sobrando à frente pra casar. Ou seja, toda chamada aninhada
+         logo depois de um `if`, `while` ou `return (` era invisível — que é
+         justamente onde helper de decisão costuma aparecer. */
+      for (const m of src.matchAll(/(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(/g)) {
+        const nome = m[1];
         if (!EXPORTADOS.has(nome)) continue;   // só nomes do projeto / hooks
         if (naMao.has(nome)) continue;
         problemas.push(`${f}: usa "${nome}" sem importar nem declarar`);
@@ -112,5 +124,10 @@ describe('nenhum nome do projeto é usado sem import', () => {
     expect(EXPORTADOS.size).toBeGreaterThan(50);
     expect(EXPORTADOS.has('dayKeySP'), 'o helper do acidente precisa estar no radar').toBe(true);
     expect(EXPORTADOS.has('useRef')).toBe(true);
+    /* Canário do buraco do template aninhado: `deveRetomar` é declarado DEPOIS
+       de um template com `${}` dentro de `${}` no mesmo arquivo. Enquanto a
+       limpeza não sabia disso, tudo daquele ponto em diante desaparecia da lista
+       e o teste passava sem olhar nada. */
+    expect(EXPORTADOS.has('deveRetomar'), 'export depois de template aninhado sumiu da varredura').toBe(true);
   });
 });

@@ -92,16 +92,48 @@ describe('o microfone nunca fica fechado pra sempre', () => {
      ouvida, e nada na tela diz isso. */
   it('existe uma rede de segurança que reabre o que nós fechamos', () => {
     expect(CONV).toMatch(/REDE DE SEGURANÇA DO MICROFONE/);
-    expect(CONV).toMatch(/mudoPorNos\.current && conversation\.isMuted && !conversation\.isSpeaking/);
-    expect(CONV).toMatch(/conversation\.setMuted\(false\)/);
+    expect(CONV).toMatch(/setMuted\(false\)/);
+  });
+
+  /* A PRIMEIRA VERSÃO DESTA REDE NÃO PEGAVA O CASO QUE A MOTIVOU.
+
+     Ela era um setTimeout que só era armado quando `speaking` já era false — e
+     lia `conversation.isSpeaking` de dentro da closure, ou seja, o retrato do
+     render em que nasceu. As duas coisas juntas deixavam de fora exatamente a
+     falha descrita no comentário acima: o sinal de "ela está falando" travar
+     LIGADO. Nesse caso o efeito voltava na primeira linha e o microfone que nós
+     fechamos não reabria nunca.
+
+     Agora ela roda enquanto a sessão estiver aberta, lê o estado de um ref
+     atualizado a cada render, e tem um teto de tempo: fechado por nossa conta
+     por mais de 8s reabre, esteja o sinal do jeito que estiver. */
+  it('ela roda com a sessão aberta, não só depois que ela cala', () => {
+    const i = CONV.indexOf('REDE DE SEGURANÇA DO MICROFONE');
+    const trecho = CONV.slice(i, i + 2200);
+    expect(trecho, 'armar só quando speaking é false deixa de fora o caso do sinal travado')
+      .not.toMatch(/if \(!active \|\| speaking\) return/);
+    expect(trecho).toMatch(/setInterval/);
+    // Lê o agora, não o retrato: é o que faz a rede enxergar o sinal travado.
+    expect(trecho).toContain('vivoRef.current');
+    expect(trecho).not.toMatch(/conversation\.isSpeaking/);
+  });
+
+  it('tem um teto de tempo, senão o sinal travado a desarma', () => {
+    const i = CONV.indexOf('REDE DE SEGURANÇA DO MICROFONE');
+    const trecho = CONV.slice(i, i + 2200);
+    expect(trecho).toMatch(/preso/);
+    expect(trecho).toMatch(/8000/);
+    // E deixa registro quando destrava com o sinal ainda ligado — é a prova de
+    // que o problema é o sinal do SDK, e não o agente.
+    expect(trecho).toContain('microfone_destravado');
   });
 
   it('ela só mexe no que fomos nós que fechamos', () => {
     // Quem se mutou sozinho continua mudo: a condição exige mudoPorNos.
     const i = CONV.indexOf('REDE DE SEGURANÇA DO MICROFONE');
-    const trecho = CONV.slice(i, i + 1600);
+    const trecho = CONV.slice(i, i + 2200);
     expect(trecho).toContain('mudoPorNos.current');
-    expect(trecho).not.toMatch(/setMuted\(false\);\s*\n\s*\}\s*catch/); // não é incondicional
+    expect(trecho).toMatch(/!mudoPorNos\.current \|\| !v\.mudo/);
   });
 });
 

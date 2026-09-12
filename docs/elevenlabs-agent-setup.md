@@ -32,14 +32,30 @@ abaixo usam `{{user_name}}`.
      segundos. O default costuma ser **300s (5 min)** — suba pra **900s (15 min)**
      ou mais, senão a conversa aberta corta cedo. (via API é
      `conversation_config.conversation.max_duration_seconds`.)
+
+     > **Confira este campo primeiro se a conversa estiver morrendo cedo.** Quando
+     > ele estoura, quem encerra é o AGENTE, e do lado do app isso chega como
+     > `reason: 'agent'` no encerramento — indistinguível de queda de rede pra
+     > quem está falando. Desde a v4.9.3 o app reabre a sessão sozinho e continua
+     > de onde parou (até 3 vezes, ver `lib/retomada.js`), então o sintoma some;
+     > o custo, não: cada reabertura é uma conversa nova cobrada. Arrumar o
+     > limite aqui é mais barato que deixar o app remendar.
    - **Max conversation duration message** (aba **Advanced**): a fala quando bate
      esse limite. Curta, pra não cortar:
      `That's our time for now — great work, {{user_name}}! Tap to jump back in whenever you want to keep going. See you soon!`
    - **First message**: cole o bloco "First message (Cady)" abaixo.
    - **System prompt**: cole o bloco "System prompt (Cady)" abaixo.
    - Ao digitar `{{` o ElevenLabs pede um **default** pra cada variável: `user_name`
-     → `there`; `user_memory`, `prior_context`, `unit_*` → deixe **vazio** (o app
-     preenche quando existe). O app injeta `{{user_memory}}` automaticamente com os
+     → `there`; `user_memory`, `prior_context` → deixe **vazio**; `unit_*` → ponha
+     **`NONE`**.
+
+     > Os defaults do painel são a rede de proteção, não a fonte: **desde a
+     > v4.9.3 o app manda todas elas em toda sessão**, inclusive vazias, e manda
+     > `NONE` nas `unit_*` quando não há lição. Isso existe porque variável
+     > ausente virava conteúdo que o código não controla nem enxerga — e no caso
+     > das `unit_*` o resultado era o agente lendo "Lesson:  — focus:  —
+     > context:" logo abaixo de uma seção que manda rodar um drill e terminar em
+     > END THE CALL. Ver "Por que a conversa morria cedo", no fim deste arquivo. O app injeta `{{user_memory}}` automaticamente com os
      fatos que a Cady lembra do usuário (aba Ajustes → Suas memórias).
 4. **Security/Authentication**: mantenha **signed URL / require authentication**
    LIGADO. O app minta o signed URL no servidor
@@ -112,6 +128,7 @@ If there is earlier context below, you two were already mid-conversation — pic
 {{prior_context}}
 
 # Guided lesson (trilha mode)
+FIRST, CHECK: if "Lesson:" below says NONE, there is NO lesson. Skip this entire section, do not drill, do not recap, and do not end the call — you're in open conversation and rule 6 applies.
 If a lesson is set below, you're running a focused drill on {{unit_focus}}, not a chat. The opening line already announced it and gave an example, so jump straight to making {{user_name}} produce the target — again and again, in different little contexts. Correct inline, briefly, and keep it moving. Give them a real workout: aim for about 8 to 10 productions of the target before wrapping up — do NOT stop after just two or three.
 
 When they've practiced enough (~8–10 times), always give a warm closing direction in English BEFORE ending — never just go silent. It doesn't need to be word-for-word, but say something like: "Nice work — that's a wrap on '{{unit_title}}'! Want to drill it again? Just tap the lesson. Feeling good about it? Try it out in Conversa aberta, or head to the next lesson." Say it in your own natural words, then END THE CALL. If no lesson is set, ignore all of this and just chat.
@@ -228,3 +245,40 @@ Pra os agentes lembrarem seus erros recorrentes entre conversas: ligar o
 **post-call webhook** do ElevenLabs apontando pra uma rota do app, que analisa a
 transcrição com a Claude e salva os erros no Supabase; e no início de cada
 conversa injetar esses erros via *dynamic variables*. Dá pra fazer depois.
+
+
+---
+
+## Por que a conversa morria cedo (setembro/2026)
+
+Fica registrado porque o sintoma — "a Cady para de falar por volta da 3ª
+interação" — não apontava pra nenhum dos lugares onde a causa estava.
+
+**1. O bloco de lição não dizia que não havia lição.** As variáveis `unit_title`,
+`unit_focus`, `unit_context` e `unit_drill` só eram enviadas QUANDO havia lição.
+Em conversa aberta elas caíam no default do painel (vazio), e o system prompt
+renderizava literalmente `Lesson:  — focus:  — context:` logo abaixo da seção
+`# Guided lesson`, que manda fazer um drill e termina em **END THE CALL**. Pra um
+modelo pequeno — o agente roda Haiku — isso não é "não há lição": é uma lição sem
+nome. A própria seção já admitia a tendência que criava, ao pedir *"do NOT stop
+after just two or three"*: três é exatamente onde a conversa estava parando.
+Hoje o app manda `NONE` explícito e o prompt checa isso na primeira linha.
+
+**2. O teto de duração.** `max_duration_seconds` tem default de 300s. Quando
+estoura, quem encerra é o agente — e o app tratava isso como fim de conversa.
+
+**3. O microfone podia ficar fechado pra sempre — e o sintoma disso é ela
+parecer muda.** O app fecha o microfone sozinho enquanto a Cady fala e reabre
+quando ela cala. Toda essa mecânica dependia de `isSpeaking`, que o SDK entrega
+como um VALOR dentro de um objeto novo a cada render — não como um getter. Um
+`requestAnimationFrame` ou um `setTimeout` que sobrevive ao render fica lendo o
+retrato do render em que nasceu. Duas consequências: a boca da Cady nunca se
+mexia (a amplitude ficava cravada em zero, e `getOutputVolume()` jamais era
+chamado), e a rede de segurança do microfone não enxergava justamente o caso que
+ela existia pra resolver — o sinal de "ela está falando" travar ligado. Com o
+microfone fechado, a pessoa fala e não é ouvida: da cadeira dela, a Cady parou de
+responder.
+
+E o motivo de nada aparecer em "conversas salvas": o histórico só era gravado no
+`onDisconnect`. Uma conversa que morre torto — ou uma aba fechada — nunca chegava
+nesse momento. Hoje a voz grava turno a turno, igual ao chat de texto.

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { CadyLive } from './CadyLive';
 import { aoTocarMute, decidirMute } from '../../lib/conversaMute';
+import { contextoDeRetomada, deveRetomar } from '../../lib/retomada';
 
 // Título curtinho pra listar na barra lateral: pega a 1ª fala do usuário com
 // substância; senão, cai pra data.
@@ -27,7 +28,7 @@ const REACAO_MS = 3800;
 // custa a aula.
 const FORCA = { elogiando: 1, corrigindo: 2 };
 
-function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting }) {
+function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting }) {
   const isReview = Array.isArray(reviewItems) && reviewItems.length > 0;
   const isCard = !!(cardDrill && cardDrill.term); // drill relâmpago de 1 card da Revisão
   const [starting, setStarting] = useState(false);
@@ -35,8 +36,25 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const [notConfigured, setNotConfigured] = useState(false);
   const [transcript, setTranscript] = useState([]);
   const [showTranscript, setShowTranscript] = useState(true); // aberta por padrão; usuário pode minimizar
-  // Quanto a boca está aberta (0..1) e se ela está no meio de uma correção.
-  const [nivel, setNivel] = useState(0);
+  /* A AMPLITUDE DA VOZ DELA NÃO É ESTADO DE REACT.
+
+     Isto era `useState` atualizado dentro de um requestAnimationFrame — um
+     setState por quadro durante toda a fala da Cady. Custava menos do que
+     parece, e por um motivo constrangedor: o valor era SEMPRE zero (ver o
+     comentário do vivoRef — a closure lia um `isSpeaking` congelado), e o React
+     descarta um setState que repete o valor anterior. Ou seja, o loop rodava
+     60 vezes por segundo pra não fazer nada, e a boca ficava parada.
+
+     Consertar só a closure teria transformado isso no problema que ele
+     aparentava ser: aí sim um render por quadro, arrastando junto a lista da
+     transcrição, que CRESCE a conversa toda — num celular, a thread principal
+     (onde rodam microfone, playback e WebSocket) pagaria a conta, e pagaria
+     cada vez mais cara conforme a conversa avança.
+
+     O CadyLive já lia este número num ref dentro do loop dele; o estado só
+     servia pra empurrar o valor pela prop. Com o ref, a boca ganha vida e
+     ninguém re-renderiza por causa dela. */
+  const nivelRef = useRef(0);
   /* UMA REAÇÃO POR VEZ, E ELA DURA O SUFICIENTE PRA SER VISTA.
 
      Antes só existia a cara brava, e ela era ligada com um `setTimeout` solto.
@@ -78,19 +96,168 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   const usoDeContexto = useRef(null);
   const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
   const scrollRef = useRef(null); // janela de transcrição com scroll próprio
+  const inicioTotal = useRef(null);   // início da conversa INTEIRA (retomada automática não reinicia)
+  const ultimaFalaEm = useRef(0);     // pra enxergar conversa parada com o socket ainda vivo
+
+  /* SALVAR SÓ NO FIM É NÃO SALVAR.
+
+     O histórico inteiro dependia do `onDisconnect`: gravava quando a conversa
+     terminava, e só então. Basta ela não terminar direito — a aba fechada, o
+     celular bloqueado, a página recarregada, ou a conversa travando com o socket
+     ainda aberto — pra não existir nada. O sintoma não é "salvou errado", é
+     "conversas salvas está vazia", que foi exatamente o relato.
+
+     O chat de TEXTO nunca teve esse problema, e a diferença entre os dois é toda
+     a pista: ele grava a cada turno (insert no primeiro, update nos seguintes).
+     A voz passa a fazer igual. O `onDisconnect` deixa de ser o único instante em
+     que o histórico existe e vira só o fecho — duração, streak, memória.
+
+     `idDaConversa` é ref, e não estado, porque é ele que decide entre CRIAR e
+     ATUALIZAR: se ele dependesse de render, dois saves próximos criariam duas
+     linhas pra mesma conversa. */
+  const idDaConversa = useRef(resumeId || null);
+  const salvandoAgora = useRef(false);
+  const emVoo = useRef(null);      // a gravação em andamento, pro fecho poder esperar por ela
+  const salvoAte = useRef(0);      // quantas falas já estão gravadas
+
+
+  /* RETOMADA AUTOMÁTICA — o estado e os limites. A regra de quando retomar está
+     no onDisconnect, que é onde a informação chega. */
+  const retomadas = useRef(0);
+  const retomandoRef = useRef(false);
+  const [retomando, setRetomando] = useState(false);
+  const timerRetomada = useRef(null);
+  const startRef = useRef(null);   // `start` só existe mais abaixo; o ref fura a ordem
+  useEffect(() => () => clearTimeout(timerRetomada.current), []);
+
+  /* Enquanto a conversa está aberta, o id que vale é o do ref — a prop só manda
+     antes de começar. Sem esta guarda, o `setResume(null)` que a tela faz assim
+     que a conversa aparece na barra lateral zeraria o id NO MEIO da conversa, e
+     o save seguinte criaria uma segunda linha pra mesma conversa. */
+  useEffect(() => {
+    if (startedAtRef.current) return;
+    idDaConversa.current = resumeId || null;
+    salvoAte.current = 0;
+  }, [resumeId]);
+
+  /* Um save que falha não pode ser invisível. A resposta era descartada
+     (`.catch(() => {})` e um `.then` que nem olhava o status), então um 401, um
+     402 ou o 503 do portão de API sumiam sem deixar rastro — e a conversa
+     simplesmente não aparecia na lista, sem nada dizendo por quê. */
+  const avisarQueNaoSalvou = useCallback((status) => {
+    try {
+      window.cadenceTrack?.('conversa_nao_salvou', { status, turnos: messagesRef.current.length });
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  /* Grava a conversa. Cria na primeira fala, atualiza nas seguintes.
+     `fim` = é o fecho (grava duração e avisa a tela).
+     `aoSair` = a aba está fechando, então a requisição precisa sobreviver a ela. */
+  const persistir = useCallback(async ({ fim = false, aoSair = false } = {}) => {
+    if (isCard) return;                        // drill relâmpago não vira histórico
+    if (!messagesRef.current.length) return;
+    if (!fim && messagesRef.current.length === salvoAte.current) return;   // nada novo
+    if (salvandoAgora.current) {
+      if (!fim) return;                        // já tem um em voo, e não é o fecho
+      /* O fecho ESPERA o que está em voo. Sem isto, um PATCH que saiu antes —
+         com menos falas e sem duração — pode aterrissar depois e apagar
+         justamente o campo que alimenta o streak. Deixar as duas escritas
+         correndo soltas é trocar um bug visível por um invisível. */
+      try { await emVoo.current; } catch { /* o fecho grava de novo de qualquer jeito */ }
+    }
+    salvandoAgora.current = true;
+    let liberar = () => {};
+    emVoo.current = new Promise((resolver) => { liberar = resolver; });
+    // Relido DEPOIS da espera: durante ela pode ter entrado mais uma fala.
+    const messages = messagesRef.current;
+    const alvo = messages.length;
+    const inicio = inicioTotal.current || startedAtRef.current || Date.now();
+    const segundos = Math.round((Date.now() - inicio) / 1000);
+    /* O título só fica bom no FIM. Ele sai da primeira fala do usuário com
+       substância (deriveTitle), e no primeiro save a conversa costuma ter só a
+       saudação da Cady — daria "Conversa · 12 set" pra sempre. Gravar turno a
+       turno sem isto trocaria "não salva nada" por "salva tudo sem nome". Lição
+       e revisão têm título fixo e não entram. */
+    const corpo = JSON.stringify({
+      messages,
+      ended_at: new Date().toISOString(),
+      ...(fim ? { duration_seconds: segundos } : {}),
+      ...(fim && !unit && !isReview ? { title: deriveTitle(messages) } : {}),
+    });
+    /* `keepalive` é o que deixa a requisição sobreviver ao fechamento da aba,
+       mas o navegador limita o corpo a 64KB. Transcrição longa não cabe — e não
+       precisa caber: as falas anteriores já foram gravadas turno a turno, então
+       o pior caso aqui é perder o último trecho, não a conversa. */
+    const keepalive = aoSair && corpo.length < 60000;
+    try {
+      if (idDaConversa.current) {
+        const r = await fetch(`/api/conversations/${idDaConversa.current}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: corpo,
+          keepalive,
+        });
+        if (!r.ok) { avisarQueNaoSalvou(r.status); return; }
+        salvoAte.current = alvo;
+        if (fim && onSaved) onSaved();
+      } else {
+        const r = await fetch('/api/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages,
+            title: unit ? `Lição: ${unit.title}` : isReview ? 'Revisão com a Cady' : deriveTitle(messages),
+            theme: unit ? unit.title : isReview ? 'Revisão' : agent?.name || null,
+            started_at: new Date(inicio).toISOString(),
+            ended_at: new Date().toISOString(),
+            duration_seconds: segundos,
+          }),
+          keepalive,
+        });
+        if (!r.ok) { avisarQueNaoSalvou(r.status); return; }
+        const { id } = await r.json();
+        idDaConversa.current = id;
+        salvoAte.current = alvo;
+        /* A barra lateral passa a mostrar a conversa ENQUANTO ela acontece. Além
+           de ser a prova visível de que gravou, é o que faz "conversas salvas"
+           deixar de ser uma promessa pro fim da conversa. */
+        if (onSaved) onSaved();
+      }
+    } catch {
+      /* rede oscilando: a próxima fala tenta de novo */
+    } finally {
+      salvandoAgora.current = false;
+      liberar();
+    }
+  }, [isCard, unit, isReview, agent, onSaved, avisarQueNaoSalvou]);
 
   const conversation = useConversation({
     onConnect: () => {
       startedAtRef.current = Date.now();
-      // Ao retomar, a transcrição já começa com o histórico antigo (continuidade
-      // visual); as falas novas entram por cima.
+      ultimaFalaEm.current = Date.now();
+      setErrorMsg('');
+      /* Retomada automática (o agente derrubou e a gente reabriu): é a MESMA
+         conversa. Zerar o transcript aqui apagaria da tela — e do save — tudo o
+         que já tinha sido dito, que é justamente o que a retomada existe pra
+         preservar. */
+      if (retomandoRef.current) {
+        retomandoRef.current = false;
+        setRetomando(false);
+        return;
+      }
+      // Conversa nova (ou retomada pedida pela pessoa): a transcrição começa com
+      // o histórico antigo, e as falas novas entram por cima.
       const base = Array.isArray(resumeMessages) ? resumeMessages : [];
       messagesRef.current = base;
       setTranscript(base);
-      setErrorMsg('');
+      inicioTotal.current = Date.now();
+      salvoAte.current = 0;
+      retomadas.current = 0;
     },
     onDisconnect: (detalhes) => {
-      const startedAt = startedAtRef.current;
+      const inicioDoTrecho = startedAtRef.current;
       startedAtRef.current = null;
       const messages = messagesRef.current;
 
@@ -103,24 +270,15 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
          chegavam na tela como a mesma coisa — o repouso, calado.
 
          A distinção que mais importa é `agent`: quando o motivo é esse, quem
-         encerrou foi o AGENTE, não a rede nem a pessoa. Ou seja, o limite está
-         na configuração do ElevenLabs (duração máxima, turnos, contexto do
-         LLM), e não em nada que este código possa consertar. É a diferença
-         entre procurar no lugar certo e procurar no errado.
-
-         O registro vai pro /api/track/event — a mesma trilha que já grava
-         navegação —, então o próximo caso deixa de ser relato e vira dado. */
+         encerrou foi o AGENTE. Ou seja, o limite está na configuração do
+         ElevenLabs (duração máxima da conversa, a ferramenta End Call, o
+         contexto do LLM) — e não em nada que este arquivo consiga impedir. O que
+         ele PODE fazer é não aceitar esse fim: ver a retomada, mais abaixo. */
       const motivo = detalhes?.reason || (pediuParar.current ? 'user' : 'desconhecido');
       const pedido = motivo === 'user' || pediuParar.current;
       pediuParar.current = false;
 
-      if (startedAt && !pedido) {
-        setErrorMsg(motivo === 'agent'
-          ? 'A conversa foi encerrada pelo agente de voz. Toque pra recomeçar — o que vocês já falaram está salvo.'
-          : 'A conexão caiu. Toque pra continuar — o que vocês já falaram está salvo.');
-      }
-
-      if (startedAt && !pedido) {
+      if (!pedido) {
         try {
           window.cadenceTrack?.('voz_encerrada', {
             motivo,
@@ -128,7 +286,8 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
             closeReason: detalhes?.closeReason ?? null,
             mensagem: typeof detalhes?.message === 'string' ? detalhes.message.slice(0, 300) : null,
             turnos: messages.length,
-            segundos: Math.round((Date.now() - startedAt) / 1000),
+            segundos: inicioDoTrecho ? Math.round((Date.now() - inicioDoTrecho) / 1000) : 0,
+            retomadas: retomadas.current,
             agente: agent?.id || null,
             contexto: usoDeContexto.current,
           });
@@ -137,50 +296,75 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
         }
       }
 
-      if (!startedAt) return;
-      const seconds = Math.round((Date.now() - startedAt) / 1000);
+      if (!inicioDoTrecho) return;  // nunca chegou a conectar: não há conversa
+      const segundos = Math.round((Date.now() - (inicioTotal.current || inicioDoTrecho)) / 1000);
+      const duracaoDoTrecho = Date.now() - inicioDoTrecho;
 
       // Drill relâmpago de 1 card: micro-interação — não salva histórico, não
       // conta streak, não extrai memória.
       if (isCard) return;
 
+      /* A CONVERSA ABERTA NÃO ACABA PORQUE O AGENTE ACHOU QUE ACABOU.
+
+         Se o motivo foi 'agent' ou 'error', quem desligou não foi a pessoa — ela
+         estava no meio de uma frase. O teto de duração da conversa no ElevenLabs
+         (o default da plataforma é 300s), a ferramenta End Call disparada por
+         engano, um erro do lado de lá: nenhum desses é uma decisão de quem está
+         falando, e todos chegam aqui idênticos a "acabou".
+
+         Então a gente reabre a sessão sozinho e continua: mesmo transcript,
+         mesma linha no banco, e o que já foi dito vai junto no `prior_context`
+         pra Cady não recomeçar do "oi". Da cadeira de quem fala, a conversa não
+         terminou — que é literalmente o que foi pedido, conversa aberta durando
+         mais.
+
+         Quando NÃO se retoma (lição, revisão, conversa que caiu logo no começo,
+         teto de retomadas) está em lib/retomada.js — são casos de borda demais
+         pra morarem dentro de uma callback que nenhum teste alcança. */
+      const aberta = !unit && !isReview;
+      if (deveRetomar({
+        motivo,
+        pedido,
+        aberta,
+        falas: messages.length,
+        duracaoMs: duracaoDoTrecho,
+        jaRetomou: retomadas.current,
+      })) {
+        retomadas.current += 1;
+        retomandoRef.current = true;
+        setRetomando(true);
+        setErrorMsg('');
+        persistir();   // o que já foi dito fica gravado ANTES de reabrir
+        clearTimeout(timerRetomada.current);
+        timerRetomada.current = setTimeout(() => {
+          if (startRef.current) startRef.current({ automatico: true });
+        }, 700);
+        return;
+      }
+
+      if (!pedido) {
+        setErrorMsg(motivo === 'agent'
+          ? 'A conversa foi encerrada pelo agente de voz. Toque pra recomeçar — o que vocês já falaram está salvo.'
+          : 'A conexão caiu. Toque pra continuar — o que vocês já falaram está salvo.');
+      }
+
+      // O fecho do que já vinha sendo gravado turno a turno: duração e ended_at.
+      persistir({ fim: true });
+
       // Só conta pro streak/calendário se foi atividade real: uma lição ou uma
       // revisão que rodou (>=30s = um exercício de fato) OU conversa aberta
       // acima de 1 minuto. Aberturas de poucos segundos não contam.
-      const qualifies = unit ? seconds >= 30 : isReview ? seconds >= 30 : seconds >= 60;
+      const qualifies = unit ? segundos >= 30 : isReview ? segundos >= 30 : segundos >= 60;
       if (qualifies) {
         fetch('/api/session/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'roleplay', mode: 'speaking', duration_seconds: seconds }),
+          body: JSON.stringify({ kind: 'roleplay', mode: 'speaking', duration_seconds: segundos }),
         }).catch(() => {});
       }
 
-      if (messages.length) {
-        // Retomada: atualiza a MESMA conversa (anexa o novo trecho). Senão, cria.
-        const req = resumeId
-          ? fetch(`/api/conversations/${resumeId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ messages, ended_at: new Date().toISOString() }),
-            })
-          : fetch('/api/conversations', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                messages,
-                title: unit ? `Lição: ${unit.title}` : isReview ? 'Revisão com a Cady' : deriveTitle(messages),
-                theme: unit ? unit.title : isReview ? 'Revisão' : agent?.name || null,
-                started_at: new Date(startedAt).toISOString(),
-                ended_at: new Date().toISOString(),
-                duration_seconds: seconds,
-              }),
-            });
-        req.then(() => onSaved && onSaved()).catch(() => {});
-      }
-
       // Progresso da trilha: a lição conta como feita se rodou de verdade (>=30s).
-      if (unit?.id && seconds >= 30) {
+      if (unit?.id && segundos >= 30) {
         fetch('/api/track/progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -189,7 +373,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       }
 
       // Revisão falada: os cards treinados sobem de caixa (conta como acerto).
-      if (isReview && seconds >= 20) {
+      if (isReview && segundos >= 20) {
         fetch('/api/review/practice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -199,13 +383,15 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
 
       // Conversa aberta: extrai memória (fatos pessoais) ao encerrar — 1 chamada
       // Haiku, best-effort. Não roda em lição/revisão.
-      if (!unit && !isReview && messages.length >= 6) {
+      if (aberta && messages.length >= 6) {
         fetch('/api/memory/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ messages }),
         }).catch(() => {});
       }
+
+      if (onEncerrada) onEncerrada();
     },
     onMessage: (msg) => {
       const text = msg?.message ?? msg?.text;
@@ -213,6 +399,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       const role = msg?.source === 'user' ? 'you' : 'coach';
       const line = { role, text, at: new Date().toISOString() };
       messagesRef.current = [...messagesRef.current, line];
+      ultimaFalaEm.current = Date.now();
       setTranscript((t) => [...t, line]);
     },
     onError: (mensagem, contexto) => {
@@ -230,6 +417,21 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
        e um modelo sem espaço para de responder. Guardado num ref e mandado
        junto no encerramento: assim dá pra ver se a conversa morreu cheia. */
     onContextUsage: (uso) => { usoDeContexto.current = uso || null; },
+    /* O agente pedindo uma ferramenta que este app não declara. O SDK responde
+       "not defined on client" e a conversa segue torta — a Cady acha que salvou
+       algo que nunca foi salvo, ou fica esperando um efeito que não vem. Só o
+       painel do ElevenLabs pode criar essa situação, então ela precisa aparecer
+       aqui pra alguém saber que existe. */
+    onUnhandledClientToolCall: (chamada) => {
+      try {
+        window.cadenceTrack?.('voz_tool_desconhecida', {
+          ferramenta: chamada?.tool_name || null,
+          agente: agent?.id || null,
+        });
+      } catch {
+        /* noop */
+      }
+    },
     clientTools: {
       // A Cady chama isso quando o usuário pede pra salvar/memorizar algo —
       // vai pra aba Revisão. (Precisa do client tool 'save_to_review' declarado
@@ -276,12 +478,50 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     },
   });
 
-  const start = useCallback(async () => {
+  /* O QUE O SDK DEVOLVE É UM RETRATO, NÃO UM ESPELHO.
+
+     `useConversation` devolve um objeto NOVO a cada render, e `isSpeaking` /
+     `isMuted` são VALORES dentro dele — não getters. Toda closure que sobrevive
+     ao render (um requestAnimationFrame, um setTimeout, um setInterval) continua
+     lendo o retrato do render em que nasceu.
+
+     Isso já estava custando caro em silêncio: o loop da boca nasce quando a
+     sessão abre, e nesse instante `isSpeaking` é false. Ele nunca via outro
+     valor. Resultado: `getOutputVolume()` — que é estável e funciona — NUNCA era
+     chamado, a amplitude ficava cravada em zero e a boca da Cady não se mexia a
+     conversa inteira. O código parecia certo e a Cady parecia uma foto.
+
+     O mesmo retrato congelado desarmava a rede de segurança do microfone, que é
+     um problema mais sério: ver `isSpeaking` preso é justamente o caso que ela
+     existe pra resolver.
+
+     `conversation.getOutputVolume` e `setMuted` são `useCallback` presos a um
+     ref dentro do SDK — esses são estáveis de verdade. Só os valores precisam
+     deste ref. */
+  const vivoRef = useRef({});
+  vivoRef.current.falando = conversation.isSpeaking;
+  vivoRef.current.mudo = conversation.isMuted;
+  vivoRef.current.setMuted = conversation.setMuted;
+  vivoRef.current.volume = conversation.getOutputVolume;
+  vivoRef.current.status = conversation.status;
+
+  const start = useCallback(async (opcoes) => {
+    // `automatico` = não foi a pessoa que tocou; foi a retomada depois de o
+    // agente ter derrubado a conversa. Muda a 1ª fala e a mensagem de erro.
+    const automatico = !!(opcoes && opcoes.automatico);
     setErrorMsg('');
     setNotConfigured(false);
     pediuParar.current = false;
     setStarting(true);
     try {
+      /* `status` vira 'error' em QUALQUER onError do SDK — inclusive nos que não
+         derrubam nada (uma ferramenta desconhecida, um setMuted que falhou). A
+         tela volta pro repouso, mas a sessão de baixo pode continuar viva; abrir
+         outra por cima seria uma segunda conversa rodando e sendo cobrada em
+         paralelo. Fecha a órfã antes. */
+      if (vivoRef.current.status && vivoRef.current.status !== 'disconnected') {
+        try { await conversation.endSession(); } catch { /* já estava fechada */ }
+      }
       await navigator.mediaDevices.getUserMedia({ audio: true });
       // A voz escolhida na galeria. Vai como CHAVE — o id do agente é resolvido
       // no servidor (lib/agentesVoz.js).
@@ -310,36 +550,80 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           : null);
       // 1ª fala da Cady: lição abre no exercício; revisão abre no 1º card;
       // senão, saudação normal. Vai pra {{opening_line}} na First message.
+      /* O que a Cady já sabe desta conversa. Na retomada automática ele é
+         montado do transcript que está na tela AGORA — é o que faz ela emendar a
+         frase em vez de se apresentar de novo. */
+      const contexto = automatico
+        ? contextoDeRetomada(messagesRef.current, resumeTopic || '')
+        : (resumeContext || '');
       const openingLine = unit
         ? `Alright ${name}! Let's nail ${unit.focus}. Here's an example — ${unit.example} Now your turn: give me one like that!`
         : isCard
           ? `Quick practice on "${cardDrill.term}".${cardDrill.example ? ` Here's how it's used — ${cardDrill.example}` : ''} Now you try: say a sentence with it. We'll do it just twice, then you've got it — I'll wrap up with a "you're learning how to use ${cardDrill.term}!"`
           : isReview
             ? `Alright ${name}, let's run through the ${reviewItems.length} ${reviewItems.length === 1 ? 'thing' : 'things'} you saved. First up — ${reviewItems[0].term}. Give me a fresh sentence using it!`
-            : resumeContext
-              ? `Hey ${name}! Let's pick up right where we left off.`
-              : (openingGreeting || `Hi ${name}! I'm Cady, your English teacher! How's it going?`);
+            : automatico
+              ? `Sorry ${name}, I cut out for a second — I'm back! Go ahead, I'm listening.`
+              : contexto
+                ? `Hey ${name}! Let's pick up right where we left off.`
+                : (openingGreeting || `Hi ${name}! I'm Cady, your English teacher! How's it going?`);
+      /* O BLOCO DE LIÇÃO PRECISA DIZER, EM VOZ ALTA, QUE NÃO HÁ LIÇÃO.
+
+         As quatro variáveis `unit_*` só eram enviadas QUANDO havia lição. Em
+         conversa aberta elas caíam no default cadastrado no painel do ElevenLabs
+         — vazio —, e o system prompt do agente renderizava literalmente
+         "Lesson:  — focus:  — context:" logo abaixo da seção `# Guided lesson`,
+         que manda rodar um drill e termina em "then END THE CALL".
+
+         Pra um modelo pequeno (o agente roda Haiku) isso não é obviamente "não
+         há lição": é uma lição sem nome. E a própria seção admite a tendência
+         que cria, ao implorar "do NOT stop after just two or three" — que é
+         exatamente onde a conversa estava morrendo. Nenhuma variável ausente é
+         neutra quando o prompt já tem a instrução de desligar.
+
+         Mandar 'NONE' explícito, e dizer no drill que isto é conversa aberta e
+         que ela não deve encerrar, tira a ambiguidade na origem. */
+      const semLicao = isCard
+        ? `NONE. This is a quick single-card practice, not a lesson: follow the opening line, keep it to two tries, then wrap up warmly and end the call.`
+        : 'NONE. There is no lesson set. This is an OPEN CONVERSATION: ignore the entire Guided lesson section, do not run a drill, and never end the call yourself — keep talking and asking follow-up questions until the student stops it.';
       await conversation.startSession({
         signedUrl,
         dynamicVariables: {
           opening_line: openingLine,
-          ...(firstName ? { user_name: firstName } : {}),
-          ...(agent?.name ? { agent_name: agent.name } : {}),
-          ...(resumeContext ? { prior_context: resumeContext } : {}),
-          ...(memoryText && !unit && !isReview ? { user_memory: memoryText } : {}),
-          ...(lessonUnit ? { unit_title: lessonUnit.title, unit_focus: lessonUnit.focus, unit_drill: lessonUnit.drill, unit_context: lessonUnit.context } : {}),
+          // Explícitas mesmo quando vazias: variável ausente vira o default do
+          // painel, que é conteúdo que este código não controla nem enxerga.
+          user_name: firstName || 'there',
+          agent_name: agent?.name || 'Cady',
+          prior_context: contexto,
+          user_memory: (!unit && !isReview && memoryText) ? memoryText : '',
+          unit_title: lessonUnit ? lessonUnit.title : 'NONE',
+          unit_focus: lessonUnit ? lessonUnit.focus : 'NONE',
+          unit_context: lessonUnit ? lessonUnit.context : 'NONE',
+          unit_drill: lessonUnit ? lessonUnit.drill : semLicao,
         },
       });
     } catch (err) {
       if (err?.name === 'NotAllowedError' || err?.name === 'NotFoundError') {
         setErrorMsg('Preciso do microfone pra gente conversar. Libera o acesso e tenta de novo.');
       } else {
-        setErrorMsg('Não consegui iniciar a conversa. Tenta de novo.');
+        setErrorMsg(automatico
+          ? 'A conversa caiu e não consegui reconectar. Toque pra continuar — o que vocês já falaram está salvo.'
+          : 'Não consegui iniciar a conversa. Tenta de novo.');
+      }
+      if (automatico) {
+        // A retomada falhou: desfaz a marca, senão o próximo onConnect acharia
+        // que é continuação e não montaria a transcrição.
+        retomandoRef.current = false;
+        setRetomando(false);
       }
     } finally {
       setStarting(false);
     }
-  }, [conversation, firstName, agent, resumeContext, unit, isReview, reviewItems, memoryText, isCard, cardDrill, openingGreeting]);
+  }, [conversation, firstName, agent, resumeContext, resumeTopic, unit, isReview, reviewItems, memoryText, isCard, cardDrill, openingGreeting]);
+
+  // A retomada automática mora dentro do onDisconnect, que é registrado antes de
+  // `start` existir. O ref é o que fura essa ordem.
+  startRef.current = start;
 
   const stop = useCallback(async () => {
     pediuParar.current = true;
@@ -375,6 +659,38 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [transcript, showTranscript]);
+
+  /* Grava o que já foi dito, com uma folga de 1,5s pra não mandar uma requisição
+     por fala. `transcript.length` é o gatilho porque é o que muda a cada turno —
+     e porque um turno a mais é exatamente o que ainda não está no banco. */
+  useEffect(() => {
+    if (!transcript.length) return undefined;
+    const t = setTimeout(() => { persistir(); }, 1500);
+    return () => clearTimeout(t);
+  }, [transcript.length, persistir]);
+
+  /* Sair da TELA sem fechar a aba — trocar pra "Escrever", abrir uma conversa
+     salva, navegar pra outra aba do app — desmonta este componente. E o SDK
+     remove os listeners ANTES de encerrar a sessão, então o `onDisconnect` do
+     app não chega a rodar: sem isto, a conversa some sem erro nenhum. */
+  const persistirRef = useRef(persistir);
+  persistirRef.current = persistir;
+  useEffect(() => () => { persistirRef.current({ fim: true, aoSair: true }); }, []);
+
+  /* Sair da página no meio da conversa era o jeito mais comum de perder tudo: o
+     `onDisconnect` não roda a tempo e um fetch normal é cancelado junto com a
+     aba. `pagehide` cobre fechar/navegar; `visibilitychange` cobre o celular que
+     bloqueia a tela, que no iOS costuma ser o último evento que chega. */
+  useEffect(() => {
+    const aoSair = () => { persistir({ fim: true, aoSair: true }); };
+    const aoEsconder = () => { if (document.visibilityState === 'hidden') aoSair(); };
+    window.addEventListener('pagehide', aoSair);
+    document.addEventListener('visibilitychange', aoEsconder);
+    return () => {
+      window.removeEventListener('pagehide', aoSair);
+      document.removeEventListener('visibilitychange', aoEsconder);
+    };
+  }, [persistir]);
 
   const status = conversation.status; // 'disconnected' | 'connecting' | 'connected'
   const active = status === 'connected';
@@ -426,36 +742,82 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
      é só o que garante que o estado "fechado" nunca é permanente. Mexe apenas
      no que nós fechamos — quem se mutou sozinho continua mudo. */
   useEffect(() => {
-    if (!active || speaking) return undefined;
-    const t = setTimeout(() => {
-      try {
-        if (mudoPorNos.current && conversation.isMuted && !conversation.isSpeaking) {
-          conversation.setMuted(false);
-          mudoPorNos.current = false;
-          assumido.current = false;
-        }
-      } catch {
-        /* setMuted pode sumir se a sessão fechar nesse meio-tempo */
+    if (!active) return undefined;
+    let mudoDesde = 0;
+    const t = setInterval(() => {
+      const v = vivoRef.current;
+      // Só mexe no que NÓS fechamos. Quem se mutou sozinho continua mudo.
+      if (!mudoPorNos.current || !v.mudo) { mudoDesde = 0; return; }
+      if (!mudoDesde) mudoDesde = Date.now();
+      const preso = Date.now() - mudoDesde > 8000;
+      if (v.falando && !preso) return;
+      try { v.setMuted(false); } catch { /* a sessão pode ter fechado no meio */ }
+      mudoPorNos.current = false;
+      assumido.current = false;
+      mudoDesde = 0;
+      /* Reabrir com ela AINDA "falando" quer dizer que o sinal travou ligado.
+         É o caso invisível: o microfone ficaria fechado pra sempre e o sintoma
+         seria "ela parou de responder" — quando na verdade é a pessoa que não
+         está sendo ouvida. Se isto aparecer no registro, o problema é o sinal do
+         SDK, não o agente. */
+      if (v.falando) {
+        try {
+          window.cadenceTrack?.('microfone_destravado', {
+            turnos: messagesRef.current.length, agente: agent?.id || null,
+          });
+        } catch { /* noop */ }
       }
-    }, 1200);
-    return () => clearTimeout(t);
+    }, 700);
+    return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speaking, active, conversation.isMuted]);
+  }, [active]);
+
+  /* TRAVOU OU CAIU? Os dois chegam iguais na tela — ela para de falar —, e é essa
+     ambiguidade que impedia de saber onde procurar. Um socket que cai dispara
+     `onDisconnect` e agora conta o motivo; um agente que emudece com o socket
+     VIVO não dispara nada, e some sem deixar rastro. Este relógio é o único jeito
+     de enxergar o segundo caso: um minuto inteiro sem nenhuma fala, de nenhum dos
+     dois lados, com a sessão aberta. Só relata — não mexe na conversa. */
+  useEffect(() => {
+    if (!active) return undefined;
+    let avisado = false;
+    const t = setInterval(() => {
+      if (avisado || !ultimaFalaEm.current) return;
+      const parada = Date.now() - ultimaFalaEm.current;
+      if (parada < 60000) return;
+      avisado = true;
+      try {
+        window.cadenceTrack?.('voz_sem_resposta', {
+          segundosParado: Math.round(parada / 1000),
+          turnos: messagesRef.current.length,
+          mudo: !!conversation.isMuted,
+          falando: !!conversation.isSpeaking,
+          agente: agent?.id || null,
+          contexto: usoDeContexto.current,
+        });
+      } catch {
+        /* noop */
+      }
+    }, 10000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
 
   // A boca segue a amplitude real da voz dela. Se o SDK não expuser o volume
   // (versão mais antiga), cai numa oscilação enquanto `isSpeaking` — a boca
   // ainda mexe, só não fica sincronizada com o som.
   useEffect(() => {
-    if (!active) { setNivel(0); return undefined; }
+    if (!active) { nivelRef.current = 0; return undefined; }
     let raf = 0;
     const parado = matchMedia('(prefers-reduced-motion:reduce)').matches;
-    const temVolume = typeof conversation.getOutputVolume === 'function';
     let suave = 0;
     const passo = () => {
       let alvo = 0;
-      if (conversation.isSpeaking) {
-        if (temVolume) {
-          const v = conversation.getOutputVolume() || 0;
+      // Do ref, não da closure: ver vivoRef. Ler daqui era o que matava a boca.
+      const ler = vivoRef.current.volume;
+      if (vivoRef.current.falando) {
+        if (typeof ler === 'function') {
+          const v = ler() || 0;
           // getOutputVolume devolve valores baixos; a raiz abre a faixa útil
           // (senão a boca quase não sai do lugar em fala normal).
           alvo = Math.min(1, Math.sqrt(v) * 1.9);
@@ -465,7 +827,8 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
       }
       // suavização: sem ela a boca treme a cada quadro
       suave += (alvo - suave) * (alvo > suave ? 0.45 : 0.18);
-      setNivel(suave);
+      // Ref, não setState: ver o comentário lá em cima, no nivelRef.
+      nivelRef.current = suave;
       raf = requestAnimationFrame(passo);
     };
     raf = requestAnimationFrame(passo);
@@ -499,7 +862,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   else if (active) cara = 'ouvindo';
 
   let statusLabel = unit ? 'Toque pra começar a lição' : isCard ? 'Toque pra praticar falando' : isReview ? 'Toque pra revisar falando' : resumeTopic ? 'Toque pra continuar de onde parou' : agent ? `Toque pra falar com ${agent.name}` : 'Toque pra começar a falar';
-  if (connecting) statusLabel = 'Conectando…';
+  // A retomada ganha do "Conectando…": ela explica um reconectar que a pessoa
+  // não pediu, e sem isso a tela some do ar por um segundo sem dizer por quê.
+  if (retomando) statusLabel = 'Só um segundo — voltando pra conversa…';
+  else if (connecting) statusLabel = 'Conectando…';
   // Mesma inversão da cara, e pelo mesmo motivo: com o mute automático, esta
   // linha dizia "Microfone mudo — desmute para voltar a falar" durante toda a
   // fala dela. Ou seja, mandava a pessoa desmutar exatamente no momento em que
@@ -550,7 +916,7 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
           transform: connecting ? 'scale(0.97)' : 'scale(1)',
         }}
       >
-        <CadyLive estado={cara} nivel={nivel} falando={speaking} size={196} />
+        <CadyLive estado={cara} nivelRef={nivelRef} falando={speaking} size={196} />
         {/* Selo de ação: o rosto sozinho não diz que dá pra tocar. */}
         <span
           style={{
@@ -675,10 +1041,10 @@ function ConversationInner({ firstName, onSaved, agent, resumeContext, resumeTop
   );
 }
 
-export function ConversationClient({ firstName, onSaved, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting }) {
+export function ConversationClient({ firstName, onSaved, onEncerrada, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting }) {
   return (
     <ConversationProvider>
-      <ConversationInner firstName={firstName} onSaved={onSaved} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} memoryText={memoryText} cardDrill={cardDrill} openingGreeting={openingGreeting} />
+      <ConversationInner firstName={firstName} onSaved={onSaved} onEncerrada={onEncerrada} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} memoryText={memoryText} cardDrill={cardDrill} openingGreeting={openingGreeting} />
     </ConversationProvider>
   );
 }
