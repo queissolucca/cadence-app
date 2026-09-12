@@ -456,6 +456,28 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
         }).catch(() => {});
       }
 
+      /* AS CORREÇÕES VIRAM CARD AQUI, E NÃO NO MEIO DA CONVERSA.
+
+         A Cady chamava o `save_to_review` sozinha a cada correção, e uma chamada
+         de ferramenta obriga o modelo a um passo a mais ANTES de falar — nos
+         turnos de correção, que são os mais importantes do produto. O card
+         aparecia na hora e a conversa engasgava na hora.
+
+         Agora é uma leitura da transcrição inteira depois que acabou: não atrasa
+         ninguém e enxerga o que só se vê de fora (o erro que se repetiu três
+         vezes). Ver lib/correcoes.js.
+
+         Roda em conversa aberta e em LIÇÃO — nos dois há correção. Em revisão
+         não: ali a pessoa está treinando cards que já existem, e extrair de novo
+         só duplicaria a lista. */
+      if (!isReview && messages.length >= 4) {
+        fetch('/api/review/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages }),
+        }).catch(() => {});
+      }
+
       if (onEncerrada) onEncerrada();
     },
     onMessage: (msg) => {
