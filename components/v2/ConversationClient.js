@@ -6,6 +6,7 @@ import { CadyLive } from './CadyLive';
 import { aoTocarMute, decidirMute } from '../../lib/conversaMute';
 import { contextoDeRetomada, deveRetomar } from '../../lib/retomada';
 import { pausarFundo } from '../../lib/constelacao';
+import { criarMedidor } from '../../lib/latenciaVoz';
 
 // Título curtinho pra listar na barra lateral: pega a 1ª fala do usuário com
 // substância; senão, cai pra data.
@@ -88,6 +89,27 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  /* O CRONÔMETRO NA TELA FICA ATRÁS DE UM INTERRUPTOR.
+
+     Quem está afinando a latência precisa ver o número no celular, na hora, sem
+     abrir painel nenhum. Quem só quer conversar não precisa ver milissegundo
+     nenhum — é ruído, e ruído numa tela de aula é pior que um número escondido.
+
+     `?latencia=1` liga (e fica ligado, porque medir é uma sessão inteira, não
+     uma tela); `?latencia=0` desliga. O registro de telemetria vai SEMPRE, ligado
+     ou não — é dele que sai a média de quem está usando de verdade. */
+  const [mostrarLatencia, setMostrarLatencia] = useState(false);
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('latencia');
+      if (q === '1') localStorage.setItem('cadence.latencia', '1');
+      if (q === '0') localStorage.removeItem('cadence.latencia');
+      setMostrarLatencia(localStorage.getItem('cadence.latencia') === '1');
+    } catch {
+      /* modo privado: sem interruptor, sem leitura */
+    }
+  }, []);
+
   const startedAtRef = useRef(null);
   /* Quem encerrou: a pessoa ou a conexão? Sem isto, os dois casos são idênticos
      — a tela volta pro repouso calada — e quem caiu no meio da conversa não tem
@@ -95,6 +117,11 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
   const pediuParar = useRef(false);
   // Último relato de uso de contexto do LLM (ver onContextUsage).
   const usoDeContexto = useRef(null);
+  /* Quanto ela demora pra responder, medido a cada turno. "Está lento" era
+     relato; isto é número — e número separado por culpa (ouvir x pensar), que é
+     o que diz onde mexer. Ver lib/latenciaVoz.js. */
+  const medidor = useRef(null);
+  const [latencia, setLatencia] = useState(null);
   const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
   const scrollRef = useRef(null); // janela de transcrição com scroll próprio
   const inicioTotal = useRef(null);   // início da conversa INTEIRA (retomada automática não reinicia)
@@ -252,6 +279,8 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     onConnect: () => {
       startedAtRef.current = Date.now();
       ultimaFalaEm.current = Date.now();
+      medidor.current = criarMedidor();
+      setLatencia(null);
       setErrorMsg('');
       /* Retomada automática (o agente derrubou e a gente reabriu): é a MESMA
          conversa. Zerar o transcript aqui apagaria da tela — e do save — tudo o
@@ -296,6 +325,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
       if (!pedido) {
         try {
           window.cadenceTrack?.('voz_encerrada', {
+            latencia: medidor.current?.resumo() || null,
             motivo,
             closeCode: detalhes?.closeCode ?? null,
             closeReason: detalhes?.closeReason ?? null,
@@ -412,6 +442,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
       const text = msg?.message ?? msg?.text;
       if (!text) return;
       const role = msg?.source === 'user' ? 'you' : 'coach';
+      if (role === 'you') medidor.current?.transcreveu();
       const line = { role, text, at: new Date().toISOString() };
       messagesRef.current = [...messagesRef.current, line];
       ultimaFalaEm.current = Date.now();
@@ -432,6 +463,20 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
        e um modelo sem espaço para de responder. Guardado num ref e mandado
        junto no encerramento: assim dá pra ver se a conversa morreu cheia. */
     onContextUsage: (uso) => { usoDeContexto.current = uso || null; },
+    /* OS QUATRO MARCOS DA LATÊNCIA. Nenhum deles custa trabalho: são eventos que
+       o SDK já emite e que a gente vinha jogando fora. */
+    onVadScore: ({ vadScore } = {}) => { medidor.current?.vad(vadScore); },
+    // O 1º pedaço de ÁUDIO — e não o texto da resposta — é onde o silêncio acaba.
+    onAudio: () => {
+      const turno = medidor.current?.respondeu();
+      if (turno) setLatencia({ ...turno, resumo: medidor.current.resumo() });
+    },
+    // Cada ferramenta pedida é uma ida a mais ao modelo ANTES de ela falar. A
+    // Cady chama save_to_review sozinha a cada correção, então isto mede quanto
+    // a auto-captura custa em silêncio.
+    onAgentToolRequest: () => { medidor.current?.ferramenta(); },
+    onInterruption: () => { medidor.current?.descartar(); },
+    onModeChange: ({ mode } = {}) => { if (mode === 'listening') medidor.current?.agenteParou(); },
     /* O agente pedindo uma ferramenta que este app não declara. O SDK responde
        "not defined on client" e a conversa segue torta — a Cady acha que salvou
        algo que nunca foi salvo, ou fica esperando um efeito que não vem. Só o
@@ -520,6 +565,43 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
   vivoRef.current.volume = conversation.getOutputVolume;
   vivoRef.current.status = conversation.status;
 
+  /* O SIGNED URL É PEDIDO QUANDO A TELA ABRE, NÃO QUANDO O DEDO ENCOSTA.
+
+     Entre o toque e a primeira palavra da Cady havia uma ida inteira à nossa API
+     — que por sua vez fala com o Supabase e com o ElevenLabs antes de responder.
+     É tempo em que a pessoa já decidiu falar e está olhando pra uma tela parada,
+     e some por completo se o URL já estiver na mão.
+
+     Ele vale 15 minutos pra ABRIR a conversa, então dá pra ter um esperando. É
+     de uso único: assim que a conversa abre, outro já é buscado pro toque
+     seguinte. E é guardado POR VOZ, porque trocar de agente na galeria invalida
+     o que estava pronto. */
+  const MAX_IDADE_URL = 10 * 60 * 1000;   // margem confortável sobre os 15 min
+  const urlPronta = useRef({ voz: null, url: null, em: 0 });
+
+  const buscarSignedUrl = useCallback(async (voz) => {
+    const res = await fetch(`/api/convai/signed-url?agente=${encodeURIComponent(voz)}`);
+    if (res.status === 503) return { naoConfigurado: true };
+    if (!res.ok) throw new Error('signed_url');
+    const { signedUrl } = await res.json();
+    return { signedUrl };
+  }, []);
+
+  const aquecerUrl = useCallback((voz) => {
+    buscarSignedUrl(voz)
+      .then((r) => { if (r?.signedUrl) urlPronta.current = { voz, url: r.signedUrl, em: Date.now() }; })
+      .catch(() => { /* o toque busca de novo; aquecer é otimização, não requisito */ });
+  }, [buscarSignedUrl]);
+
+  useEffect(() => {
+    const voz = agent?.id || 'cadi';
+    const p = urlPronta.current;
+    if (p.voz === voz && p.url && Date.now() - p.em < MAX_IDADE_URL) return;
+    urlPronta.current = { voz: null, url: null, em: 0 };
+    aquecerUrl(voz);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent?.id]);
+
   const start = useCallback(async (opcoes) => {
     // `automatico` = não foi a pessoa que tocou; foi a retomada depois de o
     // agente ter derrubado a conversa. Muda a 1ª fala e a mensagem de erro.
@@ -550,18 +632,27 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
          que é literalmente o sintoma relatado ("esta página web foi recarregada
          devido a um problema"). Com a retomada automática, o app abria mais uma
          a cada reabertura. */
-      const porta = await navigator.mediaDevices.getUserMedia({ audio: true });
-      porta.getTracks().forEach((t) => { try { t.stop(); } catch { /* já parou */ } });
       // A voz escolhida na galeria. Vai como CHAVE — o id do agente é resolvido
       // no servidor (lib/agentesVoz.js).
       const voz = agent?.id || 'cadi';
-      const res = await fetch(`/api/convai/signed-url?agente=${encodeURIComponent(voz)}`);
-      if (res.status === 503) {
+      const guardado = urlPronta.current;
+      const jaTenho = guardado.voz === voz && guardado.url && Date.now() - guardado.em < MAX_IDADE_URL;
+
+      /* Os dois em PARALELO. Pedir o microfone e pedir o URL não dependem um do
+         outro, e eram feitos em fila — o microfone primeiro, sozinho, com a rede
+         parada esperando. No iOS abrir uma sessão de áudio não é instantâneo, e
+         essa espera era somada à da API em vez de acontecer junto com ela. */
+      const [porta, obtido] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({ audio: true }),
+        jaTenho ? Promise.resolve({ signedUrl: guardado.url }) : buscarSignedUrl(voz),
+      ]);
+      porta.getTracks().forEach((t) => { try { t.stop(); } catch { /* já parou */ } });
+      if (obtido?.naoConfigurado) {
         setNotConfigured(true);
         return;
       }
-      if (!res.ok) throw new Error('signed_url');
-      const { signedUrl } = await res.json();
+      const { signedUrl } = obtido;
+      urlPronta.current = { voz: null, url: null, em: 0 };   // uso único
       const name = firstName || 'there';
       // Modo revisão falada: vira uma "lição guiada" cujo drill são os cards
       // salvos — reusa a mesma mecânica de lição (nenhuma seção nova no prompt).
@@ -631,6 +722,8 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
           unit_drill: lessonUnit ? lessonUnit.drill : semLicao,
         },
       });
+      // Consumido: já busca o próximo, pro toque seguinte também ser imediato.
+      aquecerUrl(voz);
     } catch (err) {
       if (err?.name === 'NotAllowedError' || err?.name === 'NotFoundError') {
         setErrorMsg('Preciso do microfone pra gente conversar. Libera o acesso e tenta de novo.');
@@ -648,7 +741,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     } finally {
       setStarting(false);
     }
-  }, [conversation, firstName, agent, resumeContext, resumeTopic, unit, isReview, reviewItems, memoryText, isCard, cardDrill, openingGreeting]);
+  }, [conversation, firstName, agent, resumeContext, resumeTopic, unit, isReview, reviewItems, memoryText, isCard, cardDrill, openingGreeting, buscarSignedUrl, aquecerUrl]);
 
   // A retomada automática mora dentro do onDisconnect, que é registrado antes de
   // `start` existir. O ref é o que fura essa ordem.
@@ -656,6 +749,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
 
   const stop = useCallback(async () => {
     pediuParar.current = true;
+    medidor.current?.descartar();
     try {
       await conversation.endSession();
     } catch {
@@ -750,7 +844,11 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
       });
       mudoPorNos.current = d.nosso;
       assumido.current = d.assumido;
-      if (d.mudar !== null) conversation.setMuted(d.mudar);
+      if (d.mudar !== null) {
+        conversation.setMuted(d.mudar);
+        // Reabrir é o fim da janela em que a pessoa fala e não é ouvida.
+        if (d.mudar === false) medidor.current?.micAberto();
+      }
     } catch {
       /* setMuted pode não existir antes da sessão abrir */
     }
@@ -787,6 +885,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
       const preso = Date.now() - mudoDesde > 8000;
       if (v.falando && !preso) return;
       try { v.setMuted(false); } catch { /* a sessão pode ter fechado no meio */ }
+      medidor.current?.micAberto();
       mudoPorNos.current = false;
       assumido.current = false;
       mudoDesde = 0;
@@ -1043,6 +1142,16 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
             Encerrar
           </button>
         </div>
+      )}
+
+      {mostrarLatencia && latencia && (
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-soft)', fontFamily: 'var(--font-mono-v2, monospace)', textAlign: 'center' }}>
+          resposta {Math.round(latencia.total)}ms
+          {latencia.ouvir != null && ` · ouvir ${Math.round(latencia.ouvir)} · pensar ${Math.round(latencia.pensar)}`}
+          {latencia.ferramentas > 0 && ` · ${latencia.ferramentas} ferramenta${latencia.ferramentas > 1 ? 's' : ''}`}
+          {latencia.resumo?.turnos > 1 && ` — mediana ${latencia.resumo.medianaMs}ms em ${latencia.resumo.turnos} turnos`}
+          {latencia.resumo?.microfoneMedianaMs != null && ` · mic abre em ${latencia.resumo.microfoneMedianaMs}ms`}
+        </p>
       )}
 
       {errorMsg && (

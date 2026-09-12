@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '../../../../lib/supabase/server';
+import { identidade } from '../../../../lib/sessaoServidor';
 import { idDoAgente } from '../../../../lib/agentesVoz';
 
 // Mint de signed URL pra sessão de voz do ElevenLabs Conversational AI.
@@ -11,12 +11,15 @@ import { idDoAgente } from '../../../../lib/agentesVoz';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  /* IDENTIDADE SEM IDA À REDE — esta rota está no caminho entre o toque e a
+     primeira palavra da Cady, e cada ida e volta aqui é silêncio na tela.
 
-  if (!user) {
+     O `supabase.auth.getUser()` que estava aqui é uma requisição ao servidor de
+     auth do Supabase, de propósito, toda vez. Só que o middleware já resolveu e
+     verificou a identidade nesta mesma requisição e deixou no cabeçalho; ler dali
+     é a mesma garantia sem a viagem. Ver lib/sessaoServidor.js. */
+  const eu = await identidade();
+  if (!eu?.id) {
     return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
   }
 
