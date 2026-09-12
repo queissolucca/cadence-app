@@ -192,6 +192,18 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
        precisa caber: as falas anteriores já foram gravadas turno a turno, então
        o pior caso aqui é perder o último trecho, não a conversa. */
     const keepalive = aoSair && corpo.length < 60000;
+    /* TETO DE TEMPO, SENÃO UMA GRAVAÇÃO PENDURADA DESLIGA TODAS AS OUTRAS.
+
+       `salvandoAgora` volta a false no `finally`. Uma requisição que nunca
+       resolve — celular trocando de rede, função fria, o portão de API
+       engasgando — nunca chega no `finally`: a flag fica presa em true, todo
+       save seguinte volta na porta, e o fecho fica esperando uma promessa que
+       não resolve. Ou seja, um único soluço de rede no meio da conversa
+       reproduzia exatamente o sintoma que esta função existe pra matar.
+
+       30s é folgado pro caso normal e curto o bastante pra não segurar a
+       conversa: se estourar, a fala seguinte tenta de novo com tudo junto. */
+    const prazo = AbortSignal.timeout(30000);
     try {
       if (idDaConversa.current) {
         const r = await fetch(`/api/conversations/${idDaConversa.current}`, {
@@ -199,6 +211,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
           headers: { 'Content-Type': 'application/json' },
           body: corpo,
           keepalive,
+          signal: prazo,
         });
         if (!r.ok) { avisarQueNaoSalvou(r.status); return; }
         salvoAte.current = alvo;
@@ -216,6 +229,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
             duration_seconds: segundos,
           }),
           keepalive,
+          signal: prazo,
         });
         if (!r.ok) { avisarQueNaoSalvou(r.status); return; }
         const { id } = await r.json();
@@ -802,7 +816,18 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
   useEffect(() => {
     if (!sessaoViva) return undefined;
     pausarFundo(true);
-    return () => pausarFundo(false);
+    /* O mesmo sinal, agora legível pelo CSS. Durante a conversa a folha desliga
+       o que é caro e ninguém está olhando: as 72 animações infinitas da coroa da
+       Cady (animação de transform em SVG não é compositada — são 72 layouts por
+       quadro) e o desfoque da barra de abas, que só existe no celular, que é
+       exatamente onde a aba estava morrendo. Ver lib/cady/cady-live.js e
+       app/globals.css. */
+    const raiz = document.documentElement;
+    raiz.dataset.conversa = 'ativa';
+    return () => {
+      pausarFundo(false);
+      delete raiz.dataset.conversa;
+    };
   }, [sessaoViva]);
 
   /* TRAVOU OU CAIU? Os dois chegam iguais na tela — ela para de falar —, e é essa

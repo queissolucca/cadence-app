@@ -122,9 +122,28 @@ describe('quem manda o sinal é a conversa', () => {
   const FONTE = readFileSync('components/v2/ConversationClient.js', 'utf8');
   it('pausa enquanto a sessão existe e devolve ao sair', () => {
     expect(FONTE).toContain('pausarFundo(true)');
-    expect(FONTE).toContain('return () => pausarFundo(false)');
+    expect(FONTE).toContain('pausarFundo(false)');
     // Preso à SESSÃO, não à saúde dela: com status 'error' o fundo também fica
     // pausado, e volta quando a sessão realmente acaba.
     expect(FONTE).toMatch(/if \(!sessaoViva\) return undefined;\s*\n\s*pausarFundo\(true\);/);
+  });
+
+  /* O MESMO SINAL, PRA QUEM SÓ ENTENDE CSS.
+
+     Nem tudo que custa caro durante a conversa é JavaScript que dá pra pausar
+     por função: as 72 animações infinitas da coroa da Cady e o desfoque da barra
+     de abas são folha de estilo. O atributo no <html> é o que deixa o CSS
+     desligá-los pela duração da conversa — e é por isso que ele precisa ser
+     REMOVIDO na saída: esquecer isso deixaria a Cady de coroa parada pra sempre. */
+  it('o CSS também recebe o sinal, e ele é removido no fim', () => {
+    expect(FONTE).toMatch(/raiz\.dataset\.conversa = 'ativa'/);
+    expect(FONTE).toMatch(/delete raiz\.dataset\.conversa/);
+  });
+
+  it('a coroa e o desfoque desligam durante a conversa', () => {
+    const CADY = readFileSync('lib/cady/cady-live.js', 'utf8');
+    const CSS = readFileSync('app/globals.css', 'utf8');
+    expect(CADY).toContain('html[data-conversa="ativa"] .cady-ray{animation:none}');
+    expect(CSS).toMatch(/html\[data-conversa="ativa"\] \.v2-tabbar \{ backdrop-filter: none;/);
   });
 });

@@ -392,6 +392,14 @@ button { cursor: pointer; font-family: var(--font-ui); }
 
 /* ---- TabBar (mobile only — some acima do breakpoint desktop) ---- */
 .v2-tabbar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; border-top: 1px solid var(--line); background: var(--v2-scrim); backdrop-filter: blur(8px); z-index: 40; }
+/* Enquanto a conversa de voz roda, a tela cede recursos pra ela (o mesmo sinal
+   que pausa o fundo vivo e a coroa da Cady — ver components/v2/ConversationClient.js).
+
+   Este é o único backdrop-filter do app, e ele está numa barra fixa de largura
+   total que só aparece no celular — que é exatamente onde a aba estava morrendo.
+   Um desfoque de fundo é recomposto sempre que QUALQUER coisa atrás dele muda, e
+   atrás dele está uma tela inteira animando. Sólido custa zero e some na barra. */
+html[data-conversa="ativa"] .v2-tabbar { backdrop-filter: none; background: var(--v2-card-bg); }
 .v2-tab-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px 12px; border: none; background: transparent; color: var(--ink-soft); font-family: var(--font-ui-v2); }
 .v2-tab-btn svg { width: 22px; height: 22px; }
 .v2-tab-btn span { font-size: 11px; font-weight: 500; }

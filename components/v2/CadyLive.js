@@ -117,6 +117,19 @@ export function CadyLive({ estado = 'idle', nivel = 0, nivelRef = null, size = 1
     const parado = matchMedia('(prefers-reduced-motion:reduce)').matches;
     let raf = 0;
     let ultimo = '';          // assinatura das camadas visíveis, pra não mexer no DOM à toa
+    /* A boca visível do momento, e o último valor escrito nela.
+
+       O `--mouth` era gravado no <svg> RAIZ. Custom property é herdada, então
+       gravar na raiz obriga o motor a reavaliar o estilo de TODOS os 286 nós da
+       Cady — 60 vezes por segundo, pra mover um elemento só. Medido: 252ms de
+       recálculo de estilo por segundo de relógio.
+
+       Escrevendo direto na camada da boca, a invalidação é de 1 nó. E o valor é
+       quantizado em 2 casas: quadros consecutivos quase sempre repetem, e
+       repetição vira zero trabalho. A transição de 70ms no CSS já alisa o
+       degrau. */
+    let bocaEl = null;
+    let ultimaBoca = '';
     let piscaEm = performance.now() + sorteio(1200, 3200);
     let piscaAte = 0;
     let beatEm = performance.now() + sorteio(6000, 12000);
@@ -169,12 +182,19 @@ export function CadyLive({ estado = 'idle', nivel = 0, nivelRef = null, size = 1
       const chave = ligadas.join('|');
       if (chave !== ultimo) {
         ultimo = chave;
+        bocaEl = null;
+        ultimaBoca = '';   // a camada nova ainda não tem o valor: força a escrita
         for (const g of camadas.current) {
-          g.style.display = ligadas.includes(g.dataset.ly) ? 'block' : 'none';
+          const liga = ligadas.includes(g.dataset.ly);
+          g.style.display = liga ? 'block' : 'none';
+          if (liga && g.dataset.ly && g.dataset.ly.startsWith('m-')) bocaEl = g;
         }
       }
 
-      s.style.setProperty('--mouth', String(Math.max(0, Math.min(1, n))));
+      if (bocaEl) {
+        const m = Math.max(0, Math.min(1, n)).toFixed(2);
+        if (m !== ultimaBoca) { bocaEl.style.setProperty('--mouth', m); ultimaBoca = m; }
+      }
 
       // --- a cabeça se mexe ----------------------------------------------
       // Três senos de período diferente: em fase, o movimento fica mecânico.
