@@ -5,6 +5,7 @@ import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { CadyLive } from './CadyLive';
 import { aoTocarMute, decidirMute } from '../../lib/conversaMute';
 import { contextoDeRetomada, deveRetomar } from '../../lib/retomada';
+import { pausarFundo } from '../../lib/constelacao';
 
 // Título curtinho pra listar na barra lateral: pega a 1ª fala do usuário com
 // substância; senão, cai pra data.
@@ -522,7 +523,21 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
       if (vivoRef.current.status && vivoRef.current.status !== 'disconnected') {
         try { await conversation.endSession(); } catch { /* já estava fechada */ }
       }
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      /* ISTO É SÓ UMA BATIDA NA PORTA — e a porta tem que ser fechada.
+
+         Serve pra disparar o pedido de permissão antes de gastar um signed URL,
+         e pra transformar a recusa numa frase em português. Mas ele devolve um
+         MediaStream VIVO, e o stream ficava aberto: o SDK abre a captura DELE
+         logo em seguida, então a página passava a conversa inteira com DUAS
+         capturas de microfone simultâneas.
+
+         No iOS isso não é um desperdício pequeno. Cada captura é uma sessão de
+         áudio do sistema, e o Safari mata a aba por memória TOTAL do processo —
+         que é literalmente o sintoma relatado ("esta página web foi recarregada
+         devido a um problema"). Com a retomada automática, o app abria mais uma
+         a cada reabertura. */
+      const porta = await navigator.mediaDevices.getUserMedia({ audio: true });
+      porta.getTracks().forEach((t) => { try { t.stop(); } catch { /* já parou */ } });
       // A voz escolhida na galeria. Vai como CHAVE — o id do agente é resolvido
       // no servidor (lib/agentesVoz.js).
       const voz = agent?.id || 'cadi';
@@ -776,6 +791,18 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     }, 700);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessaoViva]);
+
+  /* Enquanto a conversa roda, o fundo vivo sai do ar (e devolve a memória da
+     superfície dele). Ver o comentário em lib/constelacao.js: no iOS a aba é
+     morta por memória total do processo, e um canvas de tela cheia repintando a
+     60 quadros por segundo atrás da conversa é custo puro — ninguém está olhando
+     pro fundo enquanto fala com a Cady. Volta ao acabar, inclusive se a pessoa
+     sair da tela no meio. */
+  useEffect(() => {
+    if (!sessaoViva) return undefined;
+    pausarFundo(true);
+    return () => pausarFundo(false);
   }, [sessaoViva]);
 
   /* TRAVOU OU CAIU? Os dois chegam iguais na tela — ela para de falar —, e é essa
