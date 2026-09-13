@@ -28,8 +28,12 @@ const SESSAO = readFileSync('lib/sessaoServidor.js', 'utf8');
 describe('dúvida sobre a sessão não desloga', () => {
   it('"sem cookie" e "não deu pra confirmar" são coisas diferentes', () => {
     expect(SUP).toMatch(/temCookieDeSessao/);
-    // Por prefixo: o cookie do Supabase vem partido em .0/.1 quando cresce.
-    expect(SUP).toMatch(/startsWith\('sb-'\)/);
+    /* A regra de "o que é um cookie de sessão" mudou de lugar: agora vive em
+       lib/supabase/cookies.js, sem dependência nenhuma, e tem teste de verdade
+       (tests/cookieDeSessao.test.js) em vez de asserção sobre texto. Foi por
+       causa dela que gente ficou presa em "Reconectando…" — o rascunho do PKCE
+       era lido como sessão. */
+    expect(SUP).toContain("import { ehCookieDeSessao } from './cookies'");
     expect(MW).toContain('const precisaLogar = !user && !temCookieDeSessao;');
     expect(MW).toContain('const semConfirmar = !user && temCookieDeSessao;');
   });
