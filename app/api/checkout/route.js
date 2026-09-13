@@ -74,7 +74,10 @@ export async function POST(request) {
     installments,
     externalId,
     baseUrl: base,
-    // metadata amarra o webhook ao usuário (o acesso é por email).
+    /* ATENÇÃO: o AbacatePay NÃO devolve este metadata no webhook. Ele serve
+       só pro painel/conferência. Quem amarra o pagamento ao usuário é o
+       externalId (= orders.id) e o bill_id que gravamos logo abaixo — é por
+       eles que o webhook descobre de quem é o pagamento. */
     metadata: { userId: user.id, email: user.email, plan: body.planId },
   });
 
