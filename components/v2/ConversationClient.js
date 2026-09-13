@@ -971,6 +971,43 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     };
   }, [sessaoViva]);
 
+  /* A CAIXA-PRETA. É a única coisa que sobrevive à aba ser morta.
+
+     Quando o iOS mata o processo por pressão de memória, NADA é enviado: não
+     roda `onDisconnect`, não roda `pagehide`, não roda a gravação de saída. Do
+     lado de cá o desfecho é literalmente indistinguível de a pessoa ter fechado
+     o app — e foi por isso que "trava do nada" passou dias sem explicação.
+
+     A saída é deixar marca ANTES. Uma linha a cada 30 segundos com o que
+     importa transforma "morreu do nada" em "morreu no minuto 6, na 2ª retomada,
+     com 14 turnos e o contexto em 40%". A última linha registrada É o atestado
+     de óbito.
+
+     Vai pro /api/track/event, que é a única rota liberada do portão de
+     pagamento — não consulta o banco de acesso, não entra no caminho da voz. */
+  useEffect(() => {
+    if (!sessaoViva) return undefined;
+    const bater = () => {
+      try {
+        const inicio = inicioTotal.current || startedAtRef.current;
+        window.cadenceTrack?.('voz_pulso', {
+          segundos: inicio ? Math.round((Date.now() - inicio) / 1000) : 0,
+          turnos: messagesRef.current.length,
+          gravadas: salvoAte.current,
+          retomadas: retomadas.current,
+          agente: agent?.id || null,
+          contexto: usoDeContexto.current,
+        });
+      } catch {
+        /* noop */
+      }
+    };
+    bater();                              // uma na abertura: marca que começou
+    const t = setInterval(bater, 30000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessaoViva]);
+
   /* TRAVOU OU CAIU? Os dois chegam iguais na tela — ela para de falar —, e é essa
      ambiguidade que impedia de saber onde procurar. Um socket que cai dispara
      `onDisconnect` e agora conta o motivo; um agente que emudece com o socket

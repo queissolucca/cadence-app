@@ -273,3 +273,29 @@ describe('o resumo chega no banco em TODA conversa', () => {
     expect(FONTE).toContain('encerrouPedido: pedido');
   });
 });
+
+describe('a caixa-preta da conversa', () => {
+  const FONTE = readFileSync('components/v2/ConversationClient.js', 'utf8');
+  /* Quando o iOS mata o processo por memória, nada é enviado — nem onDisconnect,
+     nem pagehide. O desfecho fica indistinguível de a pessoa ter fechado o app.
+     A única informação possível é a que já foi gravada ANTES. */
+  it('bate um pulso periódico enquanto a sessão existe', () => {
+    expect(FONTE).toContain("'voz_pulso'");
+    expect(FONTE).toMatch(/setInterval\(bater, 30000\)/);
+    // Uma na abertura: sem ela, uma conversa que morre em 20s não deixa marca.
+    expect(FONTE).toMatch(/bater\(\);\s*\/\/ uma na abertura/);
+  });
+
+  it('o pulso carrega o que identifica o momento da morte', () => {
+    const i = FONTE.indexOf("'voz_pulso'");
+    const bloco = FONTE.slice(i, i + 400);
+    for (const campo of ['segundos', 'turnos', 'retomadas', 'contexto']) {
+      expect(bloco, `${campo} é o que diz ONDE morreu`).toContain(campo);
+    }
+  });
+
+  it('é limpo ao fim da sessão — não fica batendo pra sempre', () => {
+    const i = FONTE.indexOf("'voz_pulso'");
+    expect(FONTE.slice(i, i + 700)).toContain('clearInterval(t)');
+  });
+});
