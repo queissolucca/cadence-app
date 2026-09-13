@@ -283,7 +283,11 @@ describe("status 'error' não pode deixar o microfone fechado", () => {
   });
 
   it('a rede de segurança acompanha a SESSÃO, não a saúde dela', () => {
-    expect(FONTE).toContain("const sessaoViva = status !== 'disconnected'");
+    /* E "a sessão" é o nosso próprio sinal, não o status do SDK: 'error' gruda
+       até a sessão encerrar de verdade, então amarrar relógios a ele os deixava
+       rodando pra sempre numa tela sem conversa nenhuma. */
+    expect(FONTE).toContain('const [sessaoPropria, setSessaoPropria] = useState(false)');
+    expect(FONTE).toMatch(/const sessaoViva = \(sessaoPropria \|\| status === 'connecting'\)/);
     const i = FONTE.indexOf('REDE DE SEGURANÇA DO MICROFONE');
     expect(FONTE.slice(i, i + 2400)).toContain('if (!sessaoViva) return undefined;');
   });

@@ -122,6 +122,8 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
      o que diz onde mexer. Ver lib/latenciaVoz.js. */
   const medidor = useRef(null);
   const [latencia, setLatencia] = useState(null);
+  // Ver sessaoViva: o status do SDK não serve pra isto.
+  const [sessaoPropria, setSessaoPropria] = useState(false);
   const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
   const scrollRef = useRef(null); // janela de transcrição com scroll próprio
   const inicioTotal = useRef(null);   // início da conversa INTEIRA (retomada automática não reinicia)
@@ -230,8 +232,16 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
 
        30s é folgado pro caso normal e curto o bastante pra não segurar a
        conversa: se estourar, a fala seguinte tenta de novo com tudo junto. */
-    const prazo = AbortSignal.timeout(30000);
+    /* DENTRO do try, e com plano B. `AbortSignal.timeout` não existe em Safari
+       antes do 16 — e como esta linha estava FORA do try, um `undefined is not a
+       function` aqui pulava o `finally`, deixava `salvandoAgora` travado em true
+       e `emVoo` sem nunca resolver. Ou seja: a linha que eu escrevi pra matar o
+       travamento de gravação era, ela mesma, um jeito de travar a gravação pra
+       sempre — e ainda por cima com rejeição não tratada. */
     try {
+      const prazo = typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+        ? AbortSignal.timeout(30000)
+        : undefined;
       if (idDaConversa.current) {
         const r = await fetch(`/api/conversations/${idDaConversa.current}`, {
           method: 'PATCH',
@@ -279,6 +289,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     onConnect: () => {
       startedAtRef.current = Date.now();
       ultimaFalaEm.current = Date.now();
+      setSessaoPropria(true);
       medidor.current = criarMedidor();
       setLatencia(null);
       setErrorMsg('');
@@ -303,6 +314,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     onDisconnect: (detalhes) => {
       const inicioDoTrecho = startedAtRef.current;
       startedAtRef.current = null;
+      setSessaoPropria(false);
       const messages = messagesRef.current;
 
       /* POR QUE A CONVERSA ACABOU — o SDK diz, e a gente jogava fora.
@@ -519,21 +531,15 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     onAgentToolRequest: () => { medidor.current?.ferramenta(); },
     onInterruption: () => { medidor.current?.descartar(); },
     onModeChange: ({ mode } = {}) => { if (mode === 'listening') medidor.current?.agenteParou(); },
-    /* O agente pedindo uma ferramenta que este app não declara. O SDK responde
-       "not defined on client" e a conversa segue torta — a Cady acha que salvou
-       algo que nunca foi salvo, ou fica esperando um efeito que não vem. Só o
-       painel do ElevenLabs pode criar essa situação, então ela precisa aparecer
-       aqui pra alguém saber que existe. */
-    onUnhandledClientToolCall: (chamada) => {
-      try {
-        window.cadenceTrack?.('voz_tool_desconhecida', {
-          ferramenta: chamada?.tool_name || null,
-          agente: agent?.id || null,
-        });
-      } catch {
-        /* noop */
-      }
-    },
+    /* NÃO REGISTRE `onUnhandledClientToolCall` AQUI. Parece telemetria inofensiva
+       e não é: em BaseConversation.js:223-226, quando esse callback EXISTE o SDK
+       o chama e dá `return` — sem mandar o `client_tool_result` de volta. O
+       agente fica esperando por uma resposta que nunca vem, o turno não fecha, e
+       o desfecho é o agente desligando por timeout. Ou seja, registrar um
+       observador aqui MUDA o comportamento da conversa, e muda pro pior.
+
+       Sem ele, o SDK responde com `is_error` e a conversa segue — que é o que a
+       gente quer. O rastro do problema continua chegando pelo `onError`. */
     clientTools: {
       // A Cady chama isso quando o usuário pede pra salvar/memorizar algo —
       // vai pra aba Revisão. (Precisa do client tool 'save_to_review' declarado
@@ -623,8 +629,23 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
 
   const buscarSignedUrl = useCallback(async (voz) => {
     const res = await fetch(`/api/convai/signed-url?agente=${encodeURIComponent(voz)}`);
-    if (res.status === 503) return { naoConfigurado: true };
-    if (!res.ok) throw new Error('signed_url');
+    if (!res.ok) {
+      /* DOIS 503 DIFERENTES CHEGAM AQUI, e tratá-los igual era mentira na tela.
+
+         Um é da rota: "o ElevenLabs não está configurado" — isso é definitivo e
+         merece a explicação sobre as chaves. O outro é do PORTÃO DE PAGAMENTO no
+         middleware, que devolve 503 {"error":"try_again"} quando não conseguiu
+         confirmar o acesso — isso é transitório e a resposta certa é tentar de
+         novo, não dizer que o agente não existe.
+
+         Com os dois confundidos, um soluço do banco no meio de uma conversa
+         fazia a tela anunciar "Agente de voz ainda não configurado" e, pior,
+         abortava a retomada automática. */
+      let erro = null;
+      try { erro = (await res.json())?.error || null; } catch { /* corpo vazio */ }
+      if (erro === 'elevenlabs_not_configured') return { naoConfigurado: true };
+      throw new Error(erro || `signed_url_${res.status}`);
+    }
     const { signedUrl } = await res.json();
     return { signedUrl };
   }, []);
@@ -859,12 +880,20 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
 
   const status = conversation.status; // 'disconnected' | 'connecting' | 'connected' | 'error'
   const active = status === 'connected';
-  /* 'error' NÃO é fim de sessão. O SDK do React inventa esse status em qualquer
-     onError (ConversationStatus.js) e não encosta na conexão — o socket segue
-     aberto. Pra tudo que cuida do MICROFONE o que importa é existir uma sessão,
-     não ela estar saudável: era com `active` que a rede de segurança desligava
-     justamente no momento em que ela era mais necessária. */
-  const sessaoViva = status !== 'disconnected';
+  /* EXISTE UMA SESSÃO NOSSA ABERTA?
+
+     Não dá pra perguntar isso ao `status`. O SDK do React inventa um 'error' em
+     qualquer onError (ConversationStatus.js) sem encostar na conexão — e esse
+     'error' GRUDA: ele só sai quando a sessão de fato encerra. Usar
+     `status !== 'disconnected'` fazia com que, depois de um erro qualquer, a
+     rede do microfone (a cada 700ms) e o pulso da caixa-preta (um POST a cada
+     30s) ficassem rodando pra sempre numa tela sem conversa nenhuma.
+
+     `sessaoPropria` é o que a gente sabe de verdade: liga no onConnect, desliga
+     no onDisconnect. Com ele, 'error' com a conexão viva mantém a rede do
+     microfone ligada — que é o caso que ela existe pra cobrir — e um
+     encerramento de verdade desliga tudo. */
+  const sessaoViva = (sessaoPropria || status === 'connecting') && status !== 'disconnected';
   const connecting = starting || status === 'connecting';
   const muted = active && conversation.isMuted;
   const speaking = active && conversation.isSpeaking;
