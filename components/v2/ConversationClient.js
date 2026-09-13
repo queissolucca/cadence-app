@@ -25,6 +25,38 @@ function deriveTitle(messages) {
    humor padrão dela. */
 const REACAO_MS = 3800;
 
+/* QUANTAS SESSÕES DE VOZ CABEM NUM CARREGAMENTO DE PÁGINA.
+
+   Medido em WebKit (o mesmo motor do iPhone), dirigindo as classes reais do SDK:
+   cada sessão de voz deixa ~29 MB no processo que o `close()` NÃO devolve. E não
+   é referência pendurada nossa — o motor não devolve o AudioWorkletGlobalScope
+   quando o AudioContext fecha, e o custo é proporcional ao TAMANHO do módulo
+   carregado nele (um módulo vazio do mesmo tamanho vaza igual). Quarenta ciclos
+   levaram o processo de 108 MB a 504 MB, linear, sem patamar.
+
+   A parte sem teto era nossa: o orçamento de retomadas zera a cada toque manual,
+   e nada contava as sessões da PÁGINA. Numa sessão de testes com vários toques,
+   mediram 265 MB em 8 sessões. É esse acúmulo que o Safari mata — e ele explica
+   o formato do relato, que nunca foi "a primeira conversa de uma aba nova" e sim
+   "a aba que já viveu bastante".
+
+   A ÚNICA forma de devolver essa memória é destruir o documento. Então depois de
+   cinco sessões a tela se recarrega — e as condições importam mais que o número:
+   só com a conversa encerrada, ninguém falando, e com folga pra as gravações
+   saírem. Recarregar no meio da conversa seria pior que o problema; e no iOS a
+   política de autoplay exige um gesto pra o áudio voltar, então a recarga tem
+   que cair num momento em que o próximo passo é um toque de qualquer jeito.
+
+   Cinco deixa ~145 MB de sobra acumulada — abaixo de qualquer teto plausível de
+   Jetsam — e é raro o bastante pra quase ninguém topar com a recarga. */
+const MAX_SESSOES_POR_PAGINA = 5;
+const ESPERA_RECARGA_MS = 3000;
+
+/* Vive FORA do componente de propósito: trocar pra "Escrever" e voltar desmonta
+   e remonta a tela, mas não devolve um byte do que o motor já reteve. O que
+   conta é o documento, não a montagem. */
+let sessoesNesteDocumento = 0;
+
 // Qual reação ganha de qual, quando as duas chegam dentro da trava. Corrigir é
 // mais urgente que elogiar: perder um elogio custa carinho, perder uma correção
 // custa a aula.
@@ -122,6 +154,8 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
      o que diz onde mexer. Ver lib/latenciaVoz.js. */
   const medidor = useRef(null);
   const [latencia, setLatencia] = useState(null);
+  const recargaAgendada = useRef(null);
+  useEffect(() => () => clearTimeout(recargaAgendada.current), []);
   // Ver sessaoViva: o status do SDK não serve pra isto.
   const [sessaoPropria, setSessaoPropria] = useState(false);
   const messagesRef = useRef([]); // fonte da verdade pro save (closures não ficam stale)
@@ -289,6 +323,9 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     onConnect: () => {
       startedAtRef.current = Date.now();
       ultimaFalaEm.current = Date.now();
+      sessoesNesteDocumento += 1;
+      // Abriu conversa: a recarga que estava marcada perde a vez.
+      clearTimeout(recargaAgendada.current);
       setSessaoPropria(true);
       medidor.current = criarMedidor();
       setLatencia(null);
@@ -491,6 +528,22 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
       }
 
       if (onEncerrada) onEncerrada();
+
+      /* Passou do teto: devolve a memória do único jeito que existe. A espera é
+         pra as gravações em voo aterrissarem — recarregar por cima delas
+         perderia o último trecho da conversa, que é justamente o que a gravação
+         turno a turno existe pra não perder. */
+      if (sessoesNesteDocumento >= MAX_SESSOES_POR_PAGINA) {
+        clearTimeout(recargaAgendada.current);
+        recargaAgendada.current = setTimeout(() => {
+          try {
+            window.cadenceTrack?.('voz_recarga_memoria', { sessoes: sessoesNesteDocumento });
+          } catch {
+            /* noop */
+          }
+          window.location.reload();
+        }, ESPERA_RECARGA_MS);
+      }
     },
     onMessage: (msg) => {
       const text = msg?.message ?? msg?.text;
@@ -669,6 +722,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     // `automatico` = não foi a pessoa que tocou; foi a retomada depois de o
     // agente ter derrubado a conversa. Muda a 1ª fala e a mensagem de erro.
     const automatico = !!(opcoes && opcoes.automatico);
+    clearTimeout(recargaAgendada.current);   // vai conversar: a recarga espera
     setErrorMsg('');
     setNotConfigured(false);
     pediuParar.current = false;
