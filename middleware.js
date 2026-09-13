@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { destinoDoDominio } from './lib/dominio';
 import { updateSession } from './lib/supabase/middleware';
 import { apiLiberada, ehRotaApi } from './lib/apiAccess';
 import { proximoPasso, TELAS_DE_PASSO } from './lib/funil';
@@ -33,6 +34,25 @@ const LEGACY_REDIRECTS = {
 const LOGIN_REQUIRED_PREFIXES = ['/v2'];
 
 export async function middleware(request) {
+  /* O ENDEREÇO ANTIGO APONTA PRO NOVO — e isto vem ANTES de tudo.
+
+     Antes de qualquer coisa porque quem chega pelo endereço aposentado não vai
+     ficar: não há por que gastar uma verificação de sessão, uma consulta ao banco
+     de acesso, nem tocar num cookie de um domínio que está sendo desligado.
+     Mexer em cookie de sessão no domínio velho, aliás, é pedir problema — o
+     token que vale é o do domínio novo.
+
+     308 e não 301: preserva o método. Um POST que chegue no endereço antigo
+     continua sendo um POST no novo; com 301, parte dos clientes o transforma em
+     GET e o corpo se perde sem erro nenhum. Quem NÃO redireciona está em
+     lib/dominio.js, e a razão é a mesma família de problema. */
+  const enderecoNovo = destinoDoDominio({
+    host: request.headers.get('host'),
+    pathname: request.nextUrl.pathname,
+    search: request.nextUrl.search,
+  });
+  if (enderecoNovo) return NextResponse.redirect(enderecoNovo, 308);
+
   const { response, user, supabase, temCookieDeSessao } = await updateSession(request);
 
   /* NUNCA DESLOGAR POR DÚVIDA.
@@ -66,7 +86,7 @@ export async function middleware(request) {
   }
 
   // A raiz do site é a nova interface (as 33 telas de /comecar), servida por
-  // REWRITE: a URL continua sendo cadenceenglish.app, o conteúdo é o de
+  // REWRITE: a URL continua sendo heycady.com, o conteúdo é o de
   // /comecar. Rewrite e não redirect porque o endereço que a pessoa digitou é o
   // que ela deve continuar vendo na barra — e porque assim o /comecar segue
   // valendo como link direto (é pra onde o /auth/callback devolve quem entra

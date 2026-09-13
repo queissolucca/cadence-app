@@ -192,7 +192,7 @@ export async function POST(request) {
 
 // Diagnóstico (SOMENTE LEITURA) — protegido pelo mesmo segredo. Abra no
 // navegador a MESMA URL do webhook:
-//   https://cadenceenglish.app/api/webhooks/abacatepay?webhookSecret=SEU_SEGREDO
+//   https://heycady.com/api/webhooks/abacatepay?webhookSecret=SEU_SEGREDO
 // Mostra se as envs estão setadas, se as tabelas existem, e os últimos eventos
 // recebidos (pra ver se o AbacatePay está chamando e com qual desfecho).
 export async function GET(request) {

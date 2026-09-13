@@ -1,4 +1,5 @@
 import './comecar.css';
+import { URL_BASE } from '../../lib/dominio';
 
 // Nova interface de entrada (as 33 telas). Vive numa rota própria, ao lado do
 // funil atual (/experimentar → /login → /onboarding → /pagamento), sem
@@ -19,7 +20,7 @@ const RESUMO = 'Você já sabe inglês. É hora de aprender de vez. Cinco minuto
 export const metadata = {
   // Necessário pra as URLs de og:image/canonical saírem absolutas — sem isto o
   // Next emite caminho relativo, que WhatsApp e LinkedIn ignoram.
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://cadenceenglish.app'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || URL_BASE),
   title: TITULO,
   description: RESUMO,
   // Esta rota passou a ser servida na raiz do site, então é ela que aparece

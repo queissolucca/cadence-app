@@ -122,7 +122,7 @@ describe('metodoRecusado (qual método o AbacatePay não aceita)', () => {
 describe('corpoCheckout (o formato que o AbacatePay valida)', () => {
   const base = {
     prodId: 'prod_x', installments: 9, externalId: 'ord_1',
-    baseUrl: 'https://cadenceenglish.app',
+    baseUrl: 'https://heycady.com',
     metadata: { userId: 'u1', email: 'a@b.com', plan: 'pro-trimestral' },
   };
 
@@ -149,8 +149,8 @@ describe('corpoCheckout (o formato que o AbacatePay valida)', () => {
   it('leva o pedido, a volta e o vínculo com o usuário', () => {
     const c = corpoCheckout({ ...base, methods: ['PIX'] });
     expect(c.items).toEqual([{ id: 'prod_x', quantity: 1 }]);
-    expect(c.returnUrl).toBe('https://cadenceenglish.app/pagamento');
-    expect(c.completionUrl).toBe('https://cadenceenglish.app/obrigado');
+    expect(c.returnUrl).toBe('https://heycady.com/pagamento');
+    expect(c.completionUrl).toBe('https://heycady.com/obrigado');
     // Sem metadata o webhook não sabe de quem é o pagamento e o acesso não
     // chega em ninguém — era o bug que abriu este projeto.
     expect(c.metadata.email).toBe('a@b.com');
