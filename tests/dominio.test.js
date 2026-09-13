@@ -49,8 +49,27 @@ describe('quem NÃO pode ser redirecionado', () => {
     expect(destinoDoDominio({ host: 'cadenceenglish.app', pathname: '/api/webhooks/kiwify' })).toBeNull();
   });
 
-  it('a lista de exceções existe e cobre os webhooks', () => {
-    expect(SEM_REDIRECT).toContain('/api/webhooks/');
+  it('a lista de exceções cobre os webhooks', () => {
+    expect(SEM_REDIRECT.some((p) => '/api/webhooks/abacatepay'.startsWith(p))).toBe(true);
+  });
+
+  /* E cobre a API inteira, por uma segunda razão: quem está com o app ABERTO na
+     hora da virada continua no endereço antigo, e as chamadas dele continuam
+     saindo pra lá. Redirecionar um `fetch` pra outro domínio faz o navegador
+     NÃO enviar o cookie de sessão (SameSite=Lax não atravessa cross-site) — a
+     chamada chega sem sessão, volta 401, e o app quebra no meio da conversa de
+     alguém que não fez nada. Sem redirect, a aba velha segue funcionando até a
+     pessoa recarregar. */
+  it('a API inteira fica de fora, pra não quebrar quem está com o app aberto', () => {
+    expect(destinoDoDominio({ host: 'cadenceenglish.app', pathname: '/api/conversations' })).toBeNull();
+    expect(destinoDoDominio({ host: 'cadenceenglish.app', pathname: '/api/convai/signed-url', search: '?agente=cadi' })).toBeNull();
+    expect(destinoDoDominio({ host: 'cadenceenglish.app', pathname: '/api/track/event' })).toBeNull();
+  });
+
+  it('mas as PÁGINAS continuam redirecionando — inclusive as que começam com api no nome', () => {
+    // `/apidocs` não é `/api/`: o prefixo tem a barra de propósito.
+    expect(destinoDoDominio({ host: 'cadenceenglish.app', pathname: '/apidocs' }))
+      .toBe('https://heycady.com/apidocs');
   });
 });
 
