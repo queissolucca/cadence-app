@@ -39,10 +39,19 @@ describe('dúvida sobre a sessão não desloga', () => {
   });
 
   it('só quem não tem cookie nenhum é mandado pro login', () => {
-    // Nenhum redirect pro /login pode mais depender de `!user` cru.
-    const redirects = MW.match(/if \(![^)]*\) return NextResponse\.redirect\(new URL\('\/login'/g) || [];
-    expect(redirects, 'redirect pro login tem que passar por precisaLogar').toEqual([]);
-    expect((MW.match(/if \(precisaLogar\) return NextResponse\.redirect\(new URL\('\/login'/g) || []).length).toBe(2);
+    /* A asserção é sobre a INTENÇÃO, não sobre a forma: antes ela contava
+       ocorrências de um `if` escrito de um jeito só, e quebrava em qualquer
+       refatoração — inclusive numa que mantinha a regra intacta. O que precisa
+       valer é: todo caminho que manda alguém pro /login passa por
+       `precisaLogar`, e nenhum decide por `!user` cru. */
+    const chamadas = [...MW.matchAll(/redirect\(new URL\('\/login'/g)];
+    expect(chamadas.length, 'sumiu o redirect pro login').toBeGreaterThan(0);
+    for (const m of chamadas) {
+      const antes = MW.slice(Math.max(0, m.index - 160), m.index);
+      expect(antes, `redirect pro login sem passar por precisaLogar: ...${antes.slice(-70)}`).toMatch(/precisaLogar/);
+    }
+    expect(MW, 'nenhum redirect pro login pode sair de `!user` cru')
+      .not.toMatch(/if \(!user\)[^\n]*redirect\(new URL\('\/login'/);
   });
 
   /* Sem identidade a tela do app não tem como ser montada (ela é feita do
@@ -50,8 +59,14 @@ describe('dúvida sobre a sessão não desloga', () => {
      erro: uma tela que diz "reconectando" e recarrega sozinha em 2s. O rewrite
      mantém a URL, então o reload volta pra onde a pessoa estava. */
   it('na dúvida, mostra "reconectando" sem sair da URL', () => {
-    expect((MW.match(/if \(semConfirmar\) return reconectando\(\);/g) || []).length).toBe(2);
+    const chamadas = [...MW.matchAll(/reconectando\(\)/g)].filter((m) => MW.slice(m.index - 8, m.index) !== 'const ');
+    expect(chamadas.length, 'sumiu a tela de reconectar').toBeGreaterThan(0);
+    for (const m of chamadas) {
+      const antes = MW.slice(Math.max(0, m.index - 200), m.index);
+      expect(antes, 'reconectar sem passar por semConfirmar').toMatch(/semConfirmar/);
+    }
     expect(MW).toContain("NextResponse.rewrite(new URL('/reconectando'");
+    // A dúvida nunca pode virar logout.
     expect(MW).not.toMatch(/semConfirmar[\s\S]{0,40}redirect\(new URL\('\/login'/);
   });
 

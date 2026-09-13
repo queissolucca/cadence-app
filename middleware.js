@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { destinoDoDominio } from './lib/dominio';
 import { updateSession } from './lib/supabase/middleware';
 import { apiLiberada, ehRotaApi } from './lib/apiAccess';
-import { proximoPasso, TELAS_DE_PASSO } from './lib/funil';
+import { ehTelaPublica, proximoPasso, TELAS_DE_PASSO } from './lib/funil';
 
 // Redirects de rotas antigas/aposentadas — feitos aqui (não com redirect()
 // dentro da page) porque redirect() numa página 100% estática não gera
@@ -202,8 +202,20 @@ export async function middleware(request) {
   // e-mail antigo) é mandado pro passo de verdade em vez de ver um formulário
   // aposentado.
   if (TELAS_DE_PASSO.includes(pathname)) {
-    if (precisaLogar) return NextResponse.redirect(new URL('/login', request.url));
-    if (semConfirmar) return reconectando();
+    /* O /pagamento atende quem ainda não tem conta — é a vitrine do preço, e
+       exigir cadastro antes de mostrar quanto custa é a ordem errada. A tela já
+       sabe renderizar sem usuário; quem estava errado era este portão. Ver
+       TELAS_PUBLICAS em lib/funil.js.
+
+       E na dúvida (cookie que não deu pra confirmar) ela também abre, em vez de
+       mandar pra tela de reconectar: numa página pública, o pior desfecho é
+       prender alguém girando numa coisa que nem precisava de sessão. */
+    if (precisaLogar || semConfirmar) {
+      if (ehTelaPublica(pathname)) return response;
+      return precisaLogar
+        ? NextResponse.redirect(new URL('/login', request.url))
+        : reconectando();
+    }
     const step = await nextStep();
     // Não deu pra saber: fica onde está. Mandar pra algum lugar com base num
     // palpite é o que embaralhava o funil quando o banco engasgava.

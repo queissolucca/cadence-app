@@ -1,4 +1,5 @@
 import { createClient } from '../../lib/supabase/server';
+import { identidade } from '../../lib/sessaoServidor';
 import { PagamentoTela } from './PagamentoTela';
 import { EnviaRespostas } from './EnviaRespostas';
 
@@ -21,9 +22,26 @@ function minutosDe(dailyGoal) {
 
 export default async function PagamentoPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  /* ESTA TELA É PÚBLICA, E NENHUM SOLUÇO PODE ESCONDER O PREÇO.
+
+     Ela virou a vitrine: quem chega sem conta vê o valor e decide. Por isso a
+     identidade é um DETALHE aqui — serve pra personalizar (o e-mail preenchido,
+     os minutos que a pessoa escolheu, a copy de "expirado") e não pra decidir se
+     a página existe.
+
+     Vem do cabeçalho que o middleware já deixou, sem ida à rede, e dentro de um
+     try: o `getUser()` que estava aqui é uma requisição ao servidor de auth a
+     cada visita, e um erro dela derrubava a página inteira — justamente a página
+     onde o dinheiro entra. Falhar pra "anônimo" custa um e-mail não preenchido;
+     falhar pra erro custa a venda. */
+  let eu = null;
+  try {
+    eu = await identidade();
+  } catch {
+    /* segue como visitante */
+  }
+  const user = eu?.id ? eu : null;
 
   // Expirado x nunca-pago mudam a copy, e só isso — os dois caem na mesma
   // cobrança. A consulta é a linha do próprio usuário (o que a RLS permite).
@@ -34,15 +52,21 @@ export default async function PagamentoPage() {
   // elas já chegaram ao banco.
   let jaEnviou = true;
   if (user) {
-    const [pago, onboarding, perfil] = await Promise.all([
-      supabase.from('paid_emails').select('expires_at').eq('email', user.email).maybeSingle(),
-      supabase.from('onboarding').select('daily_goal').eq('user_id', user.id).maybeSingle(),
-      supabase.from('profiles').select('onboarded_at').eq('id', user.id).maybeSingle(),
-    ]);
-    const linha = pago.data;
-    expirado = !!linha?.expires_at && new Date(linha.expires_at) <= new Date();
-    minutos = minutosDe(onboarding.data?.daily_goal);
-    jaEnviou = !!perfil.data?.onboarded_at;
+    /* Mesma regra: isto personaliza, não decide. Uma consulta que falha vira o
+       padrão, e não uma tela de erro. */
+    try {
+      const [pago, onboarding, perfil] = await Promise.all([
+        supabase.from('paid_emails').select('expires_at').eq('email', user.email).maybeSingle(),
+        supabase.from('onboarding').select('daily_goal').eq('user_id', user.id).maybeSingle(),
+        supabase.from('profiles').select('onboarded_at').eq('id', user.id).maybeSingle(),
+      ]);
+      const linha = pago.data;
+      expirado = !!linha?.expires_at && new Date(linha.expires_at) <= new Date();
+      minutos = minutosDe(onboarding.data?.daily_goal);
+      jaEnviou = !!perfil.data?.onboarded_at;
+    } catch {
+      /* fica no padrão: o preço aparece de qualquer jeito */
+    }
   }
 
   return (
