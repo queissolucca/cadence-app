@@ -1,12 +1,28 @@
 'use client';
 
 import { Icon } from './ui';
+import { numeroDoPasso } from '../../lib/comecar/passos';
 
 /* ---- peças de tela reaproveitadas por quase todas as etapas ------------- */
 
 export const Kicker = ({ children, style }) => (
   <span className="kicker" style={style}>{children}</span>
 );
+
+/* O rótulo "PASSO N" das telas de pergunta.
+
+   O número vem da lista em lib/comecar/passos.js e NÃO é escrito aqui nem na
+   tela. Era literal em cada uma das nove telas que o mostram, e isso fazia a
+   numeração se desalinhar em silêncio toda vez que alguém tirasse ou
+   acrescentasse uma pergunta: nada quebra, a pessoa só vê "passo 2, passo 4" e
+   conclui que o produto é malfeito.
+
+   `extra` é o complemento de algumas telas ("escolha quantos quiser"). */
+export const Passo = ({ id, extra, style }) => {
+  const n = numeroDoPasso(id);
+  if (!n) return extra ? <Kicker style={style}>{extra}</Kicker> : null;
+  return <Kicker style={style}>{`Passo ${n}`}{extra ? ` · ${extra}` : ''}</Kicker>;
+};
 
 export const Lede = ({ children, style }) => <p className="lede" style={style}>{children}</p>;
 

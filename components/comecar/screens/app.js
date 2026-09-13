@@ -84,7 +84,66 @@ export function LicaoFim({ go }) {
         { x: 228, y: 62, l: '' }, { x: 295, y: 96, l: 'agora', below: true },
       ]} />
       <Grow />
-      <Cta onClick={() => go('plano')}>ver meu plano</Cta>
+      <Cta onClick={() => go('memoria')}>continuar</Cta>
+    </div>
+  );
+}
+
+/* ---- ela memoriza você --------------------------------------------------- */
+
+/* O DIFERENCIAL, MOSTRADO EM VEZ DE PROMETIDO.
+
+   Esta tela entra entre a lição e o plano por um motivo de ordem: a pessoa
+   ACABOU de pedir água com gás numa conversa. Se a memória for anunciada depois
+   do plano, ela é promessa; aqui, é prova — a coisa que a Cady guardou aconteceu
+   trinta segundos atrás, e a pessoa lembra de ter dito.
+
+   Três exemplos, e cada um prova um mecanismo DIFERENTE — foi a crítica que
+   derrubou a primeira versão, em que dois deles eram "você conta X no dia Y, ela
+   pergunta no dia Y" com roupas diferentes. Três exemplos com dois mecanismos
+   são, na prática, dois: quando a pessoa percebe o molde, para de ler como prova
+   e começa a ler como modelo preenchido.
+     1. o que ela guardou AGORA, da conversa que acabou de acontecer;
+     2. rotina que se repete, com a pergunta caindo NO dia;
+     3. rotina que se repete, com a pergunta caindo NO DIA SEGUINTE.
+
+   E cada um mostra a FRASE que a Cady diz, em inglês. "Ela pergunta como foi a
+   corrida" é o resumo de um exemplo; «how was your run?» é o exemplo. A
+   diferença entre imaginar e ver está inteira nessas aspas — e é ela que amarra
+   o diferencial ao produto: não é um app que lembra da sua vida, é um que lembra
+   da sua vida PRA te fazer falar inglês.
+
+   A lista reusa `.mem` — a mesma que a aba Perfil usa pra mostrar o que a Cady
+   já sabe. Mesma linguagem visual nos dois lugares: o que a pessoa vê aqui como
+   demonstração é literalmente onde aquilo vai morar depois. */
+export function Memoria({ go }) {
+  const fala = (t) => <i style={{ color: 'var(--cady-coroa)', fontStyle: 'normal' }}>{t}</i>;
+  return (
+    <div className="scr">
+      <Kicker>Ela vai te conhecendo</Kicker>
+      <h1 style={{ marginTop: 8 }}>A Cady já lembra<br />de você.</h1>
+      <Lede>Você não preenche ficha nenhuma. Ela aprende conversando — e traz de
+        volta quando faz sentido.</Lede>
+      <ul className="memlist" style={{ marginTop: 18 }}>
+        <li className="mem">
+          <span className="memdot" />
+          <p><b>Agora há pouco</b><br />
+            Você pediu água com gás. Amanhã ela abre com {fala('“still sparkling water?”')}</p>
+        </li>
+        <li className="mem">
+          <span className="memdot" />
+          <p><b>Quarta e sábado</b><br />
+            Conte que corre nesses dias. Na quarta ela pergunta {fala('“how was your run?”')}</p>
+        </li>
+        <li className="mem">
+          <span className="memdot" />
+          <p><b>Segunda de manhã</b><br />
+            Se o seu domingo é de família, ela começa a semana com {fala('“how was Sunday with your family?”')}</p>
+        </li>
+      </ul>
+      <Grow />
+      <Kicker style={{ textAlign: 'center' }}>sozinha, a cada conversa</Kicker>
+      <Cta onClick={() => go('plano')} style={{ marginTop: 10 }}>ver meu plano</Cta>
     </div>
   );
 }
@@ -106,12 +165,16 @@ export function Plano({ go, a }) {
           <div className="rit"><span className="knot" /><span><b>Revisar</b>
             <small>o que travou volta pra você</small></span><span className="dur">1 min</span></div>
           {/* O quarto ponto não é um passo que a pessoa dá: é o que a Cady faz
-              sozinha, e é o diferencial dela. Por isso o nó vem `dim` (marca
-              que é de outra natureza) e o lugar do tempo diz "automático" —
-              justamente porque não custa minuto nenhum do plano. Os três
-              primeiros somam os `min` do dia; este não entra na conta. */}
-          <div className="rit"><span className="knot dim" /><span><b>Memorizar</b>
-            <small>eu guardo seus gostos, objetivos e o seu jeito — sozinha</small></span>
+              sozinha — e é o diferencial dela. O nó já foi `dim`, apagado, pra
+              marcar "outra natureza"; só que apagado, num desenho em que aceso
+              quer dizer pronto, lia como "isso ainda não acontece". Era o
+              contrário do que a tela existe pra dizer. Agora ele acende junto:
+              os quatro fazem parte do mesmo dia. O que continua marcando a
+              diferença é o lugar do tempo — "automático" em vez de minutos,
+              porque este não custa nada do plano e não entra na conta. */}
+          <div className="rit"><span className="knot" /><span><b>Memorizar</b>
+            <small>eu guardo seus gostos, objetivos e o seu jeito! Memorizando tudo
+              de maneira automática e sozinha!</small></span>
             <span className="dur">automático</span></div>
         </div>
       </Card>
@@ -403,8 +466,11 @@ export function Conta({ go, a }) {
     <div className="scr" style={{ justifyContent: 'center' }}>
       <Grow />
       <Wordmark px={26} />
-      <h1 style={{ textAlign: 'center', marginTop: 18 }}>Falta só guardar<br />o seu progresso.</h1>
-      <Lede style={{ textAlign: 'center' }}>Crie sua conta agora!</Lede>
+      {/* Era um título ("Falta só guardar o seu progresso.") com o pedido logo
+          abaixo, em menor, dizendo a mesma coisa. Duas frases pro mesmo trabalho
+          disputam a atenção e nenhuma vence — a que manda virou o título, e a
+          outra saiu. */}
+      <h1 style={{ textAlign: 'center', marginTop: 18 }}>Crie sua conta agora!</h1>
 
       {fase === 'logado' ? (
         <>

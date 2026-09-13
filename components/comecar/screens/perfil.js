@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Cady, CadyViva } from '../Cady';
 import { CurveChart } from '../CurveChart';
 import { Icon, Laurel, WorldMap } from '../ui';
-import { Card, Cta, Ghost, Grow, Kicker, Lede, Opts } from '../shell';
+import { Card, Cta, Ghost, Grow, Kicker, Lede, Opts, Passo } from '../shell';
 import { TEMAS } from '../../../lib/comecar/data';
 import { addDias, fmt, metaDias } from '../../../lib/comecar/datas';
 import { diagnosticoDe } from '../../../lib/comecar/diagnostico';
@@ -14,7 +14,7 @@ const passo = (go, set, chave, destino) => v => { set(chave, v); go(destino); };
 export function Objetivo({ go, a, set }) {
   return (
     <div className="scr">
-      <Kicker>Passo 4</Kicker>
+      <Passo id="objetivo" />
       <h1 style={{ marginTop: 8 }}>Pra que você quer o inglês?</h1>
       <Opts value={a.objetivo} onPick={passo(go, set, 'objetivo', 'bloqueio')} list={[
         { v: 'Viagem', t: 'Viajar sem depender de ninguém', ic: 'plane' },
@@ -30,7 +30,7 @@ export function Objetivo({ go, a, set }) {
 export function Bloqueio({ go, a, set }) {
   return (
     <div className="scr">
-      <Kicker>Passo 5</Kicker>
+      <Passo id="bloqueio" />
       <h1 style={{ marginTop: 8 }}>O que mais te trava?</h1>
       <Opts value={a.bloqueio} onPick={passo(go, set, 'bloqueio', 'hoje')} list={[
         { v: 'Vergonha de errar', t: 'Vergonha de errar', ic: 'scales' },
@@ -46,7 +46,7 @@ export function Bloqueio({ go, a, set }) {
 export function Hoje({ go, a, set }) {
   return (
     <div className="scr">
-      <Kicker>Passo 6</Kicker>
+      <Passo id="hoje" />
       <h1 style={{ marginTop: 8 }}>Quanto você fala inglês em voz alta por semana?</h1>
       <Lede>Em voz alta mesmo — não vale ler ou assistir série.</Lede>
       <Opts value={a.hoje} onPick={passo(go, set, 'hoje', 'prazo')} list={[
@@ -63,8 +63,8 @@ export function Hoje({ go, a, set }) {
 export function Prazo({ go, a, set }) {
   return (
     <div className="scr">
-      <Kicker>Passo 7</Kicker>
-      <h1 style={{ marginTop: 8 }}>Em quanto tempo você quer estar solto?</h1>
+      <Passo id="prazo" />
+      <h1 style={{ marginTop: 8 }}>Em quanto tempo você quer estar confiante no inglês?</h1>
       <Opts value={a.prazo} onPick={passo(go, set, 'prazo', 'horario')} list={[
         { v: '1', t: '1 mês', s: 'ritmo intenso', ic: 'zap' },
         { v: '3', t: '3 meses', s: 'recomendado pra maioria', ic: 'star' },
@@ -78,7 +78,7 @@ export function Prazo({ go, a, set }) {
 export function Horario({ go, a, set }) {
   return (
     <div className="scr">
-      <Kicker>Passo 8</Kicker>
+      <Passo id="horario" />
       <h1 style={{ marginTop: 8 }}>Que horas eu te chamo?</h1>
       <Opts value={a.horario} onPick={passo(go, set, 'horario', 'minutos')} list={[
         { v: 'manha', t: 'De manhã', s: 'antes do dia engolir você', ic: 'sun' },
@@ -94,7 +94,7 @@ export function Horario({ go, a, set }) {
 export function Minutos({ go, a, set }) {
   return (
     <div className="scr">
-      <Kicker>Passo 9</Kicker>
+      <Passo id="minutos" />
       <h1 style={{ marginTop: 8 }}>Quantos minutos cabem no seu dia?</h1>
       <Opts value={a.min} onPick={passo(go, set, 'min', 'temas')} list={[
         { v: 5, t: '5 minutos', s: 'uma conversa curta', ic: 'bars1' },
@@ -114,8 +114,8 @@ export function Temas({ go, a, set }) {
   };
   return (
     <div className="scr">
-      <Kicker>Passo 10 · escolha quantos quiser</Kicker>
-      <h1 style={{ marginTop: 8 }}>Sobre o que a gente conversa?</h1>
+      <Passo id="temas" extra="escolha quantos quiser" />
+      <h1 style={{ marginTop: 8 }}>Sobre o que você quer conversar?</h1>
       <div className="opts">
         {TEMAS.map(t => (
           <button key={t.v} className={`opt ${a.temas.includes(t.v) ? 'sel' : ''}`}

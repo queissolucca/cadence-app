@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Cady, CadyViva } from '../Cady';
 import { Constelacao, Glyph, Icon, WorldMap } from '../ui';
-import { Card, Cta, Ghost, Grow, Kicker, Lede, Opts, Pager, Wordmark } from '../shell';
+import { Card, Cta, Ghost, Grow, Kicker, Lede, Opts, Pager, Passo, Wordmark } from '../shell';
 import { LANGS } from '../../../lib/comecar/data';
 import { useSpeechRecognition } from '../../../lib/useSpeechRecognition';
 import { FRASE_TESTE, compararFala } from '../../../lib/comecar/fala';
@@ -270,24 +270,7 @@ export function Social({ go }) {
       </p>
 
       <Grow />
-      <Cta onClick={() => go('audio')}>continuar</Cta>
-    </div>
-  );
-}
-
-export function Audio({ go, a, set }) {
-  return (
-    <div className="scr">
-      <Kicker>Passo 2</Kicker>
-      <h1 style={{ marginTop: 8 }}>Posso falar em voz alta com você?</h1>
-      <Lede>Eu aprendo mais rápido ouvindo você — mas você manda no volume.</Lede>
-      <Opts value={a.audio} onPick={v => { set('audio', v); go('nivel'); }} list={[
-        { v: 'sempre', t: 'Pode falar sempre', s: 'a conversa inteira em voz', ic: 'volHigh' },
-        { v: 'exercicios', t: 'Só nos exercícios', s: 'o resto eu leio', ic: 'volLow' },
-        { v: 'mudo', t: 'Prefiro no silêncio', s: 'só texto por enquanto', ic: 'volOff' },
-      ]} />
-      <Grow />
-      <Kicker style={{ textAlign: 'center' }}>você muda isso quando quiser</Kicker>
+      <Cta onClick={() => go('nivel')}>continuar</Cta>
     </div>
   );
 }
@@ -295,7 +278,7 @@ export function Audio({ go, a, set }) {
 export function Nivel({ go, a, set }) {
   return (
     <div className="scr">
-      <Kicker>Passo 3</Kicker>
+      <Passo id="nivel" />
       <h1 style={{ marginTop: 8 }}>Onde você está hoje?</h1>
       <Opts value={a.nivel} onPick={v => { set('nivel', v); go('fala'); }} list={[
         { v: 'zero', t: 'Começando do zero', s: 'quase nenhuma palavra', ic: 'sprout' },
