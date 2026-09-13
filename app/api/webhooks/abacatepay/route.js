@@ -4,7 +4,7 @@ import { createAdminClient } from '../../../../lib/supabase/admin';
 import { verifyWebhookSignature, threeMonthsFrom, classifyEvent } from '../../../../lib/payments';
 import {
   ehSaidaDeDinheiro, ehCompraPaga, deepFindEmail, deepFindAmount, deepFindMethod,
-  idsDaCobranca, externalIdsConsultaveis, emailDoCliente,
+  idsDaCobranca, externalIdsConsultaveis, emailDoCliente, normalizarEmail,
 } from '../../../../lib/webhookAbacate';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +34,7 @@ async function resolverEmail(admin, body) {
   if (bills.length) {
     try {
       const r = await admin.from('orders').select('id,email,amount,plan').in('bill_id', bills).limit(1);
-      const e = r.data?.[0]?.email?.trim();
+      const e = normalizarEmail(r.data?.[0]?.email);
       if (e) return { email: e, origem: 'orders.bill_id', pedido: r.data[0] };
     } catch { /* segue pras outras vias */ }
   }
@@ -43,7 +43,7 @@ async function resolverEmail(admin, body) {
   for (const ext of externalIdsConsultaveis(body)) {
     try {
       const r = await admin.from('orders').select('id,email,amount,plan').eq('id', ext).limit(1);
-      const e = r.data?.[0]?.email?.trim();
+      const e = normalizarEmail(r.data?.[0]?.email);
       if (e) return { email: e, origem: 'orders.externalId', pedido: r.data[0] };
     } catch { /* segue */ }
   }

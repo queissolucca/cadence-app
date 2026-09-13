@@ -9,6 +9,7 @@ import { agrupar, memorias } from '../../../lib/comecar/state';
 import { resumoDaMemoria } from '../../../lib/comecar/resumo';
 import {
   abrirCheckout, criarConta, entrarComGoogle, entrarComGoogleExistente, entrarComSenha,
+  reenviarConfirmacao,
   limparRetomada, mensagemDe, salvarRespostas, sessaoAtual, temRetomada,
 } from '../../../lib/comecar/conta';
 import { respostasCompletas } from '../../../lib/comecar/paraApi';
@@ -350,6 +351,7 @@ export function Conta({ go, a }) {
   const [piscar, setPiscar] = useState(false);
   const [vendo, setVendo] = useState(false);
   const [erro, setErro] = useState('');
+  const [reenvio, setReenvio] = useState('');
   const campo = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
 
   /* O convite vive no formulário, não nas 33 telas — então ele entra por fora
@@ -430,7 +432,16 @@ export function Conta({ go, a }) {
     setFase('enviando');
     setErro('');
     try {
-      const { session } = await criarConta(f);
+      const { session, jaExiste } = await criarConta(f);
+      /* E-mail JA CADASTRADO nao vem como erro — vem como sucesso sem sessao,
+         idêntico a um cadastro novo. Sem esta checagem a pessoa via "Confirma
+         seu e-mail" e esperava pra sempre um link que o Supabase nunca mandou
+         (ele nao manda nada quando a conta ja existe). */
+      if (jaExiste) {
+        setErro('Esse e-mail já tem conta. Entra com a sua senha em "já tenho conta · entrar", logo abaixo.');
+        setFase('form');
+        return;
+      }
       // Projeto com confirmação de e-mail ligada: sem sessão não dá pra gravar
       // nada. As respostas ficam no localStorage e a pessoa volta pelo link.
       if (!session) { setFase('confirme'); return; }
@@ -447,6 +458,12 @@ export function Conta({ go, a }) {
     try { await entrarComGoogle(); } catch { setErro('Não consegui abrir o Google. Tenta de novo.'); }
   };
 
+  const reenviar = async () => {
+    setReenvio('enviando');
+    try { await reenviarConfirmacao(f.email); setReenvio('feito'); }
+    catch { setReenvio('erro'); }
+  };
+
   if (fase === 'confirme') {
     return (
       <div className="scr" style={{ justifyContent: 'center', textAlign: 'center' }}>
@@ -455,6 +472,13 @@ export function Conta({ go, a }) {
         <h1 style={{ marginTop: 22 }}>Confirma seu e-mail.</h1>
         <Lede>Mandei um link pra <b>{f.email}</b>. Clica nele e você volta exatamente aqui — suas
           respostas continuam guardadas.</Lede>
+        {/* E-mail de confirmação some com facilidade (spam, filtro, atraso do
+            provedor). Sem uma saída aqui, a única alternativa era recomeçar o
+            cadastro — que, com a conta já criada, não manda nada. */}
+        <Ghost onClick={reenviar} disabled={reenvio === 'enviando'}>
+          {reenvio === 'feito' ? 'link reenviado' : reenvio === 'enviando' ? 'reenviando…' : 'não chegou? reenviar link'}
+        </Ghost>
+        {reenvio === 'erro' && <Erro>Não consegui reenviar agora. Tenta de novo em alguns minutos.</Erro>}
         <Grow />
       </div>
     );
