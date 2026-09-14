@@ -149,7 +149,7 @@ export default function LoginPage() {
             <Lede style={{ textAlign: 'center' }}>
               {recuperando
                 ? 'Digita o e-mail da conta e eu te mando um link pra definir uma senha nova.'
-                : 'Sua constelação está do jeito que você deixou.'}
+                : 'Entre agora e continue sua cadência!'}
             </Lede>
 
             {recuperando ? (

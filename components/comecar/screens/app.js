@@ -606,7 +606,7 @@ export function Login({ go }) {
       <Grow />
       <Wordmark px={28} />
       <h1 style={{ textAlign: 'center', marginTop: 22 }}>Bom te ver de volta.</h1>
-      <Lede style={{ textAlign: 'center' }}>Sua constelação está do jeito que você deixou.</Lede>
+      <Lede style={{ textAlign: 'center' }}>Entre agora e continue sua cadência!</Lede>
       <form onSubmit={entrar} style={{ marginTop: 24 }}>
         <GoogleBtn label="Continuar com Google" onClick={porGoogle} />
         <Field label="E-mail" type="email" placeholder="voce@email.com" autoComplete="email"
