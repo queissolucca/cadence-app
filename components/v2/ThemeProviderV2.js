@@ -6,6 +6,11 @@ import { ThemeProvider } from 'next-themes';
 // pra brilhar sobre fundo escuro. Quem escolheu claro em Ajustes continua no
 // claro (profiles.theme, aplicado pelo ThemeSync).
 //
+// Este defaultTheme cobre só o instante antes do ThemeSync rodar. O padrão de
+// verdade de uma conta nova é o default da coluna profiles.theme (migration
+// 0036) — enquanto ela era 'light', esta linha dizia "dark" e a tela abria
+// clara mesmo assim.
+//
 // attribute="class" alterna a classe "dark" no <html> — só as telas em /v2
 // (que usam os tokens --v2-*/--bg/--ink/etc.) reagem a ela; o resto do app
 // nunca referencia essa classe, então fica inerte a isso.

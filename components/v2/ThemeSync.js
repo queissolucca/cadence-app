@@ -11,8 +11,11 @@ export function ThemeSync({ profileTheme }) {
   const { setTheme } = useTheme();
 
   useEffect(() => {
-    // Default é escuro; só quem escolheu 'light' explicitamente fica no claro
-    // (null/auto/legado caem pro escuro, que é o novo padrão do app).
+    /* Só quem tem 'light' gravado fica no claro; null/auto/legado caem pro
+       escuro. Quem decide o padrão de conta nova é o BANCO, não esta linha:
+       profiles.theme é `not null default 'dark'` desde a migration 0036. Até
+       ela, o default da coluna era 'light' e chegava aqui como escolha
+       explícita — o app se dizia escuro por padrão e abria claro. */
     setTheme(profileTheme === 'light' ? 'light' : 'dark');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileTheme]);
