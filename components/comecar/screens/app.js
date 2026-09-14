@@ -478,6 +478,12 @@ export function Conta({ go, a }) {
         <h1 style={{ marginTop: 22 }}>Confirma seu e-mail.</h1>
         <Lede>Mandei um link pra <b>{f.email}</b>. Clica nele e você volta exatamente aqui — suas
           respostas continuam guardadas.</Lede>
+        {/* Vem ANTES do botão, e não depois, porque é o que a pessoa deve fazer
+            primeiro: um reenvio antes de olhar o spam só produz um segundo
+            e-mail na mesma pasta que ela não viu. Em negrito e na cor cheia
+            porque o texto acima é cinza — se fosse igual, sumiria nele. */}
+        <Lede style={{ fontWeight: 600, color: 'var(--ink)' }}>Pode ter chegado na sua caixa de
+          spam do e-mail, dê uma olhada por lá também antes de reenviar o link!</Lede>
         {/* E-mail de confirmação some com facilidade (spam, filtro, atraso do
             provedor). Sem uma saída aqui, a única alternativa era recomeçar o
             cadastro — que, com a conta já criada, não manda nada. */}
