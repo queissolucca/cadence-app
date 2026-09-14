@@ -181,6 +181,11 @@ h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-
 #phone.dark .cta{background:var(--green);color:#08160e}
 .cta.green{background:var(--green);color:#08160e}
 .ghost{width:100%;padding:13px;font-size:13.5px;font-weight:600;color:var(--ink-soft);margin-top:2px}
+/* Dois atalhos lado a lado ("ja tenho conta" e "recuperar senha"). Cada ghost
+   e width:100% sozinho, entao o flex precisa de min-width:0 pra eles poderem
+   encolher em vez de estourar a largura da tela no telefone. */
+.ghostrow{display:flex;gap:6px}
+.ghostrow .ghost{min-width:0;flex:1}
 #phone.dark .ghost{color:var(--dk-soft)}
 
 /* opções */

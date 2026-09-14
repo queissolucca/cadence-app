@@ -352,6 +352,9 @@ export function Conta({ go, a }) {
   const [vendo, setVendo] = useState(false);
   const [erro, setErro] = useState('');
   const [reenvio, setReenvio] = useState('');
+  // Guarda QUAL e-mail ja tem conta, nao um booleano: assim o aviso some
+  // sozinho quando a pessoa corrige o campo, sem precisar limpar na mao.
+  const [emailComConta, setEmailComConta] = useState('');
   const campo = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
 
   /* O convite vive no formulário, não nas 33 telas — então ele entra por fora
@@ -421,7 +424,8 @@ export function Conta({ go, a }) {
   // Um espaço no fim é uma senha diferente na hora de entrar.
   const senhaCurta = f.senha.length > 0 && f.senha.length < 8;
   const naoBate = f.senha2.length > 0 && f.senha2 !== f.senha;
-  const podeEnviar = f.nome.trim() && f.sobrenome.trim() && f.email.trim()
+  const jaTemConta = !!emailComConta && f.email.trim().toLowerCase() === emailComConta;
+  const podeEnviar = !jaTemConta && f.nome.trim() && f.sobrenome.trim() && f.email.trim()
     // `aceito` NÃO entra aqui de propósito — ver exigirAceite acima.
     && f.senha.length >= 8 && f.senha2 === f.senha && respostasCompletas(a);
 
@@ -438,7 +442,7 @@ export function Conta({ go, a }) {
          seu e-mail" e esperava pra sempre um link que o Supabase nunca mandou
          (ele nao manda nada quando a conta ja existe). */
       if (jaExiste) {
-        setErro('Esse e-mail já tem conta. Entra com a sua senha em "já tenho conta · entrar", logo abaixo.');
+        setEmailComConta(f.email.trim().toLowerCase());
         setFase('form');
         return;
       }
@@ -516,7 +520,8 @@ export function Conta({ go, a }) {
                 value={f.sobrenome} onChange={campo('sobrenome')} />
             </div>
             <Field label="E-mail" type="email" placeholder="voce@email.com" autoComplete="email"
-              value={f.email} onChange={campo('email')} />
+              value={f.email} onChange={campo('email')}
+              erro={jaTemConta ? 'Esse e-mail já possui conta.' : ''} />
 
             <div className="field">
               <label>Senha</label>
@@ -554,7 +559,13 @@ export function Conta({ go, a }) {
             </Cta>
           </form>
           {erro && <Erro>{erro}</Erro>}
-          <Ghost onClick={() => go('login')}>já tenho conta · entrar</Ghost>
+          <div className="ghostrow">
+            <Ghost onClick={() => go('login')}>já tenho conta · entrar</Ghost>
+            {/* A recuperacao mora na pagina /login (resetPasswordForEmail), nao
+                nestas telas. As respostas vivem no localStorage, entao sair
+                daqui e voltar depois nao perde nada. */}
+            <Ghost onClick={() => { window.location.href = '/login?recuperar=1'; }}>recuperar senha</Ghost>
+          </div>
         </>
       )}
       <Grow />

@@ -42,10 +42,11 @@ export const Ghost = ({ children, onClick, style }) => (
   <button className="ghost" onClick={onClick} style={style}>{children}</button>
 );
 
-export const Field = ({ label, ...rest }) => (
+export const Field = ({ label, erro, ...rest }) => (
   <div className="field">
     <label>{label}</label>
-    <input {...rest} />
+    <input {...rest} aria-invalid={erro ? 'true' : undefined} className={erro ? 'ruim' : undefined} />
+    {erro && <p className="fielderr">{erro}</p>}
   </div>
 );
 

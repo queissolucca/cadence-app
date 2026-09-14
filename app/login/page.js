@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '../../lib/supabase/client';
 import { Constellation } from '../../components/comecar/Constellation';
 import { Icon, SphereDefs } from '../../components/comecar/ui';
@@ -37,6 +37,19 @@ const Erro = ({ children }) => (
 
 export default function LoginPage() {
   const [modo, setModo] = useState('entrar');  // entrar | recuperar | enviado
+
+  /* `?recuperar=1` abre direto na recuperacao: e por onde a tela de cadastro
+     manda quem descobriu ali que o e-mail ja tem conta.
+
+     Tem que ser efeito, e nao valor inicial do useState: esta pagina e
+     renderizada no servidor antes de hidratar, e la `window` nao existe. Ler a
+     query no inicializador daria 'entrar' no HTML do servidor e 'recuperar' no
+     cliente — divergencia de hidratacao. */
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).get('recuperar') === '1') setModo('recuperar');
+    } catch { /* sem query, segue em 'entrar' */ }
+  }, []);
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [vendo, setVendo] = useState(false);
