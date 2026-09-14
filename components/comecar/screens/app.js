@@ -133,13 +133,15 @@ export function Memoria({ go }) {
         </li>
         <li className="mem">
           <span className="memdot" />
-          <p><b>Quarta e sábado</b><br />
-            Conte que corre nesses dias. Na quarta ela pergunta {fala('“how was your run?”')}</p>
+          <p><b>Você conta e ela lembra de você</b><br />
+            Exemplo: conte que você gosta de correr às quartas e sábados — nesses
+            dias, ela pergunta {fala('“how was your morning run?”')}</p>
         </li>
         <li className="mem">
           <span className="memdot" />
-          <p><b>Segunda de manhã</b><br />
-            Se o seu domingo é de família, ela começa a semana com {fala('“how was Sunday with your family?”')}</p>
+          <p><b>Ela te ajuda com seus objetivos pessoais</b><br />
+            Exemplo: você conta que quer viajar daqui a 30 dias — e, um dia antes,
+            ela pergunta {fala('“is everything ready for your trip tomorrow?”')}</p>
         </li>
       </ul>
       <Grow />

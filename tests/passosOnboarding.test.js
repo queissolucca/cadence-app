@@ -92,10 +92,19 @@ describe('a tela nova da memória', () => {
     expect(iMem).toBeLessThan(iPla);
   });
 
+  /* A tela inteira, do `export function Memoria` até o próximo `export`. Antes
+     era `slice(i, i + 2600)`: um número mágico que passava a cortar a tela no
+     meio assim que alguém escrevesse um texto mais longo, fazendo os testes
+     falharem por um motivo que não tem nada a ver com o que eles checam. */
+  const telaMemoria = () => {
+    const i = APP.indexOf('export function Memoria');
+    const fim = APP.indexOf('\nexport ', i + 1);
+    return APP.slice(i, fim === -1 ? undefined : fim);
+  };
+
   it('a lição leva a ela, e ela leva ao plano', () => {
     expect(APP).toMatch(/<Cta onClick=\{\(\) => go\('memoria'\)\}>continuar<\/Cta>/);
-    const i = APP.indexOf('export function Memoria');
-    expect(APP.slice(i, i + 2600)).toContain("go('plano')");
+    expect(telaMemoria()).toContain("go('plano')");
   });
 
   it('não é um passo numerado — é demonstração, não pergunta', () => {
@@ -106,17 +115,23 @@ describe('a tela nova da memória', () => {
      mecanismos são, na prática, dois: quando a pessoa percebe o molde, para de
      ler como prova e lê como modelo preenchido. */
   it('mostra a frase que a Cady DIZ, e não um resumo dela', () => {
-    const i = APP.indexOf('export function Memoria');
-    const tela = APP.slice(i, i + 2600);
-    for (const fala of ['sparkling water', 'how was your run', 'how was Sunday with your family']) {
-      expect(tela, `faltou a fala "${fala}"`).toContain(fala);
+    /* Prende no MECANISMO, não nas palavras. A versão anterior listava as três
+       falas em inglês literalmente, e quebrava em qualquer reescrita de texto
+       que mantivesse a promessa intacta — o teste virava trabalho em vez de
+       proteção. O que não pode voltar é o card terminar num resumo em
+       português ("ela pergunta como foi sua corrida") em vez da fala dela. */
+    const falas = [...telaMemoria().matchAll(/fala\('“([^”]+)”'\)/g)].map((m) => m[1]);
+    expect(falas, 'são três exemplos, cada um com uma fala').toHaveLength(3);
+    for (const f of falas) {
+      expect(f.split(/\s+/).length, `"${f}" é curto demais pra ser uma fala`).toBeGreaterThan(2);
+      // Acento de português na "fala em inglês" significa que virou resumo.
+      expect(f, `"${f}" não está em inglês`).not.toMatch(/[ãâáàçõôóêéíú]/i);
     }
   });
 
   it('o primeiro exemplo é da conversa que acabou de acontecer', () => {
     // É o que separa prova de promessa: a memória aconteceu 30 segundos atrás.
-    const i = APP.indexOf('export function Memoria');
-    expect(APP.slice(i, i + 2600)).toContain('Agora há pouco');
+    expect(telaMemoria()).toContain('Agora há pouco');
   });
 });
 
