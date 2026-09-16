@@ -65,7 +65,8 @@ export function LicaoFala({ go }) {
           &ldquo;Sparkling water, please.&rdquo;</p>
       </Card>
       <Grow />
-      <Mic onDone={() => go('licao-fim')} hintOuvindo="estou te ouvindo…"
+      <Mic onDone={() => go('licao-fim')} onPular={() => go('licao-fim')}
+        hintOuvindo="estou te ouvindo…"
         hintFim="boa! fechando a conversa…" />
       <Grow />
     </div>

@@ -6,7 +6,7 @@ import { Constelacao, Glyph, Icon, WorldMap } from '../ui';
 import { Card, Cta, Ghost, Grow, Kicker, Lede, Opts, Pager, Passo, Wordmark } from '../shell';
 import { LANGS } from '../../../lib/comecar/data';
 import { useSpeechRecognition } from '../../../lib/useSpeechRecognition';
-import { FRASE_TESTE, compararFala } from '../../../lib/comecar/fala';
+import { FRASE_TESTE, PULOU, compararFala } from '../../../lib/comecar/fala';
 
 export function Splash({ go }) {
   return (
@@ -301,7 +301,7 @@ export function Nivel({ go, a, set }) {
    O fallback importa: Firefox não tem a API, e em qualquer navegador a pessoa
    pode negar o microfone. Nesses casos a tela continua andando e o feedback diz
    que não ouviu, em vez de inventar um resultado. */
-export function Mic({ onDone, reconhecer = false, hintInicial = 'toque para falar', hintOuvindo, hintFim }) {
+export function Mic({ onDone, onPular, reconhecer = false, hintInicial = 'toque para falar', hintOuvindo, hintFim }) {
   const [fase, setFase] = useState('parado');
   const ondas = useRef(null);
   const fala = useSpeechRecognition({ lang: 'en-US' });
@@ -342,6 +342,32 @@ export function Mic({ onDone, reconhecer = false, hintInicial = 'toque para fala
         {fase === 'fim' && <Glyph name="clock" size={28} />}
       </button>
       <p className="mic-hint">{hint}</p>
+
+      {/* A saída pra quem não pode falar AGORA: ônibus, escritório aberto, bebê
+          dormindo. Sem isto, a única alternativa é abandonar o onboarding — e
+          quem está num lugar silencioso é exatamente quem mais precisa de um
+          app pra treinar fala em particular.
+
+          Continua disponível DURANTE a gravação (se o microfone não pegar, a
+          pessoa ainda tem como sair) e some só na fase 'fim', quando a tela já
+          está avançando sozinha. */}
+      {onPular && fase !== 'fim' && (
+        <button type="button" className="pular" onClick={() => {
+          // Encerra o reconhecimento antes de sair: deixar o microfone aberto
+          // numa tela que já passou acende a luzinha do aparelho e assusta com
+          // razão.
+          if (reconhecer && fala.supported && fala.recording) {
+            try { fala.toggle(); } catch { /* já parado */ }
+          }
+          onPular();
+        }}>
+          <span className="pular-ic"><Glyph name="volOff" size={19} /></span>
+          <span>
+            <b>Não consigo falar agora</b>
+            <small>pular esta etapa</small>
+          </span>
+        </button>
+      )}
     </>
   );
 }
@@ -358,6 +384,7 @@ export function Fala({ go, set }) {
       </Card>
       <Grow />
       <Mic reconhecer onDone={texto => { set('fala', texto); go('feedback'); }}
+        onPular={() => { set('fala', PULOU); go('feedback'); }}
         hintOuvindo="toque pra parar quando terminar"
         hintFim="analisando sua fala…" />
       <Grow />
@@ -375,7 +402,7 @@ export function Feedback({ go, a }) {
 
   return (
     <div className="scr" style={{ textAlign: 'center' }}>
-      <Kicker>{r.ouviu ? 'Você disse' : 'A frase era'}</Kicker>
+      <Kicker>{r.ouviu ? 'Você disse' : r.pulou ? 'Fica pra depois' : 'A frase era'}</Kicker>
       <Card className="card-dark"
         style={{ background: 'var(--dark-soft)', marginTop: 12, textAlign: 'left' }}>
         <p style={{ fontFamily: 'var(--f-display)', fontSize: 19 }}>
@@ -400,6 +427,14 @@ export function Feedback({ go, a }) {
           <h2>{r.completa ? 'Olha só — saiu inteira.' : 'Boa — já dá pra trabalhar em cima disso.'}</h2>
           <Lede>Esse é o ponto de partida. Agora eu preciso saber pra onde você quer ir.</Lede>
         </>
+      ) : r.pulou ? (
+        <>
+          {/* Quem pulou fez uma escolha; a tela não pode tratar isso como falha
+              nem insinuar que o microfone deu erro. */}
+          <h2>Sem problema.</h2>
+          <Lede>A gente faz esse teste no seu primeiro dia, num lugar onde dê pra falar.
+            O resto do plano não depende dele.</Lede>
+        </>
       ) : (
         <>
           <h2>Não consegui te ouvir agora.</h2>
@@ -413,16 +448,23 @@ export function Feedback({ go, a }) {
   );
 }
 
-export function Conquista1({ go }) {
+export function Conquista1({ go, a }) {
+  /* Quem pulou o teste não falou frase nenhuma. Comemorar "1ª frase falada" ali
+     é o app afirmando algo que não aconteceu — e a pessoa sabe disso, o que
+     estraga a credibilidade de todas as outras comemorações do fluxo. */
+  const falou = !!compararFala(a?.fala).ouviu;
+
   return (
     <div className="scr" style={{ textAlign: 'center', justifyContent: 'center' }}>
       <Grow />
-      <Kicker>Primeiro ponto aceso</Kicker>
+      <Kicker>{falou ? 'Primeiro ponto aceso' : 'Seu ponto de partida'}</Kicker>
       <div className="medal" style={{ marginTop: 16 }}><Glyph name="spark" size={40} /></div>
-      <h1 style={{ marginTop: 20 }}>1ª frase falada</h1>
-      <Lede>Você não estudou uma regra. Você falou. É exatamente assim que a gente vai continuar.</Lede>
-      <Constelacao lit={1} nodes={[
-        { x: 60, y: 95, l: 'você está aqui' }, { x: 150, y: 70, l: '' },
+      <h1 style={{ marginTop: 20 }}>{falou ? '1ª frase falada' : 'O caminho já existe'}</h1>
+      <Lede>{falou
+        ? 'Você não estudou uma regra. Você falou. É exatamente assim que a gente vai continuar.'
+        : 'Falar é o primeiro ponto, e ele acende no seu primeiro dia. Agora vamos montar o resto.'}</Lede>
+      <Constelacao lit={falou ? 1 : 0} nodes={[
+        { x: 60, y: 95, l: falou ? 'você está aqui' : 'primeiro ponto' }, { x: 150, y: 70, l: '' },
         { x: 240, y: 100, l: '' }, { x: 300, y: 64, l: '' },
       ]} />
       <Grow />

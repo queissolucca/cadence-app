@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /* Conta nova tem que abrir no ESCURO.
 
@@ -11,7 +12,11 @@ import { join } from 'node:path';
    'light' GRAVADO, que o ThemeSync corretamente obedecia. Dois comentários
    afirmando um padrão que o banco desmentia. */
 
-const raiz = new URL('../', import.meta.url).pathname;
+/* fileURLToPath e não `.pathname`: o pathname de uma file:// URL vem
+   percent-encoded, então a pasta deste projeto ("0. Projects/0. Cadence Nova")
+   chegava como "0.%20Projects" e o readdirSync abaixo estourava ENOENT. O teste
+   falhava por causa do espaço no caminho, não por causa do que ele afirma. */
+const raiz = fileURLToPath(new URL('../', import.meta.url));
 const ler = (p) => readFileSync(join(raiz, p), 'utf8');
 const migrations = readdirSync(join(raiz, 'supabase/migrations')).sort();
 const todasAsMigrations = migrations.map((f) => ler(join('supabase/migrations', f))).join('\n');
