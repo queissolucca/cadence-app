@@ -272,8 +272,11 @@ export function Tonalidade({ go, a, set }) {
       <Card className="card-green"
         style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <Glyph name="bulb" size={20} />
-        <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--dk-soft)' }}>
-          Quem escolhe <b style={{ color: '#f2f2ea' }}>agressivo</b> destrava mais rápido — apanhar
+        {/* Eram cores do tema escuro (--dk-soft e #f2f2ea) escritas direto no
+            style. Enquanto a tela só existia no escuro ninguém via; no claro,
+            o destaque virava branco no branco. */}
+        <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-soft)' }}>
+          Quem escolhe <b style={{ color: 'var(--ink)' }}>agressivo</b> destrava mais rápido — apanhar
           na correção gruda mais do que ser poupado. Mas você troca quando quiser, no seu perfil.
         </p>
       </Card>

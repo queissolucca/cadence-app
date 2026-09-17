@@ -17,9 +17,11 @@ import { montarConstelacao } from '../../lib/constelacao';
       pointer-events:none (senão engoliria os cliques) e está preso à viewport;
       escutar o pai deixaria a malha morta em toda área que o pai não cobre. */
 
-const ESCURO = { linha: '62,155,95', ponto: '62,155,95', toque: '143,240,192', alpha: 1 };
-// No creme do tema claro o verde cheio fica pesado, e o mint desaparece.
-const CLARO = { linha: '62,155,95', ponto: '62,155,95', toque: '44,115,71', alpha: 0.7 };
+/* As duas paletas moram em lib/constelacao.js agora. Estavam duplicadas aqui,
+   com valores JÁ divergentes dos de lá — a do claro tinha alpha 0.7 e linha no
+   verde cheio, enquanto o estudo aprovou linha em verde escuro e alpha 1.155.
+   Duas fontes pra mesma decisão é como elas divergem sem ninguém ver. */
+import { CORES_ESCURAS as ESCURO, CORES_CLARAS as CLARO } from '../../lib/constelacao';
 
 export function ConstellationBg() {
   const ref = useRef(null);

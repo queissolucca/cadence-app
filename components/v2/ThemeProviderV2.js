@@ -2,21 +2,23 @@
 
 import { ThemeProvider } from 'next-themes';
 
-// Escuro por padrão: o app é uma conversa com a Cady, e ela foi desenhada
-// pra brilhar sobre fundo escuro. Quem escolheu claro em Ajustes continua no
-// claro (profiles.theme, aplicado pelo ThemeSync).
+// Claro por padrão, de novo. Foi escuro por três dias (migrations 0036) e
+// voltou: o onboarding inteiro virou claro/vidro, e entrar no app era cair
+// num buraco preto logo depois de 32 telas de papel.
+// Quem escolheu escuro em Ajustes continua no escuro (profiles.theme, aplicado
+// pelo ThemeSync).
 //
 // Este defaultTheme cobre só o instante antes do ThemeSync rodar. O padrão de
 // verdade de uma conta nova é o default da coluna profiles.theme (migration
-// 0036) — enquanto ela era 'light', esta linha dizia "dark" e a tela abria
-// clara mesmo assim.
+// 0037) — os dois têm que dizer a mesma coisa, ou a tela abre de um jeito e
+// vira de outro meio segundo depois.
 //
 // attribute="class" alterna a classe "dark" no <html> — só as telas em /v2
 // (que usam os tokens --v2-*/--bg/--ink/etc.) reagem a ela; o resto do app
 // nunca referencia essa classe, então fica inerte a isso.
 export function ThemeProviderV2({ children }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
       {children}
     </ThemeProvider>
   );

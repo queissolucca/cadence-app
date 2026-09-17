@@ -1001,3 +1001,176 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
   .vzcard{scroll-snap-align:center}
   .vzclone{display:none}
 }
+
+/* ===================================================================
+   VIDRO — a virada de tema das 32 telas.
+
+   O que este bloco NÃO faz: escrever um tema claro. Ele já existia — toda a
+   folha acima tem base clara, e o escuro sempre foi 53 regras `#phone.dark`
+   por cima. Tirar a classe no App.js revelou a base. Aqui entra só o que o
+   claro não tinha: o vidro, a malha acesa e a escala secundária mais escura.
+
+   Valores validados no estudo: fundo Glass, malha 66%, densidade 155%,
+   ímã 90%. Os dois últimos moram em lib/constelacao.js.
+   =================================================================== */
+
+#phone.vidro{
+  /* Degradê, e não cor chapada, porque desfoque precisa de algo pra borrar:
+     sobre branco liso o backdrop-filter não produz efeito nenhum. */
+  background:linear-gradient(158deg,#EAF6EE 0%,#F4F7F2 34%,#FBF6EC 68%,#E9F1F4 100%);
+  color:var(--ink);
+
+  /* A escala secundária desce um degrau inteiro. Os números são o contraste
+     contra o cartão: o cinza de antes reprovava em texto pequeno. */
+  --ink-soft:#43463F;     /* 9.4:1  — era #7a7a72 (4.4:1) */
+  --ink-tenue:#63665D;    /* 5.9:1 */
+  --line:#D9DCD7;
+  --vidro:rgba(255,255,255,.52);
+  --vidro-borda:rgba(255,255,255,.78);
+  --vidro-luz:0 1px 1px rgba(255,255,255,.75) inset,0 6px 18px rgba(40,60,45,.09);
+  --desfoque:blur(18px) saturate(175%);
+  --green-escuro:#205C39;
+}
+
+/* A malha estava acesa só no escuro (#canvas nasce com opacity:0). */
+#phone.vidro #canvas{opacity:1}
+
+/* As superfícies. Agrupadas porque são o MESMO material — separá-las é como
+   elas divergem depois, uma ganhando borda e a outra não. */
+#phone.vidro .card,
+#phone.vidro .opt,
+#phone.vidro .mem,
+#phone.vidro .gbtn,
+#phone.vidro .bubble.them,
+#phone.vidro .field input,
+#phone.vidro .fieldeye input{
+  background:var(--vidro);
+  border-color:var(--vidro-borda);
+  backdrop-filter:var(--desfoque);
+  -webkit-backdrop-filter:var(--desfoque);
+  box-shadow:var(--vidro-luz);
+}
+
+/* O CTA fica verde escuro. A base clara o pintava de --ink (quase preto), e
+   sobre vidro um bloco preto é a única coisa que não parece pertencer. */
+#phone.vidro .cta{background:var(--green-escuro);color:#F4FBF6;
+  box-shadow:0 2px 8px rgba(32,92,57,.26)}
+#phone.vidro .cta.green{background:var(--green-escuro);color:#F4FBF6}
+
+/* Selecionado: verde cheio em vez de translúcido — o estado escolhido tem que
+   ser o único opaco da lista, senão some no meio do vidro. */
+#phone.vidro .opt.sel{background:#DCEBE1;border-color:var(--green-escuro);
+  backdrop-filter:none;-webkit-backdrop-filter:none}
+#phone.vidro .opt .ic{background:#DCEBE1;border:1px solid #A9CDB6;color:var(--green-escuro)}
+
+#phone.vidro .kicker,#phone.vidro .lede{color:var(--ink-soft)}
+#phone.vidro .back{color:var(--ink);border-color:var(--vidro-borda);
+  background:var(--vidro);backdrop-filter:var(--desfoque);-webkit-backdrop-filter:var(--desfoque)}
+
+/* O mint da marca (#8FF0C0) tem 1,3:1 no branco — some. Onde ele carregava
+   texto (destaque do diagnóstico, falas em inglês da memória), vira verde
+   escuro; onde carregava fundo, fica como está. */
+#phone.vidro [style*="--cady-coroa"],
+#phone.vidro .memlist i{color:#086443 !important}
+
+/* ---- DEGRADAÇÃO ----
+   backdrop-filter é caro e nem todo aparelho tem. Sem ele, um fundo
+   translúcido sobre um degradê vira uma mancha suja: então o vidro cai pra
+   uma cor sólida equivalente, que é o mesmo desenho sem o custo.
+   Também vale pra quem pediu menos movimento — desfoque em tela cheia é
+   exatamente o tipo de efeito que essa preferência quer evitar. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  #phone.vidro{--vidro:rgba(255,255,255,.88);--desfoque:none}
+}
+@media (prefers-reduced-motion:reduce){
+  #phone.vidro{--vidro:rgba(255,255,255,.88);--desfoque:none}
+}
+
+/* ---- O QUE A BASE CLARA NUNCA TEVE ----
+   Estas regras nasceram sem escopo mas com valores de tema ESCURO: enquanto o
+   #phone era sempre .dark elas pareciam certas, e no claro viram texto claro
+   sobre fundo claro. Cada uma abaixo é uma tela que ficaria ilegível. */
+
+/* lista de memórias — texto #E6E1E4 sobre gradiente quase preto */
+#phone.vidro .mem{background:var(--vidro);border:1px solid var(--vidro-borda);
+  box-shadow:var(--vidro-luz)}
+#phone.vidro .mem p{color:var(--ink-soft)}
+#phone.vidro .memx{color:var(--ink-tenue)}
+#phone.vidro .memadd input{color:var(--ink);background:var(--vidro);
+  border-color:var(--vidro-borda);backdrop-filter:var(--desfoque);
+  -webkit-backdrop-filter:var(--desfoque)}
+#phone.vidro .memadd input::placeholder{color:var(--ink-tenue)}
+
+/* painel "seu ritual" da tela gerando — mesmo problema, e o valor em mint */
+#phone.vidro .gsum div{background:var(--vidro);border:1px solid var(--vidro-borda);
+  box-shadow:var(--vidro-luz);backdrop-filter:var(--desfoque);
+  -webkit-backdrop-filter:var(--desfoque)}
+#phone.vidro .gsum b{color:var(--ink)}
+#phone.vidro .gsum span{color:#086443}
+
+/* selo de louros — texto claro com sombra preta, feito pra brilhar no escuro */
+#phone.vidro .lquote{color:var(--ink);text-shadow:none}
+#phone.vidro .lstars{color:#A8791A;text-shadow:none}
+#phone.vidro .lsub{color:var(--ink-tenue)}
+#phone.vidro .lbranch{opacity:.5}
+
+/* A CAIXA DE 3 MESES, clara.
+   Era gradiente quase preto. Vira papel verde com anel verde: continua sendo o
+   bloco mais cheio da tela — por saturação e borda, não por escuridão. O selo
+   -70% inverte junto, porque era mint sobre preto. */
+#phone.vidro .plancard{background:#DCEBE1;border:1.5px solid #A9CDB6;
+  box-shadow:0 6px 18px rgba(32,92,57,.13);color:var(--ink)}
+#phone.vidro .plancard .priceoff{background:var(--green-escuro);color:#EAF7EF}
+#phone.vidro .plancard .plantag{color:#F4FBF6}
+#phone.vidro .plancard .planfoot,
+#phone.vidro .plancard .planlist li{color:var(--ink-soft)}
+#phone.vidro .plancard .priceold{color:var(--ink-tenue)}
+#phone.vidro .plancard .pricenow{color:var(--ink)}
+
+/* balões da lição: o "them" já entrou no vidro lá em cima; o texto não */
+#phone.vidro .bubble.them{color:var(--ink)}
+#phone.vidro .card-dark{background:var(--vidro);border:1px solid var(--vidro-borda);
+  color:var(--ink);backdrop-filter:var(--desfoque);-webkit-backdrop-filter:var(--desfoque)}
+
+/* ---- as que a varredura pegou depois ----
+   Achadas medindo a luminância de cada valor sem escopo: texto acima de 0.62
+   some no claro, fundo abaixo de 0.16 não pertence ao vidro. Estas são as que
+   restaram depois de descartar branco-sobre-verde e as esferas em degradê. */
+
+/* O PREÇO. Era #F4F2EC num cartão quase preto — o número mais importante da
+   tela ficaria branco no branco. */
+#phone.vidro .pricenew{color:var(--ink)}
+#phone.vidro .planlist li{color:var(--ink-soft)}
+
+/* botão do Google: entrou no vidro, mas o texto continuou claro */
+#phone.vidro .gbtn{color:var(--ink)}
+
+/* aba Você — cartões de navegação e a folha de memórias */
+#phone.vidro .navcard{background:var(--vidro);border:1px solid var(--vidro-borda);
+  box-shadow:var(--vidro-luz);backdrop-filter:var(--desfoque);
+  -webkit-backdrop-filter:var(--desfoque)}
+#phone.vidro .navrow b{color:var(--ink)}
+#phone.vidro .navrow .np{color:#086443;background:#DCEBE1}
+#phone.vidro .navrow .nch{color:var(--ink-tenue)}
+#phone.vidro .sheet{background:rgba(252,253,251,.88);
+  backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);
+  color:var(--ink);border-top:1px solid var(--vidro-borda)}
+#phone.vidro .sheetx:hover,#phone.vidro .sheetx:focus-visible{color:var(--ink)}
+#phone.vidro .memedit{color:var(--ink);background:var(--vidro);
+  border:1px solid var(--vidro-borda)}
+#phone.vidro .memact .mm-ed:hover,#phone.vidro .memact .mm-ed:focus-visible{color:#086443}
+
+/* O que fica ATRÁS do aparelho, no desktop: era quase preto, e emoldurar uma
+   tela de vidro com um vazio preto desfaz o efeito inteiro. */
+html:root:has(#phone.vidro),
+body:has(#phone.vidro){background:#E9EDE9}
+
+/* ---- a saída "não consigo falar agora", no vidro ----
+   Chegou num commit paralelo, já com `#phone.dark` — e essas regras morreram
+   quando a classe saiu. O que precisa de tradução é a pastilha do ícone:
+   branco a 6% sobre cartão claro é invisível. */
+#phone.vidro .pular{background:var(--vidro);border-color:var(--vidro-borda);
+  backdrop-filter:var(--desfoque);-webkit-backdrop-filter:var(--desfoque);
+  box-shadow:var(--vidro-luz)}
+#phone.vidro .pular:hover{border-color:#A9CDB6;background:rgba(255,255,255,.72)}
+#phone.vidro .pular-ic{background:#DCEBE1;color:#086443}

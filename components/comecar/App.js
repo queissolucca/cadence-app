@@ -57,7 +57,10 @@ export function App() {
   return (
     <>
       <SphereDefs />
-      <div id="phone" className="dark">
+      {/* O `className="dark"` saiu daqui. A folha do /comecar sempre teve a
+          base CLARA com 53 regras `#phone.dark` por cima — o tema claro já
+          existia inteiro, só estava coberto. Tirar a classe o revela. */}
+      <div id="phone" className="vidro">
         <Constellation />
 
         <div id="trail" className={tela.bare ? 'hide' : ''}>
