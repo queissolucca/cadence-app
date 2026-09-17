@@ -377,7 +377,7 @@ export function Fala({ go, set }) {
     <div className="scr" style={{ textAlign: 'center' }}>
       <Kicker>Teste rápido</Kicker>
       <h2 style={{ marginTop: 10 }}>Repete comigo:</h2>
-      <Card className="card-dark" style={{ background: 'var(--dark-soft)', marginTop: 18 }}>
+      <Card className="card-dark" style={{ marginTop: 18 }}>
         <p style={{ fontFamily: 'var(--f-display)', fontSize: 21, lineHeight: 1.35 }}>
           &ldquo;I&rsquo;d like a table for two, please.&rdquo;</p>
         <Lede style={{ marginTop: 8, fontSize: 13 }}>uma mesa para dois, por favor</Lede>
@@ -404,7 +404,7 @@ export function Feedback({ go, a }) {
     <div className="scr" style={{ textAlign: 'center' }}>
       <Kicker>{r.ouviu ? 'Você disse' : r.pulou ? 'Fica pra depois' : 'A frase era'}</Kicker>
       <Card className="card-dark"
-        style={{ background: 'var(--dark-soft)', marginTop: 12, textAlign: 'left' }}>
+        style={{ marginTop: 12, textAlign: 'left' }}>
         <p style={{ fontFamily: 'var(--f-display)', fontSize: 19 }}>
           &ldquo;{r.ouviu ? r.disse : FRASE_TESTE}&rdquo;</p>
         {r.ouviu && (

@@ -46,7 +46,7 @@ export function LicaoChat({ go, a }) {
           <span className="tr">Perfeito. Aqui está o cardápio. Algo para beber?</span></div>
       </div>
       <Grow />
-      <Card className="card-dark" style={{ background: 'var(--dark-soft)' }}>
+      <Card className="card-dark">
         <Kicker>Sua vez</Kicker>
         <p style={{ fontSize: 14, marginTop: 6 }}>Peça uma água com gás.</p>
       </Card>
@@ -59,7 +59,7 @@ export function LicaoFala({ go }) {
   return (
     <div className="scr" style={{ textAlign: 'center' }}>
       <Kicker>Sua vez</Kicker>
-      <Card className="card-dark" style={{ background: 'var(--dark-soft)', marginTop: 12 }}>
+      <Card className="card-dark" style={{ marginTop: 12 }}>
         <p style={{ fontSize: 14, color: 'var(--dk-soft)' }}>Peça uma água com gás.</p>
         <p style={{ fontFamily: 'var(--f-display)', fontSize: 19, marginTop: 8 }}>
           &ldquo;Sparkling water, please.&rdquo;</p>

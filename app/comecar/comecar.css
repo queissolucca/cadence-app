@@ -1174,3 +1174,92 @@ body:has(#phone.vidro){background:#E9EDE9}
   box-shadow:var(--vidro-luz)}
 #phone.vidro .pular:hover{border-color:#A9CDB6;background:rgba(255,255,255,.72)}
 #phone.vidro .pular-ic{background:#DCEBE1;color:#086443}
+
+/* ===================================================================
+   AJUSTE MOBILE — o que a virada pro claro deixou desconfortável.
+   =================================================================== */
+
+/* O BOTÃO PRINCIPAL. Continua com a mesma altura de toque, mas deixa de
+   atravessar a tela inteira: no preto ele era uma barra verde sobre um fundo
+   sem contraste e desaparecia no conjunto; no claro virou o bloco mais escuro
+   da tela e passou a dominá-la. Largura limitada e centrado devolve a
+   proporção — e 340px é o que cabe confortável num telefone de 390. */
+#phone.vidro .cta{
+  max-width:340px;margin-left:auto;margin-right:auto;
+  padding:15px 18px;font-size:14.5px;border-radius:15px;
+}
+#phone.vidro .ghost{max-width:340px;margin-left:auto;margin-right:auto;color:var(--ink-soft)}
+/* Respiro embaixo: o botão encostava perto demais da borda inferior. */
+#phone.vidro .scr > .ghost:last-child,
+#phone.vidro .scr > .cta:last-child{margin-bottom:10px}
+
+/* A SETA DE VOLTAR. A borda era branca sobre fundo branco, então o botão não
+   tinha contorno nenhum — só um chevron solto no ar. */
+#phone.vidro .back{
+  color:var(--ink);border:1px solid #C9D2CB;background:rgba(255,255,255,.72);
+}
+#phone.vidro .back:hover{background:#fff;border-color:#A9CDB6}
+
+/* OS PONTOS DA TRILHA E DAS CONSTELAÇÕES. Eram esferas quase pretas, feitas
+   pra brilhar no escuro; no claro viram furos de bala no papel. Viram esferas
+   verdes claras — a mesma linguagem da esfera acesa, um tom abaixo. */
+#phone.vidro .nodes .pt,
+#phone.vidro .sph.off,
+#phone.vidro .pager i,
+#phone.vidro .glevel i{
+  background:radial-gradient(circle at 36% 28%,#DCEBE1 0%,#C2D8C9 45%,#A9CDB6 100%);
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.7),0 1px 2px rgba(32,92,57,.14);
+}
+#phone.vidro .nodes .wire{background:#D9DCD7}
+
+/* A MEDALHA. A base clara é um círculo chapado de verde-claro; no escuro ela
+   tinha profundidade e no claro ficou sem relevo nenhum. */
+#phone.vidro .medal{
+  background:radial-gradient(circle at 34% 26%,#F2FAF4 0%,#DCEBE1 48%,#C2D8C9 100%);
+  border:2px solid #A9CDB6;color:var(--ink);
+  box-shadow:inset 0 1px 2px rgba(255,255,255,.85),0 4px 14px rgba(32,92,57,.16);
+}
+
+/* O CARD ESCURO vira vidro de verdade agora que o inline saiu do caminho.
+   `.card-dark` é usado nas telas de fala, feedback e lição: eram retângulos
+   pretos com texto preto por dentro. */
+#phone.vidro .card-dark,
+#phone.vidro .card-dark *{color:var(--ink)}
+#phone.vidro .card-dark .kicker{color:var(--ink-tenue)}
+
+/* CENTRALIZAR AS OPÇÕES. Numa tela de telefone a lista encostava nas duas
+   bordas; limitar e centrar dá a mesma margem ótica do botão. */
+#phone.vidro .opts,
+#phone.vidro .memlist,
+#phone.vidro .card,
+#phone.vidro .card-verde,
+#phone.vidro .card-dark{max-width:380px;margin-left:auto;margin-right:auto}
+
+/* Em tela estreita o botão pode ocupar tudo — abaixo de 360px, 340px de teto
+   deixaria margem lateral maior que a do conteúdo. */
+@media (max-width:359px){
+  #phone.vidro .cta,#phone.vidro .ghost{max-width:none}
+}
+
+/* ---- OS TOKENS DO TEMA ESCURO, TRADUZIDOS ----
+   Sete estilos inline nas telas usam --dk-soft e --cady-coroa direto, e havia
+   14 usos de --dark/--dark-soft como fundo na folha. Consertar um por um
+   deixaria o próximo igual ao anterior: quem escrever `var(--dk-soft)` amanhã
+   recria o bug.
+
+   Então os tokens mudam de valor aqui dentro. Qualquer regra ou style inline
+   que os use passa a resolver pra uma cor do claro, sem saber que mudou.
+   `--cady-coroa` é o caso crítico: #8FF0C0 tem 1,3:1 no branco — some. Ele só
+   é usado como cor de texto/traço (conferido), então virar verde escuro é
+   seguro. */
+#phone.vidro{
+  --dk-soft:#43463F;      /* era #9C9498 — 3,2:1 no claro */
+  --dk-mute:#63665D;
+  --dk-dim:#7C7F76;
+  --dk-line:#D9DCD7;
+  --dk-grid:#E4E7E2;
+  --cady-coroa:#086443;   /* era #8FF0C0 — 1,3:1 no branco */
+  --dark-soft:rgba(255,255,255,.52);
+  --dark:#F4F7F2;
+  --card:rgba(255,255,255,.52);
+}
