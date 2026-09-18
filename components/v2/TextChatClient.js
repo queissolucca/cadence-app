@@ -239,7 +239,29 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
         ref={scrollRef}
         style={{
           display: 'flex', flexDirection: 'column', gap: 8,
-          height: 'min(56vh, 460px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+          /* ALTURA QUE CABE NA TELA, E SÓ ELA ROLA.
+
+             Era `min(56vh, 460px)`, e duas coisas nisso empurravam a página
+             pra fora do celular:
+
+             1. `vh`, e não `dvh`. No Safari do iPhone, `100vh` é o viewport
+                EXPANDIDO — o tamanho que a tela teria com a barra do navegador
+                escondida. Enquanto a barra está à mostra, que é o estado
+                normal, 56vh já é mais do que 56% do que se enxerga.
+             2. A conta ignorava o resto da tela. Acima da caixa vivem o título,
+                a semana e o par Escrever/Falar; abaixo, o campo de digitar e a
+                barra de abas. Somados, ~430px — e é isso que o `calc` desconta
+                agora, em vez de torcer pra sobrar.
+
+             Os 430px são o único número a ajustar se ainda faltar (ou sobrar)
+             espaço: ele é o orçamento do que NÃO é a conversa. O piso de 180px
+             existe pra tela curta não virar uma fresta; abaixo disso a página
+             volta a rolar, que é o mal menor. */
+          height: 'clamp(180px, calc(100dvh - 430px), 400px)',
+          overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+          /* A rolagem para AQUI: sem isto, chegar ao fim da conversa continua
+             rolando a página atrás, e a tela inteira se mexe. */
+          overscrollBehavior: 'contain',
           padding: '12px', borderRadius: 16, border: '1px solid var(--line)', background: 'var(--v2-card-bg)',
         }}
       >

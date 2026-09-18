@@ -195,3 +195,34 @@ describe('a trilha aparece mesmo pra quem não pagou', () => {
     expect(ler('app/v2/(app)/page.js')).not.toContain('href="/v2/trilha"');
   });
 });
+
+describe('a conversa escrita cabe numa tela de celular', () => {
+  const chat = ler('components/v2/TextChatClient.js');
+
+  it('a altura desconta o resto da tela, em vez de chutar uma fração', () => {
+    /* Era `min(56vh, 460px)`: 56% de uma tela que também tem título, semana,
+       o par Escrever/Falar, o campo de digitar e a barra de abas. A soma não
+       cabia, e a PÁGINA rolava — a tela inteira se mexendo enquanto a pessoa
+       conversa. */
+    expect(chat).toMatch(/calc\(100dvh - \d+px\)/);
+  });
+
+  it('usa dvh, e não vh', () => {
+    /* No Safari do iPhone, `100vh` é o viewport EXPANDIDO — o tamanho com a
+       barra do navegador escondida. Com a barra à mostra, que é o normal, uma
+       fração de vh já é maior do que a mesma fração do que se enxerga. */
+    expect(chat).toMatch(/dvh/);
+    expect(chat, 'vh puro na altura da caixa volta a estourar no iPhone')
+      .not.toMatch(/height:\s*'min\(\d+vh/);
+  });
+
+  it('tem piso, pra tela curta não virar uma fresta', () => {
+    expect(chat).toMatch(/clamp\(\d+px,/);
+  });
+
+  it('a rolagem para dentro da caixa', () => {
+    // Sem `contain`, chegar ao fim da conversa continua rolando a página atrás.
+    expect(chat).toMatch(/overflowY:\s*'auto'/);
+    expect(chat).toMatch(/overscrollBehavior:\s*'contain'/);
+  });
+});

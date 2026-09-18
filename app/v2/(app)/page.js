@@ -78,9 +78,20 @@ export default async function HojePageV2() {
       />
 
       <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.4px', margin: '2px 0 0', color: 'var(--ink)' }}>Como você quer aprender hoje?</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-        <Link href="/v2/conversar" style={{ textDecoration: 'none' }}>
-          <div className="v2-card-dark" style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%', minHeight: 132 }}>
+      {/* Com a saída da Trilha sobrou UM cartão, e a grade de duas colunas o
+          esticava de ponta a ponta — um bloco largo e solitário, que lê como
+          faixa em vez de escolha. Teto de largura e centralizado devolve a
+          proporção; a sombra o levanta do fundo vivo da constelação, que sem
+          ela come a borda do cartão. */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, justifyItems: 'center' }}>
+        <Link href="/v2/conversar" style={{ textDecoration: 'none', width: '100%', maxWidth: 380 }}>
+          <div
+            className="v2-card-dark"
+            style={{
+              display: 'flex', flexDirection: 'column', gap: 10, height: '100%', minHeight: 132,
+              boxShadow: '0 10px 28px rgba(16,32,22,.22), 0 2px 6px rgba(16,32,22,.14)',
+            }}
+          >
             <div style={{ width: 46, height: 46, borderRadius: 14, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
               <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="3" width="6" height="11" rx="3" />
@@ -89,7 +100,14 @@ export default async function HojePageV2() {
             </div>
             <div style={{ flex: 1 }}>
               <strong style={{ fontSize: 15 }}>Conversa aberta</strong>
-              <p style={{ margin: '3px 0 0', fontSize: 12.5, opacity: 0.85, lineHeight: 1.4 }}>Converse à vontade com a Cady!</p>
+              <p style={{ margin: '3px 0 0', fontSize: 12.5, opacity: 0.85, lineHeight: 1.4 }}>
+                Converse à vontade com a Cady!
+                {/* Os dois modos ficam ditos aqui porque a escolha entre eles
+                    acontece DENTRO da tela seguinte — quem lê só "conversa"
+                    espera microfone, e escrever é justamente o que está
+                    liberado pra todo mundo. */}
+                <br />Escrevendo ou Falando
+              </p>
             </div>
           </div>
         </Link>
