@@ -93,6 +93,60 @@ describe('a margem lateral tem uma fonte só', () => {
   });
 });
 
+describe('o vidro fosco atrás do texto solto', () => {
+  /* Entre cinco tratamentos testados pra firmar o texto sobre a malha, este foi
+     o escolhido. O risco dele não é sumir — é sobrar: vidro dentro de um card
+     que já é vidro não firma nada e embaça duas vezes. */
+
+  const placas = seletores
+    .flatMap((r) => r.sel.split(',').map((x) => x.trim()))
+    .filter((x) => /^#phone\.vidro \.scr > (h1|h2|\.lede)/.test(x));
+
+  it('existe placa em título e em texto corrido', () => {
+    expect(placas.some((x) => /> h1/.test(x)), 'título sem placa').toBe(true);
+    expect(placas.some((x) => /> \.lede/.test(x)), 'texto sem placa').toBe(true);
+  });
+
+  it('alcança só o filho DIRETO da tela', () => {
+    /* `.scr > ` é o que separa "solto" de "dentro de card". Trocar por um
+       descendente solto (`.scr h1`) faria a placa aparecer dentro de .card,
+       .opt, .mem e .plancard — que já têm superfície própria. */
+    for (const sel of placas) {
+      expect(sel, `${sel} deixou de exigir filho direto`).toMatch(/\.scr > /);
+    }
+    const soltos = seletores
+      .flatMap((r) => r.sel.split(',').map((x) => x.trim()))
+      .filter((x) => /^#phone\.vidro \.scr (h1|h2|\.lede)\b/.test(x));
+    expect(soltos, 'seletor descendente alcançaria texto dentro de card').toEqual([]);
+  });
+
+  it('a placa usa os tokens do vidro, e não valores próprios', () => {
+    /* Assim ela degrada junto com o resto quando não há backdrop-filter — ver
+       o @supports lá em cima. Cor fixa aqui viraria uma mancha branca opaca
+       justamente no aparelho fraco. */
+    let corpo = '';
+    folha.walkRules(/#phone\.vidro \.scr > h1/, (r) => r.walkDecls((d) => { corpo += `${d.prop}:${d.value};`; }));
+    expect(corpo).toContain('var(--vidro)');
+    expect(corpo).toContain('var(--desfoque)');
+  });
+
+  it('título e texto colados viram um painel só', () => {
+    // A margem entre eles está no style inline de vinte telas, e inline vence
+    // folha: sem o !important sobra uma fresta no meio do painel.
+    expect(css).toMatch(/#phone\.vidro \.scr > h1 \+ \.lede[\s\S]{0,300}?margin-top:0 !important/);
+  });
+
+  it('o kicker fica de fora da placa', () => {
+    // Rótulo mono de 10px em caixa alta: placa em volta vira etiqueta.
+    let temFundo = false;
+    folha.walkRules(/#phone\.vidro \.scr > \.kicker/, (r) => {
+      r.walkDecls('background', () => { temFundo = true; });
+    });
+    expect(temFundo, 'o kicker ganhou placa').toBe(false);
+    expect(css).toMatch(/#phone\.vidro \.scr > \.kicker\{[\s\S]{0,120}text-shadow/);
+  });
+});
+
 describe('seletores que não casam com nada', () => {
   it('toda classe citada na folha existe em algum componente', () => {
     // `.card-verde` era um seletor meu que nunca casou: a classe real é

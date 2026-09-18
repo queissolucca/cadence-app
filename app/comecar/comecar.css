@@ -1337,3 +1337,68 @@ body:has(#phone.vidro){background:#E9EDE9}
 @media (prefers-reduced-motion:reduce){
   #phone.vidro .nodes .pt.now{animation:none}
 }
+
+/* ===================================================================
+   VIDRO FOSCO ATRÁS DO TEXTO SOLTO
+
+   A malha é densa, e título e parágrafo flutuando sobre ela ficavam difíceis
+   de ler — as linhas passam POR DENTRO das letras. Entre cinco tratamentos
+   testados, este foi o escolhido: a malha continua aparecendo, desfocada,
+   através do texto.
+
+   "Solto" é literal aqui: `.scr > ` só alcança o que é filho DIRETO da tela.
+   Texto dentro de `.card`, `.opt`, `.mem` ou `.plancard` já tem superfície
+   própria e fica de fora sozinho — vidro sobre vidro não firma nada e só
+   embaça duas vezes.
+
+   O KICKER fica de fora de propósito: é um rótulo mono de 10px em caixa alta.
+   Uma placa em volta dele viraria etiqueta, não painel. Ele ganha só um halo.
+   =================================================================== */
+
+#phone.vidro .scr > h1,
+#phone.vidro .scr > h2,
+#phone.vidro .scr > .lede,
+#phone.vidro .scr > .lede-forte{
+  padding:13px 17px;
+  border-radius:18px;
+  background:var(--vidro);
+  border:1px solid var(--vidro-borda);
+  backdrop-filter:var(--desfoque);
+  -webkit-backdrop-filter:var(--desfoque);
+  box-shadow:var(--vidro-luz);
+}
+
+/* TÍTULO E TEXTO VIRAM UM PAINEL SÓ.
+
+   As margens entre eles foram escritas quando os dois flutuavam soltos; com as
+   placas, esse respiro vira uma FRESTA no meio do painel. O `!important` não é
+   preguiça: a margem está no `style` inline de vinte telas (marginTop: 8, 18,
+   22…), e inline vence folha — sem ele, a fresta fica em quase todas. */
+#phone.vidro .scr > h1 + .lede,
+#phone.vidro .scr > h2 + .lede,
+#phone.vidro .scr > h1 + .lede-forte,
+#phone.vidro .scr > h2 + .lede-forte{
+  margin-top:0 !important;
+  border-top:0;
+  border-top-left-radius:0;border-top-right-radius:0;
+  padding-top:2px;
+}
+/* a metade de cima perde o canto de baixo e a borda que fecharia o meio */
+#phone.vidro .scr > h1:has(+ .lede),
+#phone.vidro .scr > h2:has(+ .lede),
+#phone.vidro .scr > h1:has(+ .lede-forte),
+#phone.vidro .scr > h2:has(+ .lede-forte){
+  border-bottom:0;
+  border-bottom-left-radius:0;border-bottom-right-radius:0;
+  padding-bottom:6px;
+}
+
+/* O kicker: halo em vez de placa. Três camadas de branco puro bastam num texto
+   desse tamanho, e ele continua parecendo um rótulo. */
+#phone.vidro .scr > .kicker{
+  text-shadow:0 0 10px #F4F8F4,0 0 5px #F4F8F4,0 0 2px #F4F8F4;
+}
+
+/* Sem backdrop-filter — ou com menos movimento pedido — o vidro já vira cor
+   sólida pelo token lá de cima. Aqui só o halo do kicker precisa acompanhar,
+   porque sombra de texto não depende de desfoque. */
