@@ -25,6 +25,13 @@
   --dk-line:#2A252A; --dk-soft:#9C9498; --dk-grid:#241F24; --dk-mute:#78727A;
   --dk-dim:#665F66;
   --radius:22px; --radius-sm:18px;
+  /* A MARGEM LATERAL DO APARELHO, num lugar só.
+     Ela aparecia escrita à mão em três lugares que PRECISAM concordar: o
+     padding do #view, o do #trail (que é irmão dele, não filho) e a margem
+     NEGATIVA da faixa de depoimentos, que sangra exatamente esse valor pra
+     chegar na borda. Três números iguais por coincidência é como eles deixam
+     de ser iguais. */
+  --gap:24px;
   /* As duas famílias já são baixadas pelo layout raiz via next/font (servidas
      do próprio domínio). Reaproveitar as variáveis dele evita uma segunda
      requisição a fonts.googleapis.com só pra esta rota. */
@@ -113,7 +120,7 @@ button{font:inherit;font-family:var(--f-ui);cursor:pointer;border:none;backgroun
 #phone.dark #canvas{opacity:1}
 
 /* trilha de pontos = progresso */
-#trail{position:relative;z-index:3;padding:16px 22px 6px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+#trail{position:relative;z-index:3;padding:16px var(--gap) 6px;display:flex;align-items:center;gap:10px;flex-shrink:0}
 #trail.hide{visibility:hidden}
 /* Voltar: era 30px com a cor mais apagada da paleta sobre fundo preto — quase
    invisível, e abaixo do alvo de toque confortável. Agora tem superfície
@@ -142,10 +149,21 @@ button{font:inherit;font-family:var(--f-ui);cursor:pointer;border:none;backgroun
 .nodes .pt.now{width:12px;height:12px;
   box-shadow:inset 0 .5px 1px rgba(255,255,255,.55),inset 0 -1px 2px rgba(6,32,18,.5),
     0 1px 3px rgba(0,0,0,.5),0 0 0 5px rgba(46,158,91,.2),0 0 14px rgba(46,158,91,.36)}
-#phone.dark 
-/* área da tela */
+/* área da tela.
+
+   Havia um `#phone.dark` PENDURADO logo acima desta regra, sem bloco `{}`. O
+   parser emendava os dois e o seletor real virava `#phone.dark #view` — dá pra
+   ver rodando o postcss no arquivo. Enquanto o #phone tinha a classe `dark`
+   isso era invisível: a regra casava e tudo funcionava. Quando a classe saiu
+   (virada pro tema claro), o bloco INTEIRO morreu no /comecar, levando junto o
+   padding lateral (texto colado nas duas bordas) e — pior — o
+   `flex:1; min-height:0; overflow-y:auto`, ou seja, a ROLAGEM.
+
+   As rotas /login, /pagamento e /auth/nova-senha usam a mesma folha e ainda
+   renderizam `className="dark"`: elas casavam com o seletor quebrado e por
+   isso nunca perderam o padding. Era só o /comecar. */
 #view{position:relative;z-index:2;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
-  padding:10px 22px 24px;display:flex;flex-direction:column;
+  padding:10px var(--gap) 24px;display:flex;flex-direction:column;
   /* sem quique ao chegar no fim, e sem passar a rolagem adiante pro documento */
   overscroll-behavior:none;-webkit-overflow-scrolling:touch}
 #view::-webkit-scrollbar{width:0}
@@ -360,8 +378,6 @@ h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-
 .bar{width:100%;border-radius:9px 9px 4px 4px;transition:height .9s cubic-bezier(.3,.9,.4,1)}
 .bar.a{background:var(--line)}
 .bar.b{background:var(--green)}
-.bar-lbl{font-family:var(--f-mono);font-size:9.5px;color:var(--ink-soft);text-align:center;line-height:1.3}
-#phone.dark .bar-lbl{color:var(--dk-soft)}
 
 .track{height:7px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:12px}
 #phone.dark .track{background:var(--dk-line)}
@@ -666,9 +682,6 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
 .memdot{display:block;width:7px;height:7px;margin-top:5px;border-radius:50%;flex-shrink:0;
   background:radial-gradient(circle at 36% 28%,#9FF0C4 0%,#39B26E 42%,#166B42 100%);
   box-shadow:inset 0 .5px .5px rgba(255,255,255,.5),0 0 6px rgba(46,158,91,.4)}
-.memx{width:24px;height:24px;flex-shrink:0;border-radius:8px;display:grid;place-items:center;
-  color:var(--dk-mute);font-size:15px;line-height:1;transition:color .16s,background .16s}
-.memx:hover,.memx:focus-visible{color:#F0908A;background:rgba(240,144,138,.12)}
 .memadd{display:flex;gap:8px;margin-top:11px}
 .memadd input{flex:1;min-width:0;padding:10px 12px;border-radius:11px;font-family:inherit;
   font-size:13px;color:#f2f2ea;background:#121013;border:1px solid var(--dk-line)}
@@ -900,7 +913,7 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
    Sangra os 22px de padding do #view pros lados. Sem isso o "infinito" lê
    como carrossel emoldurado, com os cartões nascendo e morrendo dentro de uma
    moldura. O truque é o mesmo que o .sheetscroll já usa. */
-.vzzone{margin:15px -22px 0;flex-shrink:0;
+.vzzone{margin:15px calc(-1 * var(--gap)) 0;flex-shrink:0;
   display:flex;flex-direction:column;gap:11px;
   -webkit-tap-highlight-color:transparent}
 .vzzone:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
@@ -1095,7 +1108,6 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
 #phone.vidro .mem{background:var(--vidro);border:1px solid var(--vidro-borda);
   box-shadow:var(--vidro-luz)}
 #phone.vidro .mem p{color:var(--ink-soft)}
-#phone.vidro .memx{color:var(--ink-tenue)}
 #phone.vidro .memadd input{color:var(--ink);background:var(--vidro);
   border-color:var(--vidro-borda);backdrop-filter:var(--desfoque);
   -webkit-backdrop-filter:var(--desfoque)}
@@ -1125,7 +1137,7 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
 #phone.vidro .plancard .planfoot,
 #phone.vidro .plancard .planlist li{color:var(--ink-soft)}
 #phone.vidro .plancard .priceold{color:var(--ink-tenue)}
-#phone.vidro .plancard .pricenow{color:var(--ink)}
+#phone.vidro .plancard .pricenew{color:var(--ink)}
 
 /* balões da lição: o "them" já entrou no vidro lá em cima; o texto não */
 #phone.vidro .bubble.them{color:var(--ink)}
@@ -1229,17 +1241,16 @@ body:has(#phone.vidro){background:#E9EDE9}
 
 /* CENTRALIZAR AS OPÇÕES. Numa tela de telefone a lista encostava nas duas
    bordas; limitar e centrar dá a mesma margem ótica do botão. */
-#phone.vidro .opts,
-#phone.vidro .memlist,
-#phone.vidro .card,
-#phone.vidro .card-verde,
-#phone.vidro .card-dark{max-width:380px;margin-left:auto;margin-right:auto}
+/* Os tetos de 380px que havia aqui saíram. Com o padding do #view de volta,
+   quem define a coluna é o container — dois lugares decidindo a mesma medida
+   deixa um deles inalcançável e engana quem for ajustar depois. O botão é a
+   única exceção deliberada: ele é mais estreito que o texto DE PROPÓSITO. */
 
-/* Em tela estreita o botão pode ocupar tudo — abaixo de 360px, 340px de teto
-   deixaria margem lateral maior que a do conteúdo. */
-@media (max-width:359px){
-  #phone.vidro .cta,#phone.vidro .ghost{max-width:none}
-}
+/* A válvula de escape que havia aqui (@media max-width:359px zerando o teto
+   do botão) foi calibrada contra o layout QUEBRADO, quando o #view não tinha
+   padding nenhum. Com os 24px de volta, a coluna num aparelho de 359px é
+   311px — o teto de 340 já não morde, e a regra nunca mais rodaria. Regra que
+   não faz nada engana quem for ajustar depois, então saiu. */
 
 /* ---- OS TOKENS DO TEMA ESCURO, TRADUZIDOS ----
    Sete estilos inline nas telas usam --dk-soft e --cady-coroa direto, e havia
@@ -1263,3 +1274,12 @@ body:has(#phone.vidro){background:#E9EDE9}
   --dark:#F4F7F2;
   --card:rgba(255,255,255,.52);
 }
+
+/* Em tela mais larga a calha cresce, em vez de a linha de texto esticar.
+   Constante em px daria a mesma margem num iPhone SE e num Pro Max — e é no
+   aparelho grande que sobra espaço pra respirar. Feito por padding e não por
+   max-width porque a faixa de depoimentos sangra a partir deste mesmo token:
+   com max-width + margin auto ela passaria a ter borda visível dos dois lados,
+   virando o "carrossel emoldurado" que o comentário dela diz estar evitando. */
+@media (min-width:400px){ #phone{--gap:30px} }
+@media (min-width:424px){ #phone{--gap:38px} }

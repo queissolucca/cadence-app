@@ -55,10 +55,15 @@ describe('proporção no telefone', () => {
     expect(css).toMatch(/#phone\.vidro \.cta\{[\s\S]{0,200}max-width:\s*\d+px/);
   });
 
-  it('e volta a ocupar tudo em tela muito estreita', () => {
-    // Abaixo de 360px, um teto de 340 deixaria margem lateral maior que a do
-    // conteúdo — pior que ocupar a largura toda.
-    expect(css).toMatch(/@media \(max-width:359px\)[\s\S]{0,160}max-width:none/);
+  it('o teto do botão fica abaixo da coluna de texto em qualquer aparelho', () => {
+    /* Não existe mais válvula de escape por breakpoint, e não precisa: com o
+       padding do #view de volta, a coluna só passa de 340px em viewport acima
+       de ~388px. Abaixo disso o botão simplesmente acompanha a coluna, porque
+       o teto não morde. O que este teste trava é o teto continuar existindo —
+       ele é o que impede o botão de atravessar a tela inteira. */
+    const m = css.match(/#phone\.vidro \.cta\{[\s\S]{0,200}?max-width:\s*(\d+)px/);
+    expect(m, 'o botão perdeu o teto de largura').toBeTruthy();
+    expect(Number(m[1])).toBeLessThan(430);
   });
 
   it('a seta de voltar tem contorno próprio', () => {
