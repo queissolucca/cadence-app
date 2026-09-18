@@ -84,21 +84,30 @@ export default async function HojePageV2() {
           proporção; a sombra o levanta do fundo vivo da constelação, que sem
           ela come a borda do cartão. */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, justifyItems: 'center' }}>
-        <Link href="/v2/conversar" style={{ textDecoration: 'none', width: '100%', maxWidth: 380 }}>
+        <Link href="/v2/conversar" style={{ textDecoration: 'none', width: '100%', maxWidth: 360 }}>
           <div
             className="v2-card-dark"
             style={{
-              display: 'flex', flexDirection: 'column', gap: 10, height: '100%', minHeight: 132,
-              boxShadow: '0 10px 28px rgba(16,32,22,.22), 0 2px 6px rgba(16,32,22,.14)',
+              /* MENOS ALTO. O `minHeight: 132` vinha de quando havia DOIS
+                 cartões lado a lado e os dois precisavam da mesma altura, com
+                 o mais alto mandando. Sozinho, ele só empurrava ar pra dentro
+                 do cartão — e numa tela de celular esse ar sai do orçamento do
+                 resto. Sem piso, a altura passa a ser a do conteúdo.
+
+                 O ícone e o respiro entre as linhas caíram junto, um degrau
+                 cada: tirar só o piso deixaria o cartão alto do mesmo jeito,
+                 porque o conteúdo é que estava folgado. */
+              display: 'flex', flexDirection: 'column', gap: 8, padding: 15,
+              boxShadow: '0 12px 30px rgba(16,32,22,.26), 0 3px 8px rgba(16,32,22,.16)',
             }}
           >
-            <div style={{ width: 46, height: 46, borderRadius: 14, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-              <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="3" width="6" height="11" rx="3" />
                 <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
               </svg>
             </div>
-            <div style={{ flex: 1 }}>
+            <div>
               <strong style={{ fontSize: 15 }}>Conversa aberta</strong>
               <p style={{ margin: '3px 0 0', fontSize: 12.5, opacity: 0.85, lineHeight: 1.4 }}>
                 Converse à vontade com a Cady!
