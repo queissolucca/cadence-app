@@ -214,9 +214,21 @@ export async function POST(request) {
     // Escreve com degradação: 1) linha completa; 2) só email + validade (caso a
     // migration 0024 de amount/method/provider não tenha rodado); 3) só email
     // (garante o acesso de qualquer jeito).
+    /* A DEGRADAÇÃO NUNCA PODE PERDER O `expires_at`.
+
+       O último degrau era `upsert({ email })` — sem data. Todos os quatro
+       pontos que leem acesso tratam `expires_at` ausente como acesso SEM
+       EXPIRAÇÃO, porque é assim que as contas antigas funcionam. Com um plano
+       de sete dias no ar, isso vira: um soluço do banco na hora errada, e uma
+       compra de R$ 19,90 valeu pra sempre.
+
+       Então o que cai é o `paid_at` (cosmético, alimenta o diagnóstico) e o
+       `provider`/`amount`/`method` (idem). A data de validade fica. Se nem ela
+       entrar, é melhor responder erro e deixar o AbacatePay reenviar do que
+       gravar uma linha que libera o produto inteiro de graça. */
     let res = await admin.from('paid_emails').upsert(full, { onConflict: 'email' });
     if (res.error) res = await admin.from('paid_emails').upsert({ email, paid_at: full.paid_at, expires_at: full.expires_at }, { onConflict: 'email' });
-    if (res.error) res = await admin.from('paid_emails').upsert({ email }, { onConflict: 'email' });
+    if (res.error) res = await admin.from('paid_emails').upsert({ email, expires_at: full.expires_at }, { onConflict: 'email' });
     if (res.error) {
       await logEvent(admin, { id: eventId, event, outcome: `save_failed: ${res.error.message}`, raw: body, email });
       return NextResponse.json({ error: 'save_failed', details: res.error.message }, { status: 500 });

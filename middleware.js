@@ -142,13 +142,24 @@ export async function middleware(request) {
      Agora `null` = não pagou (isso é evidência), e `undefined` = não deu pra
      saber (isso não é). Quem chama decide o que fazer com a dúvida. */
   async function acessoPago() {
-    // Fallback: se a coluna expires_at ainda não existir (migration 0030),
-    // busca só o email e trata como válido.
-    let paid = await supabase.from('paid_emails').select('email, expires_at').eq('email', user.email).maybeSingle();
-    if (paid.error) paid = await supabase.from('paid_emails').select('email').eq('email', user.email).maybeSingle();
+    /* O FALLBACK QUE BUSCAVA SÓ O EMAIL SAIU.
+
+       Ele existia pro tempo em que a coluna `expires_at` podia não ter sido
+       criada ainda (migration 0030) — e, sem a coluna, tratava qualquer linha
+       como acesso válido. A migration rodou há muito; o que sobrou foi um
+       caminho que, diante de um erro QUALQUER na consulta principal, liberava
+       o produto inteiro sem olhar data.
+
+       Com um plano de sete dias isso deixou de ser teórico: um erro transitório
+       no momento certo daria acesso a quem já expirou. Agora um erro vira
+       `undefined` — "não sei" — e quem chama decide: nas páginas a pessoa fica
+       onde está, nas rotas de API a dúvida NEGA. */
+    const paid = await supabase
+      .from('paid_emails').select('email, expires_at').eq('email', user.email).maybeSingle();
     if (paid.error) return undefined;   // a consulta falhou: não sabemos
     const row = paid.data;
-    // expires_at null/ausente = acesso sem expiração (grandfathered).
+    // expires_at nulo = acesso sem expiração: as contas liberadas à mão antes
+    // de existirem planos com prazo.
     return !!row && (!row.expires_at || new Date(row.expires_at) > new Date());
   }
 
