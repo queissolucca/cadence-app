@@ -93,6 +93,50 @@ describe('a margem lateral tem uma fonte só', () => {
   });
 });
 
+describe('nenhum estado aceso fica soterrado', () => {
+  /* O ERRO QUE ESTE BLOCO EXISTE PRA PEGAR — cometi três vezes.
+
+     Ao clarear um elemento apagado, escreve-se `#phone.vidro .glevel i`. O
+     estado aceso mora em `.glevel i.on`, e o `#phone` do seletor novo já ganha
+     por especificidade: (1,2,1) contra (0,2,1). O verde do ativo some.
+
+     Isso não quebra build, teste nem lint. Só apaga a informação que a tela
+     existe pra dar: a barra do NÍVEL da pessoa fica igual às outras três, o
+     ponto de "onde você está" igual aos que faltam, o ícone da opção escolhida
+     igual aos não escolhidos.
+
+     A regra: toda regra .vidro que cobre um elemento com estado precisa cobrir
+     o ESTADO também, ou ele fica invisível. */
+
+  const pesos = (sel) => {
+    const a = (sel.match(/#[\w-]+/g) || []).length;
+    const b = (sel.match(/\.[\w-]+|\[[^\]]+\]|:(?!:)[\w-]+/g) || []).length;
+    const c = (sel.match(/(^|[\s>+~])[a-z][\w-]*/gi) || []).length;
+    return a * 10000 + b * 100 + c;
+  };
+
+  const todos = seletores.flatMap((r) => r.sel.split(',').map((x) => ({ sel: x.trim(), linha: r.linha })));
+  const comPeso = todos.map((r) => ({ ...r, peso: pesos(r.sel) }));
+  const ESTADO = /\.(on|sel|now|active)\b/;
+
+  it('todo estado aceso sobrevive às regras do tema claro', () => {
+    const soterrados = [];
+    for (const st of comPeso.filter((r) => ESTADO.test(r.sel) && !/vidro/.test(r.sel))) {
+      const base = st.sel.replace(/\.(on|sel|now|active)\b/g, '').replace(/\s+/g, ' ').trim();
+      // quem casaria no MESMO elemento, com mais força, sem o estado
+      const algoz = comPeso.find((r) => /vidro/.test(r.sel) && !ESTADO.test(r.sel)
+        && r.peso > st.peso && r.sel.replace(/#phone\.vidro\s*/, '').trim() === base);
+      if (!algoz) continue;
+      // salvo se existir uma regra .vidro PARA O ESTADO, mais forte que o algoz
+      const salvacao = comPeso.some((r) => /vidro/.test(r.sel) && ESTADO.test(r.sel)
+        && r.peso > algoz.peso
+        && r.sel.replace(/#phone\.vidro\s*/, '').trim() === st.sel.replace(/\s+/g, ' ').trim());
+      if (!salvacao) soterrados.push(`${st.sel} (linha ${st.linha}) perde para "${algoz.sel}"`);
+    }
+    expect(soterrados, 'estado aceso sem regra própria no tema claro').toEqual([]);
+  });
+});
+
 describe('o vidro fosco atrás do texto solto', () => {
   /* Entre cinco tratamentos testados pra firmar o texto sobre a malha, este foi
      o escolhido. O risco dele não é sumir — é sobrar: vidro dentro de um card

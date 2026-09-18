@@ -61,6 +61,12 @@ export function SphereDefs() {
           <stop offset="0" stopColor="#1B4A32" stopOpacity="0.30" />
           <stop offset="0.60" stopColor="#1B4A32" stopOpacity="0.12" />
           <stop offset="1" stopColor="#1B4A32" stopOpacity="0" /></radialGradient>
+        {/* O anel de progresso da tela "gerando". Gradiente e não cor chapada
+            porque um arco de 4px em cor única lê como barra; com a variação ele
+            lê como luz percorrendo o círculo. */}
+        <linearGradient id="ringVerde" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#5FCB92" /><stop offset="0.5" stopColor="#2C9A63" />
+          <stop offset="1" stopColor="#166B42" /></linearGradient>
         {/* O halo precisa de mais corpo no claro: um brilho de 46% some no papel
             do jeito que saltava no preto. */}
         <radialGradient id="sphGlow" cx="0.5" cy="0.5" r="0.5">
