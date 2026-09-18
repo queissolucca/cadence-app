@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { createAdminClient } from '../../../../lib/supabase/admin';
-import { verifyWebhookSignature, threeMonthsFrom, classifyEvent } from '../../../../lib/payments';
+import { verifyWebhookSignature, validadeEmDias, classifyEvent } from '../../../../lib/payments';
+import { getPlan } from '../../../../lib/plans';
 import {
   ehSaidaDeDinheiro, ehCompraPaga, deepFindEmail, deepFindAmount, deepFindMethod,
   idsDaCobranca, externalIdsConsultaveis, emailDoCliente, normalizarEmail,
@@ -190,7 +191,23 @@ export async function POST(request) {
     const amount = typeof rawAmount === 'number' ? Math.round(rawAmount) / 100  // centavos → reais
       : (typeof pedido?.amount === 'number' ? pedido.amount : null);
     const method = deepFindMethod(body);
-    const full = { email, provider: 'abacatepay', paid_at: new Date().toISOString(), expires_at: threeMonthsFrom() };
+    /* QUANTOS DIAS ESTA COMPRA VALE.
+
+       Era `threeMonthsFrom()`, fixo — com dois planos no ar isso daria 90 dias
+       por R$ 19,90, e o erro não apareceria em lugar nenhum a não ser na
+       fatura. O plano vem da linha em `orders`, que o /api/checkout grava
+       antes de mandar a pessoa pro AbacatePay.
+
+       Sem plano conhecido (pagamento pelo link estático antigo, que não cria
+       ordem) fica em 90 dias: é o que sempre foi, e errar pra mais num caso
+       raro é melhor do que cortar o acesso de quem pagou de verdade. */
+    const plano = getPlan(pedido?.plan);
+    const dias = plano?.dias || 90;
+    const full = {
+      email, provider: 'abacatepay',
+      paid_at: new Date().toISOString(),
+      expires_at: validadeEmDias(dias),
+    };
     if (amount != null) full.amount = amount;
     if (method) full.method = method;
 

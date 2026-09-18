@@ -2,6 +2,31 @@
 
 import { useEffect, useState } from 'react';
 import { conviteDe } from '../../lib/acesso';
+import { PLANS, centavosPorDia } from '../../lib/plans';
+
+const reais = (centavos) => `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`;
+
+/* A ordem importa: o semanal vem primeiro por ser o menor compromisso, e o
+   trimestral logo abaixo, onde a conta por dia dele desmonta a do de cima. */
+const PLANOS = [
+  {
+    id: 'pro-semanal',
+    nome: '7 dias',
+    nota: 'pra experimentar sem decidir agora',
+    acao: 'Começar por uma semana',
+  },
+  {
+    id: 'pro-trimestral',
+    nome: '3 meses',
+    nota: 'pagamento único · pix na hora',
+    acao: 'Pagar agora para aprender com a Cady!',
+    destaque: true,
+    selo: 'melhor por dia',
+  },
+].map((p) => {
+  const plano = PLANS[p.id];
+  return { ...p, preco: reais(plano.price), porDia: reais(centavosPorDia(plano)) };
+});
 
 /* O POPUP DO PLANO COMPLETO.
 
@@ -16,7 +41,9 @@ import { conviteDe } from '../../lib/acesso';
    continua exatamente onde estava — escrevendo, que é de graça. */
 
 export function PortaoPago({ recurso, aberto, aoFechar }) {
-  const [indo, setIndo] = useState(false);
+  // Guarda QUAL plano está abrindo, não um booleano: com dois botões, um
+  // booleano apagaria os dois e a pessoa não saberia em qual tocou.
+  const [indo, setIndo] = useState(null);
   const [erro, setErro] = useState('');
   const convite = conviteDe(recurso);
 
@@ -30,23 +57,37 @@ export function PortaoPago({ recurso, aberto, aoFechar }) {
 
   if (!aberto) return null;
 
-  const pagar = async () => {
-    setIndo(true);
+  /* DUAS OFERTAS, E A CONTA POR DIA AO LADO DE CADA UMA.
+
+     R$ 19,90 e R$ 89,90 não se comparam de cabeça: um é menor, o outro dura
+     mais. Por dia eles viram R$ 2,84 e R$ 0,99 — a mesma escolha, agora
+     legível. O semanal existe pra quem não quer decidir três meses de uma vez;
+     é a diferença por dia, à vista, que faz a maioria escolher o outro.
+
+     Os preços NÃO são escritos aqui: vêm de lib/plans.js, que é a fonte que o
+     servidor usa pra cobrar. Duas listas de preço divergem no dia em que uma
+     muda — e a que a pessoa leu não seria a que ela pagou. */
+  const pagar = async (planId) => {
+    setIndo(planId);
     setErro('');
     try {
       const r = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: 'pro-trimestral' }),
+        body: JSON.stringify({ planId }),
       });
       const dados = await r.json().catch(() => ({}));
       if (!r.ok || !dados.url) throw new Error(dados.error || 'sem url');
       window.location.href = dados.url;
-    } catch {
-      // Não volta pro estado inicial: quem falhou uma vez precisa ver o botão
-      // pronto pra tentar de novo, e não um spinner parado.
-      setErro('Não consegui abrir o pagamento agora. Tenta de novo.');
-      setIndo(false);
+    } catch (e) {
+      /* `plan_not_configured` tem causa conhecida e conserto conhecido: o
+         produto ainda não existe no AbacatePay (ou a env do prod_ não foi
+         preenchida). Dizer "tenta de novo" aí manda a pessoa repetir uma ação
+         que nunca vai funcionar. */
+      setErro(/plan_not_configured/.test(String(e?.message))
+        ? 'Esse plano ainda não está disponível. Tenta o outro.'
+        : 'Não consegui abrir o pagamento agora. Tenta de novo.');
+      setIndo(null);
     }
   };
 
@@ -69,17 +110,27 @@ export function PortaoPago({ recurso, aberto, aoFechar }) {
         <h2 id="pg-titulo" className="pg-titulo">{convite.titulo}</h2>
         <p className="pg-linha">{convite.linha}</p>
 
-        <div className="pg-preco">
-          <span className="pg-velho">R$ 296,90</span>
-          <span className="pg-off">-70%</span>
-          <span className="pg-agora">R$ 89,90</span>
-          <span className="pg-dia">R$ 0,99 / dia</span>
+        <div className="pg-planos">
+          {PLANOS.map((pl) => (
+            <button
+              key={pl.id}
+              className={`pg-plano ${pl.destaque ? 'pg-plano-alvo' : ''}`}
+              onClick={() => pagar(pl.id)}
+              disabled={!!indo}
+            >
+              {pl.selo && <span className="pg-selo">{pl.selo}</span>}
+              <span className="pg-plano-nome">{pl.nome}</span>
+              <span className="pg-plano-preco">
+                <b>{pl.preco}</b>
+                <i>{pl.porDia} / dia</i>
+              </span>
+              <span className="pg-plano-nota">{pl.nota}</span>
+              <span className="pg-plano-cta">
+                {indo === pl.id ? 'abrindo o pagamento…' : pl.acao}
+              </span>
+            </button>
+          ))}
         </div>
-        <p className="pg-unico">pagamento único · 3 meses de acesso · pix na hora</p>
-
-        <button className="pg-cta" onClick={pagar} disabled={indo}>
-          {indo ? 'abrindo o pagamento…' : 'Pagar agora para aprender com a Cady!'}
-        </button>
         {erro && <p className="pg-erro">{erro}</p>}
 
         {/* A saída tem que ser tão visível quanto a compra: o plano grátis é

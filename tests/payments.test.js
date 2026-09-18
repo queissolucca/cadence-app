@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import crypto from 'node:crypto';
-import { verifyWebhookSignature, maxInstallmentsFor, classifyEvent, threeMonthsFrom, metodoRecusado, corpoCheckout } from '../lib/payments.js';
+import { verifyWebhookSignature, maxInstallmentsFor, classifyEvent, validadeEmDias, metodoRecusado, corpoCheckout } from '../lib/payments.js';
 import { getPlan } from '../lib/plans.js';
 
 describe('verifyWebhookSignature (HMAC do webhook)', () => {
@@ -71,10 +71,22 @@ describe('getPlan (preço/produto vêm do SERVIDOR, não do cliente)', () => {
   });
 });
 
-describe('threeMonthsFrom', () => {
-  it('soma 3 meses', () => {
-    const base = new Date('2026-01-15T00:00:00.000Z');
-    expect(threeMonthsFrom(base).slice(0, 7)).toBe('2026-04');
+describe('validadeEmDias', () => {
+  /* Era `threeMonthsFrom`, com a duração no NOME. Bastava enquanto havia um
+     plano só; com o semanal no ar, qualquer chamada esquecida daria 90 dias
+     por R$ 19,90 — e isso não apareceria em teste nenhum, só na fatura. */
+  it('conta em dias, e atravessa a virada do mês', () => {
+    const base = new Date('2026-01-28T12:00:00Z');
+    expect(validadeEmDias(7, base).slice(0, 10)).toBe('2026-02-04');
+  });
+
+  it('90 dias caem onde a conta de 3 meses caía', () => {
+    const base = new Date('2026-01-15T12:00:00Z');
+    expect(validadeEmDias(90, base).slice(0, 7)).toBe('2026-04');
+  });
+
+  it('atravessa a virada do ano', () => {
+    expect(validadeEmDias(7, new Date('2026-12-29T12:00:00Z')).slice(0, 10)).toBe('2027-01-05');
   });
 });
 

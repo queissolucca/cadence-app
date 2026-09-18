@@ -26,6 +26,17 @@ const PRODUCTS = [
     currency: 'BRL',
     cycle: null, // avulso
   },
+  {
+    // A porta de entrada: sete dias, pra quem não quer decidir três meses de
+    // uma vez. Também avulso — o acesso é controlado por expires_at.
+    externalId: 'cadence-pro-7d',
+    envVar: 'ABACATEPAY_PROD_PRO_SEMANAL',
+    name: 'Cadence Pro — semana',
+    description: 'Acesso ao Cadence — 7 dias',
+    price: 1990, // centavos (R$ 19,90)
+    currency: 'BRL',
+    cycle: null,
+  },
 ];
 
 let cache = {};
