@@ -57,11 +57,26 @@ describe('contexto de retomada', () => {
 });
 
 describe('quando o app reabre a conversa sozinho', () => {
-  const base = { motivo: 'agent', pedido: false, aberta: true, falas: 8, duracaoMs: 120000, jaRetomou: 0 };
+  const base = { motivo: 'error', pedido: false, aberta: true, falas: 8, duracaoMs: 120000, jaRetomou: 0 };
 
-  it('o agente derrubou uma conversa aberta em andamento: reabre', () => {
+  /* O BUG QUE ESTE BLOCO EXISTE PRA IMPEDIR.
+
+     A Cady se despedia ("That's our time for now, great work!"), o ElevenLabs
+     fechava a sessão no teto de 300s — e dois segundos depois o app reabria
+     sozinho e ela voltava com "Sorry, I cut out for a second — I'm back!".
+     Uma despedida desmentida por quem acabou de dá-la, e o teto configurado no
+     painel valendo nada.
+
+     Fim decidido pela plataforma (teto de duração, End Conversation after
+     silence, End Call) chega aqui como motivo 'agent' e NÃO pode reabrir. */
+  it('o agente encerrou: é fim de verdade, não reabre', () => {
+    expect(deveRetomar({ ...base, motivo: 'agent' })).toBe(false);
+    // Nem com tudo o mais perfeito: conversa longa, muitas falas, zero retomadas.
+    expect(deveRetomar({ ...base, motivo: 'agent', falas: 40, duracaoMs: 300000, jaRetomou: 0 })).toBe(false);
+  });
+
+  it('queda de rede continua reabrindo — ninguém decidiu encerrar', () => {
     expect(deveRetomar(base)).toBe(true);
-    expect(deveRetomar({ ...base, motivo: 'error' })).toBe(true);
   });
 
   it('quem encerrou foi a pessoa: nunca reabre', () => {
@@ -72,11 +87,11 @@ describe('quando o app reabre a conversa sozinho', () => {
     expect(deveRetomar({ ...base, motivo: 'user', pedido: true })).toBe(false);
   });
 
-  it('lição e revisão não são reabertas — lá o agente encerrar é o certo', () => {
+  it('lição e revisão não são reabertas nem por queda', () => {
     expect(deveRetomar({ ...base, aberta: false })).toBe(false);
   });
 
-  it('caiu logo no começo é configuração errada, não teto atingido', () => {
+  it('caiu logo no começo é configuração errada, não queda no meio', () => {
     expect(deveRetomar({ ...base, duracaoMs: MINIMO_MS - 1 })).toBe(false);
     expect(deveRetomar({ ...base, duracaoMs: MINIMO_MS })).toBe(true);
   });

@@ -67,6 +67,13 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
   const isCard = !!(cardDrill && cardDrill.term); // drill relâmpago de 1 card da Revisão
   const [starting, setStarting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  /* FIM NORMAL NÃO É ERRO VERMELHO.
+
+     Quando a conversa acaba porque a plataforma decidiu (teto de duração,
+     silêncio), isso passou a ser o comportamento esperado — e o texto ficava
+     no `errorMsg`, que é renderizado em var(--red). Toda sessão de 5 minutos
+     terminaria com um aviso vermelho dizendo que algo deu errado. */
+  const [aviso, setAviso] = useState('');
   const [notConfigured, setNotConfigured] = useState(false);
   const [transcript, setTranscript] = useState([]);
   const [showTranscript, setShowTranscript] = useState(true); // aberta por padrão; usuário pode minimizar
@@ -457,9 +464,14 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
       }
 
       if (!pedido) {
-        setErrorMsg(motivo === 'agent'
-          ? 'A conversa foi encerrada pelo agente de voz. Toque pra recomeçar — o que vocês já falaram está salvo.'
-          : 'A conexão caiu. Toque pra continuar — o que vocês já falaram está salvo.');
+        /* Os dois desfechos deixaram de ser a mesma coisa. 'agent' é a
+           plataforma cumprindo o que está configurado — fim previsto, aviso
+           calmo. Qualquer outro é falha de verdade, e continua em vermelho. */
+        if (motivo === 'agent') {
+          setAviso('A conversa chegou ao fim. Toque na Cady pra começar outra — o que vocês já falaram está salvo.');
+        } else {
+          setErrorMsg('A conexão caiu. Toque pra continuar — o que vocês já falaram está salvo.');
+        }
       }
 
       // O fecho do que já vinha sendo gravado turno a turno: duração e ended_at.
@@ -732,6 +744,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     const automatico = !!(opcoes && opcoes.automatico);
     clearTimeout(recargaAgendada.current);   // vai conversar: a recarga espera
     setErrorMsg('');
+    setAviso('');
     setNotConfigured(false);
     pediuParar.current = false;
     setStarting(true);
@@ -1358,6 +1371,10 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
 
       {errorMsg && (
         <p style={{ margin: 0, fontSize: 13.5, color: 'var(--red, #c0392b)', textAlign: 'center', maxWidth: 320 }}>{errorMsg}</p>
+      )}
+
+      {aviso && !errorMsg && (
+        <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink-soft)', textAlign: 'center', maxWidth: 320 }}>{aviso}</p>
       )}
 
       {notConfigured && (

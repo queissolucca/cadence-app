@@ -191,7 +191,12 @@ describe('a conversa não pode ser travada pela nossa API', () => {
     expect(CONV).toMatch(/onDisconnect: \(detalhes\)/);
     expect(CONV).toMatch(/detalhes\?\.reason/);
     expect(CONV).toMatch(/motivo === 'agent'/);
-    expect(CONV).toMatch(/encerrada pelo agente de voz/);
+    /* A prosa mudou quando o fim do agente deixou de ser tratado como falha
+       (ver tests/conversaSalva.test.js). O que este teste guarda é a
+       ESTRUTURA: o motivo 'agent' tem um desfecho próprio na tela, separado do
+       vermelho de queda de rede. */
+    expect(CONV).toMatch(/setAviso\(/);
+    expect(CONV).toMatch(/A conexão caiu/);
     expect(CONV).toMatch(/cadenceTrack\?\.\('voz_encerrada'/);
     // closeCode é o que separa um limite do agente de uma queda de rede.
     expect(CONV).toMatch(/closeCode/);
