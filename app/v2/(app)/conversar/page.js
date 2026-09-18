@@ -29,7 +29,15 @@ export default async function ConversarPage() {
     <>
       <div>
         <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0, color: 'var(--ink)' }}>Conversar</h1>
-        <p style={{ margin: '6px 0 18px', fontSize: 14, color: 'var(--ink-soft)' }}>
+        {/* 4px embaixo, e não 18. O vão que se vê aqui não é só esta margem:
+            `.web-main-inner` já põe 26px de `gap` entre este bloco e a
+            ConversarView, então 18 + 26 = 44px de ar entre o texto e o botão
+            "Agentes & histórico" — numa tela onde o que falta é justamente
+            altura pra caixa de escrever caber sem rolagem.
+
+            Mexer no `gap` do `.web-main-inner` resolveria mais, mas ele vale
+            pra TODA página do app; esta margem é só desta tela. 44 -> 30. */}
+        <p style={{ margin: '6px 0 4px', fontSize: 14, color: 'var(--ink-soft)' }}>
           Bora destravar seu inglês agora! Comece aos poucos, mas tenha cadência de continuar aprendendo! <strong style={{ color: 'var(--ink)' }}>Não pense muito, apenas clique e comece agora!</strong>
         </p>
       </div>

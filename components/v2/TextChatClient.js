@@ -241,23 +241,46 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
           display: 'flex', flexDirection: 'column', gap: 8,
           /* ALTURA QUE CABE NA TELA, E SÓ ELA ROLA.
 
-             Era `min(56vh, 460px)`, e duas coisas nisso empurravam a página
-             pra fora do celular:
+             O número descontado é o ORÇAMENTO DO QUE NÃO É A CONVERSA. Ele já
+             esteve em `min(56vh, 460px)` (errado: no Safari do iPhone `100vh`
+             é o viewport EXPANDIDO, maior do que se enxerga com a barra à
+             mostra) e depois em 430px, chutado. 430 era pouco: o campo de
+             digitar ficava abaixo da dobra e a pessoa tinha que rolar a página
+             pra achar onde escrever.
 
-             1. `vh`, e não `dvh`. No Safari do iPhone, `100vh` é o viewport
-                EXPANDIDO — o tamanho que a tela teria com a barra do navegador
-                escondida. Enquanto a barra está à mostra, que é o estado
-                normal, 56vh já é mais do que 56% do que se enxerga.
-             2. A conta ignorava o resto da tela. Acima da caixa vivem o título,
-                a semana e o par Escrever/Falar; abaixo, o campo de digitar e a
-                barra de abas. Somados, ~430px — e é isso que o `calc` desconta
-                agora, em vez de torcer pra sobrar.
+             Agora é somado, elemento por elemento, no mobile (<=860px):
 
-             Os 430px são o único número a ajustar se ainda faltar (ou sobrar)
-             espaço: ele é o orçamento do que NÃO é a conversa. O piso de 180px
-             existe pra tela curta não virar uma fresta; abaixo disso a página
-             volta a rolar, que é o mal menor. */
-          height: 'clamp(180px, calc(100dvh - 430px), 400px)',
+               24   .web-main padding-top
+               33   h1 "Conversar" (26px)
+               62   parágrafo de 3 linhas + margens (6 em cima, 4 embaixo)
+               26   gap do .web-main-inner
+               34   botão "Agentes & histórico"
+               14   gap do .conv-shell
+               12   padding-top do .conv-live
+               48   par Escrever/Falar + sua margem
+               62   a Cady miniatura e o nome
+               12   gap até a caixa
+              ----
+               327  acima da caixa
+
+               12   gap depois da caixa
+               46   campo de digitar + botão de enviar
+               96   .web-main padding-bottom (reserva da tabbar fixa)
+              ----
+               154  abaixo da caixa
+
+             481 no total; 500 pra ter folga, porque o parágrafo pode quebrar em
+             4 linhas em tela estreita e a tabbar tem ~30px de sobra dentro
+             daqueles 96.
+
+             O teto caiu de 400 pra 380: em celular alto o `calc` nem chega no
+             teto, mas 380 garante que a caixa não volte a dominar a tela.
+
+             O piso de 180px existe pra tela curta não virar uma fresta —
+             abaixo dele a página volta a rolar, que é o mal menor. Num iPhone
+             SE ainda rola; caber lá exigiria encurtar o título e o parágrafo,
+             que são conteúdo, não folga. */
+          height: 'clamp(180px, calc(100dvh - 500px), 380px)',
           overflowY: 'auto', WebkitOverflowScrolling: 'touch',
           /* A rolagem para AQUI: sem isto, chegar ao fim da conversa continua
              rolando a página atrás, e a tela inteira se mexe. */
