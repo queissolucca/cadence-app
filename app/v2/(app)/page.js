@@ -101,13 +101,16 @@ export default async function HojePageV2() {
               boxShadow: '0 12px 30px rgba(16,32,22,.26), 0 3px 8px rgba(16,32,22,.16)',
             }}
           >
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            {/* Tudo centrado: o cartão deixou de ser um de dois lado a lado e
+                virou o único da tela. Alinhado à esquerda ele puxava o olho pro
+                canto de um bloco que agora é simétrico. */}
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0, margin: '0 auto' }}>
               <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="3" width="6" height="11" rx="3" />
                 <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
               </svg>
             </div>
-            <div>
+            <div style={{ textAlign: 'center' }}>
               <strong style={{ fontSize: 15 }}>Conversa aberta</strong>
               <p style={{ margin: '3px 0 0', fontSize: 12.5, opacity: 0.85, lineHeight: 1.4 }}>
                 Converse à vontade com a Cady!
@@ -118,6 +121,23 @@ export default async function HojePageV2() {
                 <br />Escrevendo ou Falando
               </p>
             </div>
+
+            {/* `span`, e não `button` ou `Link`: o cartão INTEIRO já é um link,
+                e elemento clicável dentro de link é HTML inválido — o navegador
+                desfaz o aninhamento e o resultado é imprevisível. Como span, ele
+                parece um botão, e o alvo de toque continua sendo o cartão todo,
+                que é maior e mais fácil de acertar no celular. */}
+            <span
+              style={{
+                display: 'block', margin: '4px auto 0', width: 'fit-content',
+                background: 'var(--green)', color: '#16231C',
+                fontWeight: 800, fontSize: 13.5, letterSpacing: '-0.01em',
+                padding: '10px 26px', borderRadius: 10,
+                boxShadow: '0 3px 12px rgba(32,92,57,.3)',
+              }}
+            >
+              Clique Aqui
+            </span>
           </div>
         </Link>
 
