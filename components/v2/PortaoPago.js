@@ -6,22 +6,29 @@ import { PLANS, centavosPorDia } from '../../lib/plans';
 
 const reais = (centavos) => `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`;
 
-/* A ordem importa: o semanal vem primeiro por ser o menor compromisso, e o
-   trimestral logo abaixo, onde a conta por dia dele desmonta a do de cima. */
+/* O TRIMESTRAL VEM PRIMEIRO.
+
+   Estava embaixo, na ideia de que a conta por dia dele desmontaria a do de
+   cima — mas isso supõe que a pessoa leia as duas antes de decidir. Num popup,
+   a primeira opção é a que carrega o peso de "recomendada"; enterrar a que
+   você quer vender embaixo da alternativa mais barata é ler contra a corrente.
+
+   O de 7 dias fica logo abaixo, como saída pra quem não quer decidir três
+   meses agora. */
 const PLANOS = [
+  {
+    id: 'pro-trimestral',
+    nome: '3 meses (90 dias)',
+    nota: 'pagamento único · pix na hora',
+    acao: 'Quero aprender a partir de agora com a Cady por um preço mais acessível!',
+    destaque: true,
+    selo: 'melhor por dia',
+  },
   {
     id: 'pro-semanal',
     nome: '7 dias',
-    nota: 'pra experimentar sem decidir agora',
-    acao: 'Começar por uma semana',
-  },
-  {
-    id: 'pro-trimestral',
-    nome: '3 meses',
-    nota: 'pagamento único · pix na hora',
-    acao: 'Pagar agora para aprender com a Cady!',
-    destaque: true,
-    selo: 'melhor por dia',
+    nota: 'pra experimentar e sentir como a Cady consegue te ajudar!',
+    acao: 'Quero testar por uma semana primeiro!',
   },
 ].map((p) => {
   const plano = PLANS[p.id];

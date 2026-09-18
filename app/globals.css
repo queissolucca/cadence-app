@@ -676,7 +676,10 @@ html[data-conversa="ativa"] .v2-tabbar { backdrop-filter: none; background: var(
    Cada uma é um botão inteiro, não um cartão com um botão dentro: a pessoa
    está escolhendo entre dois caminhos, e um alvo de toque do tamanho da opção
    é mais fácil de acertar no celular do que um botãozinho no rodapé dela. */
-.pg-planos{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+/* O selo do primeiro cartão flutua 8px acima da borda dele. Com o trimestral
+   (que é quem tem selo) agora no TOPO, esse espaço precisa existir — antes
+   sobrava porque o primeiro cartão era o semanal, que não tem selo. */
+.pg-planos{display:flex;flex-direction:column;gap:10px;margin-top:14px}
 
 .pg-plano{
   position:relative;width:100%;text-align:left;cursor:pointer;
@@ -700,7 +703,10 @@ html[data-conversa="ativa"] .v2-tabbar { backdrop-filter: none; background: var(
   letter-spacing:.08em;text-transform:uppercase;
   padding:3px 8px;border-radius:99px;background:#205C39;color:#eaf7ef;
 }
-.pg-plano-nome{font-size:13px;font-weight:700;letter-spacing:-.01em}
+/* Espaço à direita pro selo, que é absoluto e passaria por cima do nome —
+   "3 meses (90 dias)" é bem mais longo que o "3 meses" de antes. */
+.pg-plano-nome{font-size:13px;font-weight:700;letter-spacing:-.01em;padding-right:92px}
+.pg-plano:not(.pg-plano-alvo) .pg-plano-nome{padding-right:0}
 
 /* O preço e a conta por dia na MESMA linha: separados, a comparação exige
    memória, e ninguém compara R$ 19,90 com R$ 89,90 de cabeça. */
@@ -711,11 +717,14 @@ html[data-conversa="ativa"] .v2-tabbar { backdrop-filter: none; background: var(
   font-size:12px;color:#205C39;font-weight:600;
 }
 .pg-plano-nota{font-size:11.5px;color:var(--ink-soft,#6b6b63);line-height:1.35}
+/* `block`, e não flex: o texto do trimestral tem uma frase inteira e quebra em
+   duas ou três linhas. Em flex, a seta vira um item irmão e desce pro rodapé
+   do bloco, longe da última palavra. Inline ela acompanha o texto. */
 .pg-plano-cta{
   margin-top:7px;font-size:13px;font-weight:700;color:#205C39;
-  display:flex;align-items:center;gap:5px;
+  line-height:1.35;text-wrap:pretty;
 }
-.pg-plano-alvo .pg-plano-cta::after{content:"→"}
+.pg-plano-alvo .pg-plano-cta::after{content:" →";white-space:nowrap}
 
 :root.dark .pg-plano{border-color:#2c312c}
 :root.dark .pg-plano:hover{border-color:#3E9B5F;background:rgba(62,155,95,.08)}

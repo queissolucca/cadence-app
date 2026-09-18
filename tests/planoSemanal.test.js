@@ -98,6 +98,20 @@ describe('o popup não tem a sua própria tabela de preços', () => {
     expect(pop).toContain("'pro-trimestral'");
   });
 
+  it('o trimestral vem primeiro', () => {
+    /* Num popup, a primeira opção carrega o peso de "recomendada". Enterrar a
+       que se quer vender embaixo da mais barata é ler contra a corrente — e
+       supõe que a pessoa compare as duas antes de decidir. */
+    expect(pop.indexOf("'pro-trimestral'")).toBeLessThan(pop.indexOf("'pro-semanal'"));
+  });
+
+  it('o quadrante inteiro é clicável, não só um botãozinho', () => {
+    // Alvo do tamanho da opção acerta melhor no celular do que um link no pé
+    // dela — e cada plano É o botão, não tem um dentro.
+    expect(pop).toMatch(/<button[\s\S]{0,160}className=\{`pg-plano/);
+    expect(pop).toMatch(/onClick=\{\(\) => pagar\(pl\.id\)\}/);
+  });
+
   it('sabe dizer quando um plano ainda não existe no AbacatePay', () => {
     /* `plan_not_configured` tem causa e conserto conhecidos. Dizer "tenta de
        novo" aí manda a pessoa repetir uma ação que nunca vai funcionar. */
