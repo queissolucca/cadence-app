@@ -84,9 +84,13 @@ export default async function HojePageV2() {
           proporção; a sombra o levanta do fundo vivo da constelação, que sem
           ela come a borda do cartão. */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, justifyItems: 'center' }}>
-        <Link href="/v2/conversar" style={{ textDecoration: 'none', width: '100%', maxWidth: 360 }}>
+        {/* 320, e não os 360 de antes: a 360 ele ocupa quase toda a largura útil
+            de um celular e lê como FAIXA — a coisa que delimita uma seção. Um
+            botão precisa de fundo visível dos dois lados pra ser um objeto
+            sobre a página em vez de a própria página. */}
+        <Link href="/v2/conversar" style={{ textDecoration: 'none', width: '100%', maxWidth: 320 }}>
           <div
-            className="v2-card-dark"
+            className="v2-card-dark v2-relevo"
             style={{
               /* MENOS ALTO. O `minHeight: 132` vinha de quando havia DOIS
                  cartões lado a lado e os dois precisavam da mesma altura, com
@@ -96,23 +100,35 @@ export default async function HojePageV2() {
 
                  O ícone e o respiro entre as linhas caíram junto, um degrau
                  cada: tirar só o piso deixaria o cartão alto do mesmo jeito,
-                 porque o conteúdo é que estava folgado. */
-              display: 'flex', flexDirection: 'column', gap: 8, padding: 15,
-              boxShadow: '0 12px 30px rgba(16,32,22,.26), 0 3px 8px rgba(16,32,22,.16)',
+                 porque o conteúdo é que estava folgado.
+
+                 Padding menor embaixo do que em cima: o botão verde já traz a
+                 margem visual dele, e somar as duas abria um vão que fazia o
+                 cartão parecer pesado na base.
+
+                 Sem `boxShadow` aqui: quem desenha o relevo é a classe
+                 `.v2-relevo`, porque ela precisa de um segundo jogo de sombras
+                 pro estado apertado — e estilo inline não tem :active.
+
+                 `borderRadius: 18` no lugar dos 22 do token: num cartão que
+                 encolheu, 22 arredonda demais e o contorno começa a virar
+                 pílula. O raio menor é o que dá a aresta de botão. */
+              display: 'flex', flexDirection: 'column', gap: 7, padding: '15px 16px 13px',
+              borderRadius: 18,
             }}
           >
             {/* Tudo centrado: o cartão deixou de ser um de dois lado a lado e
                 virou o único da tela. Alinhado à esquerda ele puxava o olho pro
                 canto de um bloco que agora é simétrico. */}
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0, margin: '0 auto' }}>
-              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <div style={{ width: 36, height: 36, borderRadius: 11, background: 'var(--green)', color: '#16231C', display: 'grid', placeItems: 'center', flexShrink: 0, margin: '0 auto' }}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="3" width="6" height="11" rx="3" />
                 <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
               </svg>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <strong style={{ fontSize: 15 }}>Conversa aberta</strong>
-              <p style={{ margin: '3px 0 0', fontSize: 12.5, opacity: 0.85, lineHeight: 1.4 }}>
+              <strong style={{ fontSize: 14.5 }}>Conversa aberta</strong>
+              <p style={{ margin: '3px 0 0', fontSize: 12, opacity: 0.85, lineHeight: 1.4 }}>
                 Converse à vontade com a Cady!
                 {/* Os dois modos ficam ditos aqui porque a escolha entre eles
                     acontece DENTRO da tela seguinte — quem lê só "conversa"
@@ -128,12 +144,12 @@ export default async function HojePageV2() {
                 parece um botão, e o alvo de toque continua sendo o cartão todo,
                 que é maior e mais fácil de acertar no celular. */}
             <span
+              className="v2-relevo-btn"
               style={{
-                display: 'block', margin: '4px auto 0', width: 'fit-content',
+                display: 'block', margin: '5px auto 2px', width: 'fit-content',
                 background: 'var(--green)', color: '#16231C',
-                fontWeight: 800, fontSize: 13.5, letterSpacing: '-0.01em',
-                padding: '10px 26px', borderRadius: 10,
-                boxShadow: '0 3px 12px rgba(32,92,57,.3)',
+                fontWeight: 800, fontSize: 13, letterSpacing: '-0.01em',
+                padding: '9px 24px', borderRadius: 11,
               }}
             >
               Clique Aqui

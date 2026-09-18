@@ -569,6 +569,66 @@ html[data-conversa="ativa"] .v2-tabbar { backdrop-filter: none; background: var(
 .v2-tab-btn:active svg, .web-nav-link:active svg { transform: scale(0.9); }
 .v2-tab-btn svg, .web-nav-link svg { transition: transform 0.1s ease; }
 
+/* ---- Relevo: o cartão da Início que É um botão -------------------------
+   O pedido foi "levemente 3D, no detalhe, sem ser extravagante". Volume de
+   verdade não vem de UMA sombra forte — vem de camadas fracas que imitam
+   como a luz cai num objeto:
+
+     • um fio de luz na aresta de cima (a face que pegaria a luz);
+     • uma sombra CURTA e escura logo abaixo — é ela que faz o cartão POUSAR
+       na página; sem esse contato, qualquer sombra grande parece um borrão
+       flutuando;
+     • um halo largo e fraco, que só separa o cartão do fundo vivo da
+       constelação.
+
+   E o que realmente o faz ler como botão não é a sombra parada: é o toque.
+   Ao apertar, ele afunda 1px e as sombras encolhem — a distância até a
+   página diminui, que é exatamente o que acontece com um botão físico.
+
+   Classe própria, e não uma mudança em `.v2-card-dark`: essa classe está em
+   ~30 lugares do app (diálogos, botões de formulário, cabeçalho) e quase
+   nenhum deles é um botão que se aperta.
+
+   `.v2-bg .v2-card-dark.v2-relevo` tem especificidade (0,3,0) contra a
+   (0,3,1) da regra de :active acima; por isso o estado apertado abaixo
+   repete os dois seletores acoplados — (0,4,1) — em vez de confiar na ordem
+   do arquivo. */
+.v2-bg .v2-card-dark.v2-relevo {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 1px 2px rgba(16, 32, 22, 0.28),
+    0 3px 6px rgba(16, 32, 22, 0.18),
+    0 10px 22px rgba(16, 32, 22, 0.15);
+  transition: transform 0.11s ease, box-shadow 0.11s ease;
+}
+.v2-bg a:active .v2-card-dark.v2-relevo {
+  transform: translateY(1px) scale(0.99);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(16, 32, 22, 0.28),
+    0 2px 4px rgba(16, 32, 22, 0.14),
+    0 4px 9px rgba(16, 32, 22, 0.10);
+}
+
+/* O botão verde de dentro pode ser mais literal: sobre um fundo quase preto
+   o verde tem um tom mais escuro de si mesmo pra usar como ESPESSURA
+   (`0 2px 0 var(--green-dark)`) — o truque não funcionaria no cartão, cuja
+   face já é quase preta e não tem para onde escurecer. */
+.v2-relevo .v2-relevo-btn {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 0 var(--green-dark),
+    0 4px 10px rgba(32, 92, 57, 0.28);
+  transition: transform 0.11s ease, box-shadow 0.11s ease;
+}
+.v2-bg a:active .v2-relevo .v2-relevo-btn {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 1px 0 var(--green-dark),
+    0 2px 5px rgba(32, 92, 57, 0.24);
+}
+
 /* Sem realce cinza de toque do iOS por cima do nosso próprio retorno visual —
    ele atrasa ~100ms e some depois, o que parece atraso, não resposta. */
 .v2-bg a, .v2-bg button { -webkit-tap-highlight-color: transparent; }
@@ -581,6 +641,8 @@ html[data-conversa="ativa"] .v2-tabbar { backdrop-filter: none; background: var(
   .web-nav-link.web-nav-chegando svg { animation: none; }
   .v2-bg .v2-card, .v2-bg .v2-card-dark, .v2-bg .v2-card-green,
   .v2-tab-btn svg, .web-nav-link svg { transition: none; }
+  .v2-bg .v2-card-dark.v2-relevo,
+  .v2-relevo .v2-relevo-btn { transition: none; }
 }
 
 /* ===================================================================
