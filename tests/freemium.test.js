@@ -1,0 +1,152 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { apiLiberada, apiDoPlanoGratis, ehRotaApi, ROTAS_GRATIS } from '../lib/apiAccess.js';
+import { proximoPasso } from '../lib/funil.js';
+import { recursoPagoDaPagina, conviteDe, FALA, TRILHA } from '../lib/acesso.js';
+
+/* O MODELO: escrever com a Cady é grátis pra quem tem conta; FALAR e a TRILHA
+   são pagos. Quem não pagou entra, usa, e encontra o caixa num popup — em vez
+   de ser expulso na porta.
+
+   O risco desse desenho não é alguém ver o popup demais. É o contrário: uma
+   rota cara cair no plano grátis por engano e queimar minuto de ElevenLabs ou
+   token da Anthropic em silêncio, todo dia, até alguém olhar a fatura. Os
+   testes abaixo cercam esse lado. */
+
+const raiz = fileURLToPath(new URL('../', import.meta.url));
+const ler = (p) => readFileSync(join(raiz, p), 'utf8');
+
+describe('o que custa dinheiro continua pago', () => {
+  const CARAS = [
+    ['/api/convai/signed-url', 'a voz — cada minuto é ElevenLabs'],
+    ['/api/conversar/saudacao', 'abre a sessão de voz'],
+    ['/api/review/practice', 'revisão FALADA'],
+    ['/api/exercise/submit', 'trilha'],
+    ['/api/exercise/explain', 'trilha'],
+    ['/api/v2/roleplay/start', 'trilha'],
+    ['/api/v2/roleplay/turn', 'trilha'],
+    ['/api/roleplay/turn', 'trilha'],
+    ['/api/scenario/active', 'trilha'],
+  ];
+
+  it.each(CARAS)('%s não é grátis (%s)', (rota) => {
+    expect(apiDoPlanoGratis(rota), `${rota} caiu no plano grátis`).toBe(false);
+    expect(apiLiberada(rota), `${rota} está aberta sem login`).toBe(false);
+  });
+
+  it("'/api/review/' não vaza pra /api/review/practice", () => {
+    /* O prefixo solto seria a forma óbvia de liberar a revisão escrita — e
+       levaria a falada junto, que usa voz. Por isso a lista tem as rotas
+       exatas, e não o prefixo. */
+    expect(apiDoPlanoGratis('/api/review')).toBe(true);
+    expect(apiDoPlanoGratis('/api/review/defer')).toBe(true);
+    expect(apiDoPlanoGratis('/api/review/practice')).toBe(false);
+  });
+});
+
+describe('o plano grátis é uma lista explícita, não um default', () => {
+  it('rota inventada nasce fechada', () => {
+    // A propriedade que sustenta tudo: esquecer de proteger tem que ser
+    // impossível, porque custa dinheiro; esquecer de liberar aparece no
+    // primeiro teste manual.
+    for (const inventada of ['/api/coisa-nova', '/api/v3/caro', '/api/tts/gerar']) {
+      expect(apiDoPlanoGratis(inventada)).toBe(false);
+      expect(apiLiberada(inventada)).toBe(false);
+    }
+  });
+
+  it('escrever com a Cady é o que está grátis', () => {
+    expect(apiDoPlanoGratis('/api/chat')).toBe(true);
+    expect(ROTAS_GRATIS).toContain('/api/chat');
+  });
+
+  it('as rotas com id na URL são alcançadas por prefixo', () => {
+    expect(apiDoPlanoGratis('/api/conversations/abc-123')).toBe(true);
+    expect(apiDoPlanoGratis('/api/memory/xyz')).toBe(true);
+  });
+
+  it('tudo que é grátis também é rota de API', () => {
+    for (const r of ROTAS_GRATIS) expect(ehRotaApi(r)).toBe(true);
+  });
+});
+
+describe('o middleware aplica na ordem certa', () => {
+  const MW = ler('middleware.js');
+
+  it('o plano grátis é checado depois do login e antes do pagamento', () => {
+    const iLogin = MW.indexOf("nega(401, 'not_authenticated')");
+    const iGratis = MW.indexOf('apiDoPlanoGratis(pathname)');
+    const iPago = MW.indexOf('const pago = await acessoPago();');
+    expect(iLogin).toBeGreaterThan(-1);
+    expect(iGratis).toBeGreaterThan(iLogin);   // sem sessão continua 401
+    expect(iPago).toBeGreaterThan(iGratis);    // e nem consulta paid_emails
+  });
+
+  it('a API continua negando na dúvida', () => {
+    // Um popup se fecha no inspetor; um 402 não. O portão de verdade é este.
+    expect(MW).toContain("if (pago === undefined) return nega(503, 'try_again');");
+    expect(MW).toContain("if (!pago) return nega(402, 'payment_required');");
+  });
+});
+
+describe('o caixa aparece onde faz sentido', () => {
+  it('não expulsa mais ninguém na porta', () => {
+    expect(proximoPasso({ pago: false, nome: 'Lucca' })).toBeNull();
+  });
+
+  it('a trilha é página paga; a de conversar não', () => {
+    expect(recursoPagoDaPagina('/v2/trilha')).toBe(TRILHA);
+    expect(recursoPagoDaPagina('/v2/trilha/unidade-3')).toBe(TRILHA);
+    /* /v2/conversar abre no modo ESCREVER, que é grátis. Pôr a página na lista
+       faria o popup abrir em cima de um recurso a que a pessoa tem direito. */
+    expect(recursoPagoDaPagina('/v2/conversar')).toBeNull();
+    expect(recursoPagoDaPagina('/v2')).toBeNull();
+  });
+
+  it('cada recurso tem um convite próprio, e nenhum fica sem texto', () => {
+    for (const r of [FALA, TRILHA]) {
+      expect(conviteDe(r).titulo.length).toBeGreaterThan(8);
+      expect(conviteDe(r).linha.length).toBeGreaterThan(40);
+    }
+    expect(conviteDe('recurso-que-nao-existe').titulo).toBeTruthy();
+  });
+});
+
+describe('escrever é o primeiro caminho', () => {
+  const view = ler('components/v2/ConversarView.js');
+
+  it('a tela de conversar abre no texto, não no microfone', () => {
+    // Abrir no microfone faria a primeira coisa do produto ser dizer não.
+    expect(view).toMatch(/useState\('text'\)/);
+  });
+
+  it('todo caminho pro modo voz passa pela porta', () => {
+    /* São dois caminhos: o botão "Falar" e a retomada de uma conversa antiga
+       por voz. Ambos podem chamar setMode('voice') — o que não pode é chamar
+       SEM passar por pedirPlano antes, que seria uma porta lateral pro que é
+       pago. Então a asserção olha o que vem imediatamente antes de cada
+       chamada, e não se a chamada existe. */
+    const chamadas = [...view.matchAll(/setMode\('voice'\)/g)];
+    expect(chamadas.length, 'nenhum caminho pro modo voz — a tela quebrou?')
+      .toBeGreaterThan(0);
+    const desprotegidas = chamadas.filter((m) => {
+      const antes = view.slice(Math.max(0, m.index - 140), m.index);
+      return !antes.includes('pedirPlano');
+    });
+    expect(desprotegidas.length, "setMode('voice') sem pedirPlano antes").toBe(0);
+    expect(view).toContain('pedirPlano(FALA)');
+  });
+});
+
+describe('a trilha aparece mesmo pra quem não pagou', () => {
+  it.each([['components/ui/TabBar.js'], ['components/v2/Sidebar.js']])(
+    '%s mostra a aba com cadeado em vez de escondê-la', (arquivo) => {
+      const src = ler(arquivo);
+      // Aba escondida não vende nada: ninguém procura o que não sabe que existe.
+      expect(src).toContain("label: 'Trilha'");
+      expect(src).toMatch(/pago: 'trilha'/);
+      expect(src).toContain('pedirPlano(pago)');
+    });
+});

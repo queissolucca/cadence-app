@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CadenceLogo } from './CadenceLogo';
 import { useDestinoPendente } from './NavegacaoPendente';
+import { usePortao } from './PortaoProvider';
 
 function IconHome() {
   return (
@@ -22,6 +23,23 @@ function IconReview() {
   );
 }
 
+function IconTrilha() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="6" cy="18" r="2.2" /><circle cx="12" cy="11" r="2.2" /><circle cx="18" cy="5" r="2.2" />
+      <path d="M7.7 16.6 10.4 12.5M13.7 9.4l2.7-2.6" />
+    </svg>
+  );
+}
+
+function IconCadeado() {
+  return (
+    <svg className="web-nav-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7.5a4 4 0 0 1 8 0V11" />
+    </svg>
+  );
+}
+
 function IconUser() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -33,6 +51,7 @@ function IconUser() {
 
 const NAV_ITEMS = [
   { href: '', label: 'Início', Icon: IconHome },
+  { href: '/trilha', label: 'Trilha', Icon: IconTrilha, pago: 'trilha' },
   { href: '/revisao', label: 'Revisão', Icon: IconReview },
   { href: '/ajustes', label: 'Perfil', Icon: IconUser },
 ];
@@ -47,13 +66,15 @@ export function Sidebar({ streak = 0, avatarUrl, avatarInitial, basePath = '/v2'
   // esperar a tela nova. Ver components/v2/NavegacaoPendente.js.
   const pendente = useDestinoPendente();
   const NAV = NAV_ITEMS.map((item) => ({ ...item, href: `${basePath}${item.href}` }));
+  const { temPlano, pedirPlano } = usePortao();
 
   return (
     <aside className="web-sidebar">
       <Link href={basePath} className="web-sidebar-logo" style={{ textDecoration: 'none', color: 'inherit' }}><CadenceLogo word={22} variant="inherit" /></Link>
 
       <nav className="web-sidebar-nav">
-        {NAV.map(({ href, label, Icon }) => {
+        {NAV.map(({ href, label, Icon, pago }) => {
+          const trancada = !!pago && !temPlano;
           const chegando = pendente === href;
           const aqui = href === basePath ? pathname === href : pathname.startsWith(href);
           const isActive = chegando || (!pendente && aqui);
@@ -62,10 +83,17 @@ export function Sidebar({ streak = 0, avatarUrl, avatarInitial, basePath = '/v2'
               key={href}
               href={href}
               aria-current={isActive ? 'page' : undefined}
-              className={`web-nav-link ${isActive ? 'web-nav-active' : ''} ${chegando ? 'web-nav-chegando' : ''}`}
+              className={`web-nav-link ${isActive ? 'web-nav-active' : ''} ${chegando ? 'web-nav-chegando' : ''} ${trancada ? 'web-nav-trancada' : ''}`}
+              onClick={(e) => {
+                // Só o clique comum vira popup — ver o mesmo trecho na TabBar.
+                if (!trancada || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                pedirPlano(pago);
+              }}
             >
               <Icon />
               <span>{label}</span>
+              {trancada && <IconCadeado />}
             </Link>
           );
         })}

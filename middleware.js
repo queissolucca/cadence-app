@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { destinoDoDominio } from './lib/dominio';
 import { updateSession } from './lib/supabase/middleware';
-import { apiLiberada, ehRotaApi } from './lib/apiAccess';
+import { apiLiberada, ehRotaApi, apiDoPlanoGratis } from './lib/apiAccess';
 import { ehTelaPublica, proximoPasso, TELAS_DE_PASSO } from './lib/funil';
 
 // Redirects de rotas antigas/aposentadas — feitos aqui (não com redirect()
@@ -186,6 +186,11 @@ export async function middleware(request) {
     // morta. 503 diz "tenta de novo", que é o que de fato aconteceu.
     if (semConfirmar) return nega(503, 'try_again');
     if (!user) return nega(401, 'not_authenticated');
+    /* PLANO GRÁTIS: escrever com a Cady é livre pra quem tem conta. A checagem
+       vem DEPOIS do login e ANTES do pagamento, nessa ordem — quem não tem
+       sessão continua levando 401, e quem tem passa sem consultar paid_emails.
+       Uma ida a menos ao banco em toda mensagem de texto, de quebra. */
+    if (apiDoPlanoGratis(pathname)) return response;
     const pago = await acessoPago();
     // Aqui a dúvida NEGA, ao contrário das páginas: cada chamada liberada por
     // engano queima token da Anthropic ou minuto do ElevenLabs, e errar pra
@@ -235,9 +240,13 @@ export async function middleware(request) {
   if (LOGIN_REQUIRED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     if (precisaLogar) return NextResponse.redirect(new URL('/login', request.url));
     if (semConfirmar) return reconectando();
-    const step = await nextStep();
-    if (step === undefined) return response;
-    if (step) return NextResponse.redirect(new URL(step, request.url));
+    /* SÓ LOGIN. Antes daqui saía um redirect pro /pagamento pra quem não tinha
+       pago — o app inteiro era pago. Agora escrever é grátis, então a pessoa
+       ENTRA e usa; falar e a trilha é que pedem o acesso, e pedem com um popup
+       na própria tela, que explica o que ela ganha.
+
+       Quem barra de verdade continua sendo a API, logo acima: um popup se
+       fecha no inspetor, uma negação de 402 não. */
     return response;
   }
 

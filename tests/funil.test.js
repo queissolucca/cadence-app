@@ -13,11 +13,27 @@ import { proximoPasso, TELAS_DE_PASSO } from '../lib/funil.js';
    pedir de novo o que a pessoa já tinha respondido nas 28 telas anteriores. */
 
 describe('próximo passo do funil', () => {
-  it('sem pagar, a única porta é o caixa', () => {
-    expect(proximoPasso({ pago: false, nome: 'Lucca' })).toBe('/pagamento');
-    expect(proximoPasso({ pago: false, nome: '' })).toBe('/pagamento');
-    // O nome não pode atravessar o caixa: pedir antes de pagar inverte o funil.
-    expect(proximoPasso({ pago: false })).toBe('/pagamento');
+  /* A CANCELA SAIU DAQUI, e é de propósito.
+
+     Até o freemium, não ter pago era o primeiro passo do funil: a pessoa
+     criava conta e ia direto pro /pagamento, sem ver o produto. Agora escrever
+     com a Cady é grátis — ela entra, usa, e só encontra o caixa quando tenta
+     falar ou abrir a trilha, num popup que diz o que ela ganha.
+
+     O que este teste trava é que o funil NÃO volte a barrar sozinho. Se um dia
+     alguém reintroduzir a linha aqui, todo mundo que não pagou é expulso do
+     app grátis — e ninguém percebe até a primeira reclamação. */
+  it('não ter pago não expulsa mais ninguém do app', () => {
+    // Com nome, não falta nada: a pessoa entra e escreve de graça.
+    expect(proximoPasso({ pago: false, nome: 'Lucca' })).toBeNull();
+    // Sem nome ela ainda vai pro /v2/onboarding — mas por causa do NOME, e não
+    // do pagamento. O que não pode é aparecer '/pagamento' em nenhum dos dois.
+    expect(proximoPasso({ pago: false })).not.toBe('/pagamento');
+  });
+
+  it('o nome ainda é pedido, pago ou não — a Cady precisa dele pra chamar a pessoa', () => {
+    expect(proximoPasso({ pago: false, nome: '' })).toBe('/v2/onboarding');
+    expect(proximoPasso({ pago: true, nome: '' })).toBe('/v2/onboarding');
   });
 
   it('pagou e sem nome, pede o nome; com nome, libera o app', () => {

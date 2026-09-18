@@ -6,6 +6,8 @@ import { TextChatClient } from './TextChatClient';
 import { ConversationHistory } from './ConversationHistory';
 import { AGENTS, DEFAULT_AGENT } from '../../lib/track/sessionOptions';
 import { contextoDeRetomada } from '../../lib/retomada';
+import { usePortao } from './PortaoProvider';
+import { FALA } from '../../lib/acesso';
 
 function fullDateTime(iso) {
   return new Date(iso).toLocaleString('pt-BR', {
@@ -45,7 +47,18 @@ export function ConversarView({ firstName, memoryText }) {
   const [railOpen, setRailOpen] = useState(false);
   const [activeAgent, setActiveAgent] = useState(DEFAULT_AGENT);
   const [resume, setResume] = useState(null);
-  const [mode, setMode] = useState('voice'); // 'voice' = microfone | 'text' = escrever
+  /* ESCREVER É O PADRÃO. Era 'voice'.
+
+     Escrever com a Cady é o plano grátis: abrir no microfone levava quem não
+     pagou direto num botão que ela não pode usar, e a primeira coisa que o
+     produto fazia era dizer não. Abrindo no texto, ela usa — e encontra o
+     caixa quando QUISER falar, que é quando a oferta faz sentido. */
+  const [mode, setMode] = useState('text'); // 'text' = escrever | 'voice' = microfone
+  const { pedirPlano } = usePortao();
+
+  /* Uma porta só pro modo voz. Retomar uma conversa antiga POR VOZ (linha ~110)
+     passa por aqui também — senão haveria um caminho lateral pro que é pago. */
+  const irParaVoz = () => { if (!pedirPlano(FALA)) setMode('voice'); };
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -107,6 +120,8 @@ export function ConversarView({ firstName, memoryText }) {
     if (!detail) return;
     const topic = detail.title || selected?.title || 'nossa conversa';
     setResume({ context: contextoDeRetomada(detail.messages, topic), topic, id: detail.id, messages: detail.messages || [] });
+    // Retomar por voz também passa pela porta — ver irParaVoz.
+    if (targetMode === 'voice') { if (pedirPlano(FALA)) return; }
     setMode(targetMode);
     setSelected(null);
     setDetail(null);
@@ -241,8 +256,9 @@ export function ConversarView({ firstName, memoryText }) {
         ) : (
           <div className="conv-live">
             <div className="conv-modetoggle">
-              <button type="button" className={mode === 'voice' ? 'on' : ''} onClick={() => setMode('voice')}>🎙 Falar</button>
+              {/* Escrever vem PRIMEIRO: é o que a pessoa pode usar agora. */}
               <button type="button" className={mode === 'text' ? 'on' : ''} onClick={() => setMode('text')}>⌨️ Escrever</button>
+              <button type="button" className={mode === 'voice' ? 'on' : ''} onClick={irParaVoz}>🎙 Falar</button>
             </div>
             {mode === 'text' ? (
               <TextChatClient

@@ -577,3 +577,80 @@ html[data-conversa="ativa"] .v2-tabbar { backdrop-filter: none; background: var(
   .v2-bg .v2-card, .v2-bg .v2-card-dark, .v2-bg .v2-card-green,
   .v2-tab-btn svg, .web-nav-link svg { transition: none; }
 }
+
+/* ===================================================================
+   O POPUP DO PLANO COMPLETO e o cadeado das abas pagas.
+   =================================================================== */
+
+/* Cadeado: some junto com o texto quando a aba está ativa, porque aba ativa
+   significa que a pessoa CHEGOU — e aí quem explica é o popup, não o ícone. */
+.v2-tab-lock,.web-nav-lock{width:13px;height:13px;opacity:.55;flex-shrink:0}
+.v2-tab-trancada .v2-tab-lock{position:absolute;top:6px;right:calc(50% - 20px);width:11px;height:11px}
+.v2-tab-btn{position:relative}
+.web-nav-trancada .web-nav-lock{margin-left:auto}
+
+.pg-fundo{
+  position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:18px;
+  background:rgba(14,18,15,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  animation:pg-entra .18s ease both;
+}
+@keyframes pg-entra{from{opacity:0}to{opacity:1}}
+
+.pg-cx{
+  position:relative;width:100%;max-width:392px;border-radius:24px;padding:26px 22px 20px;
+  background:var(--card,#fff);color:var(--ink,#141412);
+  border:1px solid var(--line,#e7e7de);
+  box-shadow:0 22px 60px rgba(14,18,15,.3),0 3px 10px rgba(14,18,15,.14);
+  animation:pg-sobe .22s cubic-bezier(.2,.7,.3,1) both;
+  max-height:calc(100dvh - 36px);overflow-y:auto;
+}
+@keyframes pg-sobe{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+
+.pg-x{
+  position:absolute;top:12px;right:12px;width:32px;height:32px;border:0;border-radius:10px;
+  display:grid;place-items:center;background:transparent;color:var(--ink-soft,#6b6b63);cursor:pointer;
+}
+.pg-x:hover{background:rgba(0,0,0,.05)}
+
+.pg-kicker{
+  font-family:var(--font-mono-v2,monospace);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:#205C39;margin:0 0 9px;font-weight:600;
+}
+.pg-titulo{font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1.2;margin:0 0 9px;text-wrap:balance}
+.pg-linha{font-size:14px;line-height:1.52;color:var(--ink-soft,#5a5a52);margin:0 0 18px;text-wrap:pretty}
+
+.pg-preco{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.pg-velho{font-size:13px;color:var(--ink-soft,#6b6b63);text-decoration:line-through;
+  text-decoration-color:#b0574a;text-decoration-thickness:1.5px}
+.pg-off{font-family:var(--font-mono-v2,monospace);font-size:10px;font-weight:700;
+  padding:2px 6px;border-radius:5px;background:#205C39;color:#eaf7ef}
+.pg-agora{font-size:27px;font-weight:800;letter-spacing:-.03em}
+.pg-dia{font-size:12px;color:var(--ink-soft,#6b6b63)}
+.pg-unico{font-size:11.5px;color:var(--ink-soft,#6b6b63);margin:5px 0 16px}
+
+.pg-cta{
+  width:100%;border:0;border-radius:15px;padding:15px 16px;cursor:pointer;
+  background:#205C39;color:#f4fbf6;font-family:inherit;font-size:14.5px;font-weight:700;
+  box-shadow:0 2px 10px rgba(32,92,57,.28);transition:transform .12s,opacity .2s;
+}
+.pg-cta:active{transform:scale(.985)}
+.pg-cta:disabled{opacity:.55;cursor:default}
+.pg-erro{font-size:12.5px;color:#b0574a;margin:9px 0 0;text-align:center}
+
+/* Tão visível quanto a compra: o plano grátis é uma promessa, e um popup que
+   só oferece pagar a desmente. */
+.pg-ghost{
+  width:100%;border:0;background:none;cursor:pointer;margin-top:4px;padding:11px;
+  font-family:inherit;font-size:12.5px;font-weight:600;color:var(--ink-soft,#6b6b63);
+}
+.pg-ghost:hover{color:var(--ink,#141412)}
+
+:root.dark .pg-cx{background:#1b1e1b;border-color:#2c312c;color:#e9eae3}
+:root.dark .pg-x:hover{background:rgba(255,255,255,.07)}
+:root.dark .pg-kicker{color:#7fd3a0}
+:root.dark .pg-cta{background:#3E9B5F;color:#08160e}
+:root.dark .pg-off{background:#3E9B5F;color:#08160e}
+
+@media (prefers-reduced-motion:reduce){
+  .pg-fundo,.pg-cx{animation:none}
+}

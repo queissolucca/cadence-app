@@ -1283,3 +1283,57 @@ body:has(#phone.vidro){background:#E9EDE9}
    virando o "carrossel emoldurado" que o comentário dela diz estar evitando. */
 @media (min-width:400px){ #phone{--gap:30px} }
 @media (min-width:424px){ #phone{--gap:38px} }
+
+/* ---- A TRILHA DE PROGRESSO ----
+   Consertando um erro meu: eu havia escrito `#phone.vidro .nodes .pt` pra
+   clarear os pontos apagados, e essa especificidade (1,3,0) passa por cima de
+   `.nodes .pt.on` (0,3,0). Resultado: os pontos JÁ PERCORRIDOS perdiam o verde
+   e a trilha inteira virava uma fileira igual — a evolução deixava de aparecer,
+   que é a única coisa que essa trilha existe pra mostrar.
+
+   Agora são três estados bem separados: o que falta é pálido, o percorrido é
+   verde cheio, e o atual é maior, com halo e pulso. */
+
+/* percorrido: verde de verdade, com brilho curto */
+#phone.vidro .nodes .pt.on{
+  background:radial-gradient(circle at 36% 28%,#8FE7B4 0%,#39B26E 44%,#1B7A48 100%);
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.6),
+    0 0 0 2px rgba(46,158,91,.14),
+    0 0 8px rgba(46,158,91,.45);
+}
+
+/* atual: o mesmo verde, maior, com halo aberto e respiração.
+   O pulso é o que separa "cheguei aqui" de "já passei por aqui" — sem ele,
+   o ponto de agora é só um círculo um pouco maior. */
+#phone.vidro .nodes .pt.now{
+  background:radial-gradient(circle at 36% 28%,#B6F5D2 0%,#39B26E 42%,#166B42 100%);
+  box-shadow:inset 0 .5px 1.5px rgba(255,255,255,.8),
+    0 0 0 4px rgba(46,158,91,.18),
+    0 0 14px rgba(46,158,91,.7),
+    0 0 26px rgba(46,158,91,.34);
+  animation:pt-respira 2.1s ease-in-out infinite;
+}
+@keyframes pt-respira{
+  0%,100%{box-shadow:inset 0 .5px 1.5px rgba(255,255,255,.8),
+    0 0 0 4px rgba(46,158,91,.18),0 0 14px rgba(46,158,91,.7),0 0 26px rgba(46,158,91,.34)}
+  50%{box-shadow:inset 0 .5px 1.5px rgba(255,255,255,.8),
+    0 0 0 7px rgba(46,158,91,.08),0 0 20px rgba(46,158,91,.9),0 0 36px rgba(46,158,91,.5)}
+}
+
+/* o fio percorrido acompanha: verde mais fundo e um rastro de luz, pra a linha
+   entre os pontos também dizer "até aqui você chegou" */
+#phone.vidro .nodes .wire-on{
+  background:linear-gradient(90deg,#2C9A63,#39B26E);
+  box-shadow:0 0 8px rgba(46,158,91,.5);
+}
+#phone.vidro .nodes .wire{background:#D3DED6}
+
+/* Mesma linguagem nas esferas acesas das telas de constelação. */
+#phone.vidro .sph:not(.off){
+  box-shadow:inset 0 .5px 1px rgba(255,255,255,.55),
+    0 0 0 3px rgba(46,158,91,.14),0 0 12px rgba(46,158,91,.5);
+}
+
+@media (prefers-reduced-motion:reduce){
+  #phone.vidro .nodes .pt.now{animation:none}
+}

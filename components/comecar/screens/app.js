@@ -12,7 +12,6 @@ import {
   reenviarConfirmacao,
   limparRetomada, mensagemDe, salvarRespostas, sessaoAtual, temRetomada,
 } from '../../../lib/comecar/conta';
-import { respostasCompletas } from '../../../lib/comecar/paraApi';
 import { PlanoCard } from '../PlanoCard';
 
 /* ---- primeira lição ----------------------------------------------------- */
@@ -372,7 +371,11 @@ export function Conta({ go, a }) {
     setErro('');
     try {
       await salvarRespostas(estado, { convite: f.convite });
-      go('paywall');
+      /* DIRETO PRO APP, não pro caixa. Escrever com a Cady é grátis: mandar
+         alguém recém-cadastrado pra uma tela de preço antes de ela ver o
+         produto é pedir a compra antes de entregar o motivo. O caixa aparece
+         quando ela tentar falar ou abrir a trilha. */
+      window.location.href = '/v2';
     } catch (e) {
       limparRetomada();
       setErro(mensagemDe(e));
@@ -431,9 +434,19 @@ export function Conta({ go, a }) {
   const senhaCurta = f.senha.length > 0 && f.senha.length < 8;
   const naoBate = f.senha2.length > 0 && f.senha2 !== f.senha;
   const jaTemConta = !!emailComConta && f.email.trim().toLowerCase() === emailComConta;
+  /* `respostasCompletas(a)` SAIU desta condição.
+
+     Ela exigia nivel+objetivo+bloqueio+min pra habilitar o botão. Quem chegasse
+     nesta tela sem ter passado por todas as anteriores — link direto, retomada
+     do Google, localStorage limpo pelo navegador — via um botão CINZA e morto,
+     sem nenhuma explicação do porquê. Não havia como descobrir o que faltava:
+     a tela não diz, e o campo que falta está 20 telas atrás.
+
+     As respostas são metadado do perfil, não requisito pra existir uma conta.
+     Incompletas, o /api/onboarding grava o que tem. */
   const podeEnviar = !jaTemConta && f.nome.trim() && f.sobrenome.trim() && f.email.trim()
     // `aceito` NÃO entra aqui de propósito — ver exigirAceite acima.
-    && f.senha.length >= 8 && f.senha2 === f.senha && respostasCompletas(a);
+    && f.senha.length >= 8 && f.senha2 === f.senha;
 
   const porEmail = async (e) => {
     e.preventDefault();

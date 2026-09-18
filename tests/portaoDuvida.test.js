@@ -45,9 +45,24 @@ describe('leitura que falhou é diferente de leitura que disse não', () => {
   });
 
   it('nas páginas, a dúvida deixa a pessoa onde ela está', () => {
+    /* Era 2 (telas-de-passo e /v2/*) e virou 1: o bloco do /v2 não consulta
+       mais nextStep(), porque entrar no app deixou de depender de pagamento.
+       Sobrou o das telas de passo, que ainda decide entre /pagamento e
+       /v2/onboarding. */
     const trechos = MW.match(/if \(step === undefined\) return response;/g) || [];
-    // Os dois blocos de página: telas-de-passo e /v2/*.
-    expect(trechos.length).toBe(2);
+    expect(trechos.length).toBe(1);
+  });
+
+  it('o /v2 não pergunta mais pelo pagamento pra deixar entrar', () => {
+    // Se voltar a perguntar, o app grátis deixa de existir sem ninguém notar.
+    const i = MW.indexOf('LOGIN_REQUIRED_PREFIXES.some');
+    // Sem comentários: o bloco EXPLICA que o redirect pro /pagamento saiu, e
+    // a asserção casaria com a própria explicação.
+    const bloco = MW.slice(i, i + 900)
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    expect(bloco, 'o /v2 voltou a consultar o funil').not.toContain('nextStep()');
+    expect(bloco, 'o /v2 voltou a redirecionar pro caixa').not.toContain('/pagamento');
   });
 
   it('nas rotas de API, a dúvida continua negando', () => {
@@ -61,17 +76,24 @@ describe('leitura que falhou é diferente de leitura que disse não', () => {
 });
 
 describe('o funil com o que sobrou', () => {
-  it('sem dúvida nenhuma, a ordem continua a mesma', () => {
-    expect(proximoPasso({ pago: false, nome: 'Lucca' })).toBe('/pagamento');
+  it('só o nome decide, agora que o pagamento saiu do funil', () => {
+    expect(proximoPasso({ pago: false, nome: 'Lucca' })).toBeNull();
     expect(proximoPasso({ pago: true, nome: '' })).toBe('/v2/onboarding');
     expect(proximoPasso({ pago: true, nome: 'Lucca' })).toBeNull();
   });
 
-  /* `proximoPasso` continua sendo função de dois fatos CONHECIDOS: quem decide
-     o que fazer com a dúvida é o middleware, antes de chamar. Se um dia alguém
-     passar `undefined` aqui achando que a função trata, isto documenta que não:
-     ela responde "vai pagar", que é justamente a resposta errada. */
-  it('proximoPasso não é o lugar de tratar dúvida — e o teste diz por quê', () => {
-    expect(proximoPasso({ pago: undefined, nome: 'Lucca' })).toBe('/pagamento');
+  /* Este teste existia pra mostrar que passar `undefined` como `pago` dava a
+     resposta ERRADA ("vai pagar"), e que por isso a dúvida tinha que ser
+     tratada no middleware, antes da chamada.
+
+     Com o pagamento fora do funil, `pago` deixou de influenciar o resultado —
+     então esse risco específico acabou. O que continua valendo é a REGRA: a
+     dúvida se trata antes, não aqui. E o middleware continua sendo quem a
+     trata, nas rotas de API, que é onde ela custa dinheiro. */
+  it('pago não muda mais o resultado — nem quando vem undefined', () => {
+    for (const pago of [true, false, undefined]) {
+      expect(proximoPasso({ pago, nome: 'Lucca' })).toBeNull();
+      expect(proximoPasso({ pago, nome: '' })).toBe('/v2/onboarding');
+    }
   });
 });

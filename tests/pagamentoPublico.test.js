@@ -31,9 +31,11 @@ describe('quais telas do funil abrem sem conta', () => {
     for (const t of TELAS_PUBLICAS) expect(TELAS_DE_PASSO).toContain(t);
   });
 
-  it('o funil continua mandando quem não pagou pro pagamento', () => {
-    // A cancela não se moveu: ela continua entre "ver o preço" e "entrar no app".
-    expect(proximoPasso({ pago: false, nome: 'Lucca' })).toBe('/pagamento');
+  it('o /pagamento continua existindo e público — só deixou de ser obrigatório', () => {
+    /* A tela não saiu: ela é pra onde o popup do plano leva, e continua aberta
+       a quem não tem sessão (é a vitrine do preço). O que mudou é que o funil
+       não empurra mais ninguém pra ela — ver tests/funil.test.js. */
+    expect(proximoPasso({ pago: false, nome: 'Lucca' })).toBeNull();
     expect(proximoPasso({ pago: true, nome: '' })).toBe('/v2/onboarding');
     expect(proximoPasso({ pago: true, nome: 'Lucca' })).toBeNull();
   });
