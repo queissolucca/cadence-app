@@ -589,18 +589,30 @@ html[data-conversa="ativa"] .v2-tabbar { backdrop-filter: none; background: var(
 .v2-tab-btn{position:relative}
 .web-nav-trancada .web-nav-lock{margin-left:auto}
 
+/* O FUNDO DEIXA VER A TELA.
+
+   Era `rgba(14,18,15,.5)` com blur de 6px — véu de quem só quer o foco no
+   modal. Mas aqui a tela atrás É o argumento: a pessoa entra na trilha e o
+   popup abre por cima, e ela precisa enxergar o que está sendo oferecido.
+   Escurecer demais esconde exatamente aquilo que faz ela querer pagar.
+
+   Então: menos opacidade, e o desfoque só o suficiente pra o texto do popup
+   não competir com o conteúdo por trás. */
 .pg-fundo{
   position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:18px;
-  background:rgba(14,18,15,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  background:rgba(14,18,15,.28);
+  backdrop-filter:blur(3px) saturate(.92);-webkit-backdrop-filter:blur(3px) saturate(.92);
   animation:pg-entra .18s ease both;
 }
 @keyframes pg-entra{from{opacity:0}to{opacity:1}}
 
 .pg-cx{
+  /* Sombra mais funda do que o normal de propósito: com o fundo clareado, é
+     ela que separa o popup da tela por trás. */
   position:relative;width:100%;max-width:392px;border-radius:24px;padding:26px 22px 20px;
   background:var(--card,#fff);color:var(--ink,#141412);
   border:1px solid var(--line,#e7e7de);
-  box-shadow:0 22px 60px rgba(14,18,15,.3),0 3px 10px rgba(14,18,15,.14);
+  box-shadow:0 28px 70px rgba(14,18,15,.42),0 6px 18px rgba(14,18,15,.2);
   animation:pg-sobe .22s cubic-bezier(.2,.7,.3,1) both;
   max-height:calc(100dvh - 36px);overflow-y:auto;
 }

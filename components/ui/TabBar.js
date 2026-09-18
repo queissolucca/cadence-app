@@ -63,7 +63,8 @@ const TABS = [
 // virar a rota raiz de verdade, sem precisar tocar em nada além disso.
 export function TabBar({ active, basePath = '' }) {
   const pathname = usePathname();
-  const { temPlano, pedirPlano } = usePortao();
+  // Só o cadeado: o clique agora LEVA pra tela, e o popup abre lá.
+  const { temPlano } = usePortao();
   /* A aba tocada acende ANTES de a tela nova chegar. Sem isto, a resposta ao
      toque era a tela nova — e até ela vir (uma ida ao servidor), a interface
      ficava idêntica à de antes do toque, o que se lê como "não pegou".
@@ -85,15 +86,6 @@ export function TabBar({ active, basePath = '' }) {
             href={fullHref}
             aria-current={isActive ? 'page' : undefined}
             className={`v2-tab-btn ${isActive ? 'v2-tab-active' : ''} ${chegando ? 'v2-tab-chegando' : ''} ${trancada ? 'v2-tab-trancada' : ''}`}
-            onClick={(e) => {
-              /* Só o clique COMUM vira popup. Continua sendo um <Link> de
-                 verdade, então "abrir em nova aba" e o botão do meio seguem
-                 funcionando — e quem chega por lá cai na tela, que abre o
-                 popup sozinha. */
-              if (!trancada || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-              e.preventDefault();
-              pedirPlano(pago);
-            }}
           >
             <Icon />
             <span>{label}</span>

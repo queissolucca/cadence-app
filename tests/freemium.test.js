@@ -147,6 +147,32 @@ describe('a trilha aparece mesmo pra quem não pagou', () => {
       // Aba escondida não vende nada: ninguém procura o que não sabe que existe.
       expect(src).toContain("label: 'Trilha'");
       expect(src).toMatch(/pago: 'trilha'/);
-      expect(src).toContain('pedirPlano(pago)');
     });
+
+  it.each([['components/ui/TabBar.js'], ['components/v2/Sidebar.js']])(
+    '%s DEIXA o clique passar — quem abre o popup é a página', (arquivo) => {
+      /* A aba interceptava o clique e a pessoa não saía do lugar: via o popup
+         sobre a tela em que já estava. Agora ela ENTRA na trilha e o popup abre
+         por cima, com a tela aparecendo no fundo — vender o que a pessoa nunca
+         viu é mais difícil do que mostrar.
+
+         Ler a ROTA em vez do clique cobre de graça quem chega por link direto,
+         favorito ou "abrir em nova aba": nenhum desses passa por clique. */
+      expect(ler(arquivo), 'a aba voltou a engolir o clique')
+        .not.toContain('pedirPlano(pago)');
+    });
+
+  it('o popup abre pela rota, e fechar devolve pro início', () => {
+    const prov = ler('components/v2/PortaoProvider.js');
+    expect(prov).toContain('recursoPagoDaPagina(caminho)');
+    // Só esconder o popup deixaria a pessoa parada numa tela que ela não pode
+    // usar, sem saída além do botão de voltar do navegador.
+    expect(prov).toMatch(/router\.push\('\/v2'\)/);
+  });
+
+  it('a Início não oferece a trilha por um segundo caminho', () => {
+    /* A trilha já é uma aba. Ter o cartão junto punha duas portas pro mesmo
+       lugar lado a lado, e a pessoa escolhendo entre elas sem motivo. */
+    expect(ler('app/v2/(app)/page.js')).not.toContain('href="/v2/trilha"');
+  });
 });

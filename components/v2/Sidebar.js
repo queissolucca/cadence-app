@@ -66,7 +66,8 @@ export function Sidebar({ streak = 0, avatarUrl, avatarInitial, basePath = '/v2'
   // esperar a tela nova. Ver components/v2/NavegacaoPendente.js.
   const pendente = useDestinoPendente();
   const NAV = NAV_ITEMS.map((item) => ({ ...item, href: `${basePath}${item.href}` }));
-  const { temPlano, pedirPlano } = usePortao();
+  // Só o cadeado: o clique agora LEVA pra tela, e o popup abre lá.
+  const { temPlano } = usePortao();
 
   return (
     <aside className="web-sidebar">
@@ -84,12 +85,6 @@ export function Sidebar({ streak = 0, avatarUrl, avatarInitial, basePath = '/v2'
               href={href}
               aria-current={isActive ? 'page' : undefined}
               className={`web-nav-link ${isActive ? 'web-nav-active' : ''} ${chegando ? 'web-nav-chegando' : ''} ${trancada ? 'web-nav-trancada' : ''}`}
-              onClick={(e) => {
-                // Só o clique comum vira popup — ver o mesmo trecho na TabBar.
-                if (!trancada || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-                e.preventDefault();
-                pedirPlano(pago);
-              }}
             >
               <Icon />
               <span>{label}</span>

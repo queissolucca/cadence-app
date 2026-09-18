@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { PortaoPago } from './PortaoPago';
 import { recursoPagoDaPagina } from '../../lib/acesso';
 
@@ -22,12 +23,24 @@ export function usePortao() {
   return useContext(Ctx);
 }
 
-export function PortaoProvider({ temPlano = false, recursoDaRota = null, children }) {
-  /* Abre já montado quando a rota EM SI é paga: quem chegou em /v2/conversar
-     por link, favorito ou "abrir em nova aba" não passou por nenhum clique que
-     pudesse ser interceptado. Sem isto, essa pessoa veria a tela de voz e um
-     erro 402 vindo da API, que não explica nada. */
-  const [recurso, setRecurso] = useState(() => (temPlano ? null : recursoDaRota));
+export function PortaoProvider({ temPlano = false, children }) {
+  const caminho = usePathname();
+  const router = useRouter();
+
+  /* A ROTA DECIDE, não o clique.
+
+     Antes o clique na aba era interceptado e a pessoa não saía do lugar — ela
+     via o popup sobre a tela em que já estava. Agora ela ENTRA na trilha e o
+     popup abre por cima: dá pra ver, no fundo, o que está sendo oferecido.
+     Vender uma tela que a pessoa nunca viu é mais difícil do que mostrar.
+
+     Ler a rota também cobre de graça quem chega por link direto, favorito ou
+     "abrir em nova aba" — nenhum desses passa por clique nenhum. */
+  const recursoDaRota = temPlano ? null : recursoPagoDaPagina(caminho);
+  const [recurso, setRecurso] = useState(recursoDaRota);
+
+  // Trocar de rota reabre (ou fecha) o popup sem remontar nada.
+  useEffect(() => { setRecurso(recursoDaRota); }, [recursoDaRota]);
 
   /* Devolve true quando ENGOLIU a ação. Quem chama usa isso pra decidir se
      segue ou para — o que mantém os links sendo links de verdade. */
@@ -37,7 +50,14 @@ export function PortaoProvider({ temPlano = false, recursoDaRota = null, childre
     return true;
   }, [temPlano]);
 
-  const fechar = useCallback(() => setRecurso(null), []);
+  /* Fechar numa página paga VOLTA pro início. Só esconder o popup deixaria a
+     pessoa sozinha numa tela que ela não pode usar, sem nada acontecendo — e
+     sem caminho de saída além do botão de voltar do navegador. */
+  const fechar = useCallback(() => {
+    setRecurso(null);
+    if (recursoPagoDaPagina(caminho)) router.push('/v2');
+  }, [caminho, router]);
+
   const valor = useMemo(() => ({ temPlano, pedirPlano }), [temPlano, pedirPlano]);
 
   return (
