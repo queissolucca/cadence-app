@@ -24,7 +24,9 @@ export const Passo = ({ id, extra, style }) => {
   return <Kicker style={style}>{`Passo ${n}`}{extra ? ` · ${extra}` : ''}</Kicker>;
 };
 
-export const Lede = ({ children, style }) => <p className="lede" style={style}>{children}</p>;
+export const Lede = ({ children, style, className = '' }) => (
+  <p className={`lede ${className}`.trim()} style={style}>{children}</p>
+);
 
 export const Card = ({ children, className = 'card', style }) => (
   <div className={className} style={style}>{children}</div>

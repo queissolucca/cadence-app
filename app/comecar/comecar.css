@@ -1465,10 +1465,23 @@ body:has(#phone.vidro){background:#E9EDE9}
    placa atrapalha em vez de firmar. Em vez de escrever uma exceção por tela,
    a exceção é uma classe — quem precisar da mesma coisa marca e pronto. */
 #phone.vidro .scr > h1.sem-placa,
-#phone.vidro .scr > h2.sem-placa{
+#phone.vidro .scr > h2.sem-placa,
+#phone.vidro .scr > .lede.sem-placa{
   background:none;border:0;box-shadow:none;padding:0;border-radius:0;
   backdrop-filter:none;-webkit-backdrop-filter:none;
   /* Sem a placa, o texto volta a disputar com a malha — o halo é o que sobra
      pra manter a leitura firme. */
   text-shadow:0 0 12px #F4F8F4,0 0 6px #F4F8F4,0 0 2px #F4F8F4;
+}
+
+/* O respiro volta quando os dois perdem a placa.
+
+   A regra que cola título e texto zera a margem entre eles — ela existe pra
+   fechar a fresta no meio do painel. Sem painel, essa margem zerada vira
+   texto grudado no título. Como o `margin-top:0` de lá é `!important` (a
+   margem original está no style inline), a devolução também precisa ser. */
+#phone.vidro .scr > h1.sem-placa + .lede.sem-placa,
+#phone.vidro .scr > h2.sem-placa + .lede.sem-placa{
+  margin-top:9px !important;
+  padding-top:0;
 }

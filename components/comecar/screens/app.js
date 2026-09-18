@@ -634,8 +634,11 @@ export function Login({ go }) {
     <div className="scr" style={{ justifyContent: 'center' }}>
       <Grow />
       <Wordmark px={28} />
-      <h1 style={{ textAlign: 'center', marginTop: 22 }}>Bom te ver de volta.</h1>
-      <Lede style={{ textAlign: 'center' }}>Entre agora e continue sua cadência!</Lede>
+      {/* Sem placa: esta tela é quase toda formulário — botão do Google, campos,
+          CTA — e cada um já tem superfície própria. Mais uma placa em cima só
+          empilha retângulo, e o título deixa de ser a coisa mais leve da tela. */}
+      <h1 className="sem-placa" style={{ textAlign: 'center', marginTop: 22 }}>Bom te ver de volta.</h1>
+      <Lede className="sem-placa" style={{ textAlign: 'center' }}>Entre agora e continue sua cadência!</Lede>
       <form onSubmit={entrar} style={{ marginTop: 24 }}>
         <GoogleBtn label="Continuar com Google" onClick={porGoogle} />
         <Field label="E-mail" type="email" placeholder="voce@email.com" autoComplete="email"
