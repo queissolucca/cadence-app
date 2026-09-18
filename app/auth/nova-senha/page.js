@@ -20,7 +20,7 @@ function Casca({ children }) {
   return (
     <>
       <SphereDefs />
-      <div id="phone" className="dark">
+      <div id="phone" className="vidro">
         <Constellation />
         <div id="view">
           <div className="scr" style={{ justifyContent: 'center' }}>

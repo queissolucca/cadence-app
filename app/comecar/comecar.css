@@ -1485,3 +1485,23 @@ body:has(#phone.vidro){background:#E9EDE9}
   margin-top:9px !important;
   padding-top:0;
 }
+
+/* ===================================================================
+   /login, /pagamento e /auth/nova-senha viram claros também
+
+   As três importam esta folha e renderizavam `#phone.dark`. Como usam os
+   MESMOS componentes do /comecar (Field, Cta, Ghost, Lede, PlanoCard,
+   Constellation), quase tudo já estava resolvido pelo escopo .vidro.
+
+   Uma varredura comparou as 53 regras `.dark` com as `.vidro`: 30 ficaram sem
+   contrapartida, e 27 dessas caem numa regra-base clara que já existe. As três
+   abaixo não tinham base nenhuma — cairiam no padrão do navegador, e duas são
+   de campo de formulário, que é justamente o que a tela de login tem.
+   =================================================================== */
+
+#phone.vidro .field input::placeholder,
+#phone.vidro .fieldeye input::placeholder{color:var(--ink-tenue)}
+
+/* o olho de mostrar/esconder senha */
+#phone.vidro .fieldeye button{color:var(--ink-tenue)}
+#phone.vidro .fieldeye button:hover{color:var(--ink)}

@@ -19,7 +19,8 @@ import postcss from 'postcss';
    não sobre o texto do arquivo. */
 
 const raiz = fileURLToPath(new URL('../', import.meta.url));
-const css = readFileSync(join(raiz, 'app/comecar/comecar.css'), 'utf8');
+const ler = (p) => readFileSync(join(raiz, p), 'utf8');
+const css = ler('app/comecar/comecar.css');
 const folha = postcss.parse(css);
 
 const seletores = [];
@@ -90,6 +91,42 @@ describe('a margem lateral tem uma fonte só', () => {
 
   it('o token cresce em tela maior, em vez de a linha de texto esticar', () => {
     expect(css).toMatch(/@media \(min-width:\d+px\)\s*\{\s*#phone\{--gap:\d+px\}/);
+  });
+});
+
+describe('as quatro rotas usam o mesmo tema', () => {
+  /* /login, /pagamento e /auth/nova-senha importam esta mesma folha e
+     renderizavam `#phone className="dark"` enquanto o /comecar já era claro.
+     Resultado: quem entrava pelo link direto de login via uma tela preta, e
+     quem chegava pelo "já tenho conta" dentro do onboarding via a clara — a
+     mesma frase, em dois temas. */
+
+  const paginas = ['app/login/page.js', 'app/pagamento/PagamentoTela.js',
+    'app/auth/nova-senha/page.js', 'components/comecar/App.js'];
+
+  it.each(paginas)('%s não força o tema escuro', (arquivo) => {
+    expect(ler(arquivo), 'esta rota voltou pro escuro sozinha')
+      .not.toMatch(/id="phone"\s+className="dark"/);
+  });
+
+  it('toda regra do tema escuro tem contrapartida clara, ou uma base', () => {
+    /* As 53 regras `.dark` continuam na folha — elas documentam o tema escuro
+       e são o caminho de volta, se um dia ele voltar. O que não pode é uma
+       delas ficar sem equivalente: aí o elemento cai no padrão do NAVEGADOR,
+       que foi o que aconteceu com o placeholder dos campos e o olho da senha.
+
+       "Tem base" conta como resolvido: a folha inteira é base clara com o
+       escuro por cima, então cair na base é cair no claro. */
+    const escuras = new Set(), claras = new Set(), bases = new Set();
+    for (const { sel } of seletores) {
+      for (const parte of sel.split(',').map((x) => x.trim())) {
+        if (/#phone\.dark/.test(parte)) escuras.add(parte.replace(/#phone\.dark\s*/, '').trim());
+        else if (/#phone\.vidro/.test(parte)) claras.add(parte.replace(/#phone\.vidro\s*/, '').trim());
+        else bases.add(parte);
+      }
+    }
+    const orfas = [...escuras].filter((e) => e && !claras.has(e) && !bases.has(e));
+    expect(orfas, 'regra do escuro sem equivalente claro nem base').toEqual([]);
   });
 });
 

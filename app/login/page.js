@@ -111,7 +111,7 @@ export default function LoginPage() {
     return (
       <>
         <SphereDefs />
-        <div id="phone" className="dark">
+        <div id="phone" className="vidro">
           <Constellation />
           <div id="view">
             <div className="scr" style={{ justifyContent: 'center', textAlign: 'center' }}>
@@ -134,7 +134,7 @@ export default function LoginPage() {
   return (
     <>
       <SphereDefs />
-      <div id="phone" className="dark">
+      <div id="phone" className="vidro">
         <Constellation />
         <div id="view">
           <div className="scr" style={{ justifyContent: 'center' }}>
