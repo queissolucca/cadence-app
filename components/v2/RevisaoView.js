@@ -327,11 +327,37 @@ export function RevisaoView({ initialItems = [], firstName = '' }) {
           no fim da conversa, na escrita pela tool save_to_review, que o prompt
           manda chamar em silêncio). Pedir uma senha mágica pra algo que já
           acontece sozinho fazia o produto parecer mais trabalhoso do que é. */}
-      <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5 }}>
+      <p style={{
+        margin: 0, fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5,
+        textAlign: 'center', textWrap: 'pretty',
+      }}>
         Durante a conversa a Cady vai memorizando sozinha seus erros para você revisar. Ela tem uma
         inteligência que vai fazer você revisar com espaçamento e o que dominar virar um assunto
         aprendido automaticamente.
       </p>
+
+      {/* O texto explica que a memória vem DA CONVERSA — e até aqui a tela não
+          oferecia nenhum caminho pra ela. Quem lia "durante a conversa" tinha
+          que sair, achar a aba e voltar. Um botão só, e não um por bloco: o
+          estado vazio logo abaixo diz a mesma coisa, e dois "Clique Aqui" na
+          mesma tela competem em vez de somar.
+
+          É um <Link> de verdade, não um onClick — abrir em nova aba, meio do
+          mouse e "copiar endereço" continuam funcionando. */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <Link
+          href="/v2/conversar"
+          style={{
+            display: 'inline-block', textDecoration: 'none',
+            background: 'var(--green)', color: '#fff',
+            fontWeight: 800, fontSize: 14.5, letterSpacing: '-0.01em',
+            padding: '13px 30px', borderRadius: 12,
+            boxShadow: '0 4px 14px rgba(32,92,57,.26)',
+          }}
+        >
+          Clique Aqui
+        </Link>
+      </div>
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {FILTERS.map((f) => (
