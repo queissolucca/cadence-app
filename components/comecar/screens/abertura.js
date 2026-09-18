@@ -463,7 +463,11 @@ export function Conquista1({ go, a }) {
       <Lede>{falou
         ? 'Você não estudou uma regra. Você falou. É exatamente assim que a gente vai continuar.'
         : 'Falar é o primeiro ponto, e ele acende no seu primeiro dia. Agora vamos montar o resto.'}</Lede>
-      <Constelacao lit={falou ? 1 : 0} nodes={[
+      {/* lit={1} nos DOIS casos. Era 0 pra quem não falou, e aí a tela chamada
+          "seu ponto de partida" mostrava quatro pontos apagados e nenhum
+          partida nenhuma — o rótulo apontava pra um ponto igual aos outros.
+          Aceso, o primeiro ponto é o que a frase diz que ele é. */}
+      <Constelacao lit={1} nodes={[
         { x: 60, y: 95, l: falou ? 'você está aqui' : 'primeiro ponto' }, { x: 150, y: 70, l: '' },
         { x: 240, y: 100, l: '' }, { x: 300, y: 64, l: '' },
       ]} />

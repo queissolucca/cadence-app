@@ -28,9 +28,14 @@ export function SphereDefs() {
         <radialGradient id="sphOn" cx="0.36" cy="0.28" r="0.82">
           <stop offset="0" stopColor="#9FF0C4" /><stop offset="0.42" stopColor="#39B26E" />
           <stop offset="1" stopColor="#166B42" /></radialGradient>
+        {/* APAGADA, não preta. Era #3B353B→#141114: uma esfera escura brilhando
+            num fundo escuro. No papel ela virou um furo de bala — e, pior, o
+            ponto "ainda não" ficava mais pesado que o aceso, invertendo a
+            leitura da trilha. Agora é a mesma família verde, dessaturada: lê
+            como "este ponto existe e ainda não acendeu". */}
         <radialGradient id="sphOff" cx="0.36" cy="0.28" r="0.82">
-          <stop offset="0" stopColor="#3B353B" /><stop offset="0.42" stopColor="#241F24" />
-          <stop offset="1" stopColor="#141114" /></radialGradient>
+          <stop offset="0" stopColor="#E8F1EA" /><stop offset="0.42" stopColor="#C6DACD" />
+          <stop offset="1" stopColor="#A2BEAC" /></radialGradient>
         <radialGradient id="sphInk" cx="0.36" cy="0.28" r="0.82">
           <stop offset="0" stopColor="#FFFFFF" /><stop offset="0.44" stopColor="#E4E4DA" />
           <stop offset="1" stopColor="#9E9E93" /></radialGradient>
@@ -42,20 +47,25 @@ export function SphereDefs() {
           <stop offset="0.86" stopColor="#9FF0C4" stopOpacity="0.55" />
           <stop offset="1" stopColor="#9FF0C4" stopOpacity="0" /></radialGradient>
         <radialGradient id="sphRimOff" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0.52" stopColor="#6E666E" stopOpacity="0" />
-          <stop offset="0.86" stopColor="#6E666E" stopOpacity="0.42" />
-          <stop offset="1" stopColor="#6E666E" stopOpacity="0" /></radialGradient>
+          <stop offset="0.52" stopColor="#7F9A88" stopOpacity="0" />
+          <stop offset="0.86" stopColor="#7F9A88" stopOpacity="0.5" />
+          <stop offset="1" stopColor="#7F9A88" stopOpacity="0" /></radialGradient>
         <radialGradient id="sphSpec" cx="0.5" cy="0.5" r="0.5">
           <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.62" />
           <stop offset="0.55" stopColor="#FFFFFF" stopOpacity="0.16" />
           <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" /></radialGradient>
+        {/* Sombra verde-escura e mais leve. Preto a 62% sob cada esfera deixava
+            uma mancha suja no papel — sombra colorida assenta a esfera sem
+            sujar o fundo. */}
         <radialGradient id="sphDrop" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="#000000" stopOpacity="0.62" />
-          <stop offset="0.60" stopColor="#000000" stopOpacity="0.24" />
-          <stop offset="1" stopColor="#000000" stopOpacity="0" /></radialGradient>
+          <stop offset="0" stopColor="#1B4A32" stopOpacity="0.30" />
+          <stop offset="0.60" stopColor="#1B4A32" stopOpacity="0.12" />
+          <stop offset="1" stopColor="#1B4A32" stopOpacity="0" /></radialGradient>
+        {/* O halo precisa de mais corpo no claro: um brilho de 46% some no papel
+            do jeito que saltava no preto. */}
         <radialGradient id="sphGlow" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0.34" stopColor="#2E9E5B" stopOpacity="0.46" />
-          <stop offset="0.64" stopColor="#2E9E5B" stopOpacity="0.16" />
+          <stop offset="0.30" stopColor="#2E9E5B" stopOpacity="0.62" />
+          <stop offset="0.62" stopColor="#2E9E5B" stopOpacity="0.26" />
           <stop offset="1" stopColor="#2E9E5B" stopOpacity="0" /></radialGradient>
       </defs>
     </svg>
