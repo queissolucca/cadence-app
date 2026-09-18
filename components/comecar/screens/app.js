@@ -523,7 +523,11 @@ export function Conta({ go, a }) {
           abaixo, em menor, dizendo a mesma coisa. Duas frases pro mesmo trabalho
           disputam a atenção e nenhuma vence — a que manda virou o título, e a
           outra saiu. */}
-      <h1 style={{ textAlign: 'center', marginTop: 18 }}>Crie sua conta agora!</h1>
+      {/* `sem-placa`: este título fica SÓ com o texto, sem o vidro fosco que as
+          outras telas ganharam. Aqui ele não tem um parágrafo embaixo pra formar
+          painel com ele — fica uma placa sozinha flutuando em cima do
+          formulário, que lê como faixa, não como título. */}
+      <h1 className="sem-placa" style={{ textAlign: 'center', marginTop: 18 }}>Crie sua conta agora!</h1>
 
       {fase === 'logado' ? (
         <>

@@ -1457,3 +1457,18 @@ body:has(#phone.vidro){background:#E9EDE9}
 #phone.vidro .genpct{color:var(--ink)}
 #phone.vidro .genpct i{color:var(--ink-tenue)}
 #phone.vidro .genstep{color:var(--ink-soft)}
+
+/* Saída pro título que não quer placa.
+
+   O vidro foi feito pra título COM texto embaixo: os dois viram um painel só.
+   Um título sozinho em cima de um formulário vira uma faixa solta, e aí a
+   placa atrapalha em vez de firmar. Em vez de escrever uma exceção por tela,
+   a exceção é uma classe — quem precisar da mesma coisa marca e pronto. */
+#phone.vidro .scr > h1.sem-placa,
+#phone.vidro .scr > h2.sem-placa{
+  background:none;border:0;box-shadow:none;padding:0;border-radius:0;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+  /* Sem a placa, o texto volta a disputar com a malha — o halo é o que sobra
+     pra manter a leitura firme. */
+  text-shadow:0 0 12px #F4F8F4,0 0 6px #F4F8F4,0 0 2px #F4F8F4;
+}
