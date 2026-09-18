@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { acessoPagoDe } from './lib/acessoPago';
 import { destinoDoDominio } from './lib/dominio';
 import { updateSession } from './lib/supabase/middleware';
 import { apiLiberada, ehRotaApi, apiDoPlanoGratis } from './lib/apiAccess';
@@ -141,27 +142,12 @@ export async function middleware(request) {
 
      Agora `null` = não pagou (isso é evidência), e `undefined` = não deu pra
      saber (isso não é). Quem chama decide o que fazer com a dúvida. */
-  async function acessoPago() {
-    /* O FALLBACK QUE BUSCAVA SÓ O EMAIL SAIU.
+  /* Uma linha por COMPRA agora, não por e-mail — e a regra de qual delas vale
+     mora em lib/acessoPago.js, com os outros três leitores. A consulta que
+     estava aqui usava `.maybeSingle()`, que erra com mais de uma linha: a
+     primeira pessoa a comprar duas vezes derrubaria o portão inteiro. */
+  const acessoPago = () => acessoPagoDe(supabase, user.email);
 
-       Ele existia pro tempo em que a coluna `expires_at` podia não ter sido
-       criada ainda (migration 0030) — e, sem a coluna, tratava qualquer linha
-       como acesso válido. A migration rodou há muito; o que sobrou foi um
-       caminho que, diante de um erro QUALQUER na consulta principal, liberava
-       o produto inteiro sem olhar data.
-
-       Com um plano de sete dias isso deixou de ser teórico: um erro transitório
-       no momento certo daria acesso a quem já expirou. Agora um erro vira
-       `undefined` — "não sei" — e quem chama decide: nas páginas a pessoa fica
-       onde está, nas rotas de API a dúvida NEGA. */
-    const paid = await supabase
-      .from('paid_emails').select('email, expires_at').eq('email', user.email).maybeSingle();
-    if (paid.error) return undefined;   // a consulta falhou: não sabemos
-    const row = paid.data;
-    // expires_at nulo = acesso sem expiração: as contas liberadas à mão antes
-    // de existirem planos com prazo.
-    return !!row && (!row.expires_at || new Date(row.expires_at) > new Date());
-  }
 
   // Busca os dois fatos em paralelo e deixa a ORDEM com o lib/funil, que é onde
   // ela pode ser testada. Antes a ordem morava nesta função, dentro do

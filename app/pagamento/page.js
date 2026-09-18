@@ -1,4 +1,5 @@
 import { createClient } from '../../lib/supabase/server';
+import { validadeAtual } from '../../lib/acessoPago';
 import { identidade } from '../../lib/sessaoServidor';
 import { PagamentoTela } from './PagamentoTela';
 import { EnviaRespostas } from './EnviaRespostas';
@@ -55,13 +56,15 @@ export default async function PagamentoPage() {
     /* Mesma regra: isto personaliza, não decide. Uma consulta que falha vira o
        padrão, e não uma tela de erro. */
     try {
-      const [pago, onboarding, perfil] = await Promise.all([
-        supabase.from('paid_emails').select('expires_at').eq('email', user.email).maybeSingle(),
+      /* `validadeAtual` em vez da consulta à mão: paid_emails guarda uma linha
+         por COMPRA agora, e o `.maybeSingle()` que estava aqui erraria com
+         mais de uma. A regra de qual linha vale mora em lib/acessoPago.js. */
+      const [validade, onboarding, perfil] = await Promise.all([
+        validadeAtual(supabase, user.email),
         supabase.from('onboarding').select('daily_goal').eq('user_id', user.id).maybeSingle(),
         supabase.from('profiles').select('onboarded_at').eq('id', user.id).maybeSingle(),
       ]);
-      const linha = pago.data;
-      expirado = !!linha?.expires_at && new Date(linha.expires_at) <= new Date();
+      expirado = !!validade && new Date(validade) <= new Date();
       minutos = minutosDe(onboarding.data?.daily_goal);
       jaEnviou = !!perfil.data?.onboarded_at;
     } catch {

@@ -55,7 +55,18 @@ export async function POST(request) {
   const admin = createAdminClient();
 
   if (PAID_STATUSES.includes(status)) {
-    await admin.from('paid_emails').upsert({ email }, { onConflict: 'email' });
+    /* `insert`, não mais `upsert(onConflict: 'email')`: a chave única em
+       `email` deixou de existir na migration 0038 (paid_emails passou a
+       guardar uma linha por COMPRA), e o upsert quebraria com erro de
+       constraint inexistente.
+
+       O comportamento não muda — inclusive o ruim: esta linha continua sem
+       `expires_at`, o que os leitores tratam como acesso VITALÍCIO. Deixei
+       assim de propósito, pra não mudar regra de negócio de um gateway antigo
+       de carona numa migration de esquema. Mas registro: se o Kiwify saiu de
+       cena, esta rota inteira devia sair junto — hoje ela concede acesso
+       permanente a quem tiver o KIWIFY_WEBHOOK_TOKEN. */
+    await admin.from('paid_emails').insert({ email });
   } else if (REVOKE_STATUSES.includes(status)) {
     await admin.from('paid_emails').delete().eq('email', email);
   }

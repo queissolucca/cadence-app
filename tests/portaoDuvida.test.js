@@ -29,15 +29,20 @@ import { proximoPasso } from '../lib/funil.js';
 const MW = readFileSync('middleware.js', 'utf8');
 
 describe('leitura que falhou é diferente de leitura que disse não', () => {
-  it('acessoPago devolve undefined quando a consulta erra', () => {
-    // `if (paid.error) return undefined` tem que existir DEPOIS do fallback de
-    // coluna — senão o próprio fallback (que erra de propósito na 1ª tentativa)
-    // seria lido como falha.
-    const i = MW.indexOf('async function acessoPago()');
-    const corpo = MW.slice(i, MW.indexOf('}', MW.indexOf('return !!row')));
-    expect(corpo).toContain('return undefined');
-    // a ordem: o fallback vem antes do return undefined
-    expect(corpo.indexOf("select('email')")).toBeLessThan(corpo.indexOf('return undefined'));
+  it('a dúvida continua sendo undefined, onde quer que a regra viva', () => {
+    /* A consulta saiu do middleware e foi pra lib/acessoPago.js, junto com as
+       dos outros três leitores — quatro cópias da mesma regra é como elas
+       divergem. O que este teste trava não é ONDE ela mora, e sim que ela
+       continua distinguindo "não pagou" de "não deu pra saber".
+
+       A distinção é o coração deste arquivo: `false` expulsa a pessoa,
+       `undefined` deixa ela onde está. Colapsar os dois num booleano faz um
+       soluço de rede parecer falta de pagamento. */
+    expect(MW).toContain('acessoPagoDe');
+    const helper = readFileSync('lib/acessoPago.js', 'utf8');
+    expect(helper).toContain('if (r.error) return undefined;');
+    // e o `false` de "não pagou" continua existindo, separado
+    expect(helper).toMatch(/if \(!linhas\.length\) return false;/);
   });
 
   it('nextStep propaga a dúvida em vez de inventar um passo', () => {

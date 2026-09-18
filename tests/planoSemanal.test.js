@@ -36,9 +36,11 @@ describe('o webhook usa os dias DO PLANO comprado', () => {
     expect(wh, 'a validade voltou a ser fixa').not.toContain('threeMonthsFrom');
   });
 
-  it('a duração vem do plano da ordem', () => {
+  it('a duração vem do plano da ordem, contada a partir do que sobrou', () => {
     expect(wh).toContain('getPlan(pedido?.plan)');
-    expect(wh).toMatch(/validadeEmDias\(dias\)/);
+    /* Ganhou um segundo argumento: de QUANDO contar. Sem ele, comprar uma
+       semana faltando cinco dias faria a pessoa perder esses cinco. */
+    expect(wh).toMatch(/validadeEmDias\(dias, desde\)/);
   });
 
   it('sem plano conhecido, mantém os 90 dias de antes', () => {

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { verifyWebhookSignature, validadeEmDias, classifyEvent } from '../../../../lib/payments';
 import { getPlan } from '../../../../lib/plans';
+import { validadeAtual, baseDaRenovacao } from '../../../../lib/acessoPago';
 import {
   ehSaidaDeDinheiro, ehCompraPaga, deepFindEmail, deepFindAmount, deepFindMethod,
   idsDaCobranca, externalIdsConsultaveis, emailDoCliente, normalizarEmail,
@@ -203,10 +204,23 @@ export async function POST(request) {
        raro é melhor do que cortar o acesso de quem pagou de verdade. */
     const plano = getPlan(pedido?.plan);
     const dias = plano?.dias || 90;
+
+    /* UMA LINHA POR COMPRA, E O PRAZO SOMA.
+
+       Era `upsert(onConflict: 'email')`: cada pagamento sobrescrevia o
+       anterior, e o histórico sumia. Agora cada compra deixa a sua linha —
+       dá pra auditar o que a pessoa pagou, e a leitura pega a de maior
+       validade (lib/acessoPago.js).
+
+       Somar importa: quem compra uma semana faltando cinco dias não pode
+       PERDER esses cinco. `baseDaRenovacao` devolve a validade vigente quando
+       ela ainda está no futuro, e agora quando já passou. */
+    const vigente = await validadeAtual(admin, email);
+    const desde = baseDaRenovacao(vigente);
     const full = {
       email, provider: 'abacatepay',
       paid_at: new Date().toISOString(),
-      expires_at: validadeEmDias(dias),
+      expires_at: validadeEmDias(dias, desde),
     };
     if (amount != null) full.amount = amount;
     if (method) full.method = method;
@@ -226,9 +240,9 @@ export async function POST(request) {
        `provider`/`amount`/`method` (idem). A data de validade fica. Se nem ela
        entrar, é melhor responder erro e deixar o AbacatePay reenviar do que
        gravar uma linha que libera o produto inteiro de graça. */
-    let res = await admin.from('paid_emails').upsert(full, { onConflict: 'email' });
-    if (res.error) res = await admin.from('paid_emails').upsert({ email, paid_at: full.paid_at, expires_at: full.expires_at }, { onConflict: 'email' });
-    if (res.error) res = await admin.from('paid_emails').upsert({ email, expires_at: full.expires_at }, { onConflict: 'email' });
+    let res = await admin.from('paid_emails').insert(full);
+    if (res.error) res = await admin.from('paid_emails').insert({ email, paid_at: full.paid_at, expires_at: full.expires_at });
+    if (res.error) res = await admin.from('paid_emails').insert({ email, expires_at: full.expires_at });
     if (res.error) {
       await logEvent(admin, { id: eventId, event, outcome: `save_failed: ${res.error.message}`, raw: body, email });
       return NextResponse.json({ error: 'save_failed', details: res.error.message }, { status: 500 });
@@ -275,7 +289,7 @@ export async function GET(request) {
     if (ev.error) ev = await admin.from('webhook_events').select('id,event,received_at').order('received_at', { ascending: false }).limit(20);
     out.webhook_events = ev.error ? { error: ev.error.message, hint: 'rode as migrations 0031 e 0032' } : ev.data;
 
-    const paid = await admin.from('paid_emails').select('email,paid_at,expires_at,method,amount').order('paid_at', { ascending: false }).limit(20);
+    const paid = await admin.from('paid_emails').select('email,paid_at,expires_at,method,amount').order('paid_at', { ascending: false }).limit(30);
     out.paid_emails = paid.error ? { error: paid.error.message } : paid.data;
 
     // Pedidos recentes — é por eles que o webhook descobre de quem é o
