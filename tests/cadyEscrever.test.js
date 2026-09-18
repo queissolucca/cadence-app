@@ -55,6 +55,36 @@ describe('a persona e o idioma do Escrever', () => {
     expect(ROTA, 'a bio antiga saiu do arquivo inteiro').not.toContain('Whitfield');
   });
 
+  it('escreve em caixa normal, com energia — nunca tudo minúsculo', () => {
+    /* O prompt do painel manda "Format: lowercase". Aqui não: quem lê está
+       aprendendo a ESCREVER inglês, e professor sem maiúscula ensina aluno sem
+       maiúscula. */
+    expect(ABERTA, 'a regra de minúscula não pode voltar').not.toMatch(/Format: lowercase/);
+    expect(ABERTA).toMatch(/NORMAL SENTENCE CASE/);
+    expect(ABERTA).toMatch(/after every period, question mark and exclamation point/);
+    expect(ABERTA).toMatch(/Oi! Eu sou a Cady!/);
+    // Animada E ácida: se um dia "merciless" sair, virou outra personagem.
+    expect(ABERTA).toMatch(/Animated does not mean soft/);
+    expect(ABERTA).toMatch(/merciless/);
+  });
+
+  it('trata o usuário por "você", não por "cê"', () => {
+    expect(ABERTA).toMatch(/the pronoun is ALWAYS "você", never "cê"/);
+    /* Varre os exemplos de fala do prompt: "cê" só pode aparecer dentro da
+       própria proibição, em nenhum outro lugar. Era o registro antigo, e um
+       exemplo esquecido ensina o modelo o oposto da regra.
+
+       NÃO use `\b` aqui. O `\w` do JavaScript é [A-Za-z0-9_]: `ê` não está
+       nele, então depois de `ê` NUNCA existe fronteira de palavra e /cê\b/
+       casa zero vezes — com o texto errado na frente. A primeira versão deste
+       teste passou por esse buraco. O jeito certo é olhar o caractere vizinho:
+       `cê` colado num "o" é "você" e não conta. */
+    const solto = /(^|[^A-Za-zÀ-ÿ])[Cc]ê(?![A-Za-zÀ-ÿ])/g;
+    expect(ABERTA.match(solto)?.length, 'só as duas menções da regra que proíbe').toBe(2);
+    // E o controle, pra provar que o regex realmente enxerga algo:
+    expect('Cê tá aí, você?'.match(solto)?.length, 'o regex tem que achar o Cê e ignorar o você').toBe(1);
+  });
+
   it('mantém o freio: o ácido é sobre a frase, nunca sobre a pessoa', () => {
     // Sem esta lista o prompt é só "seja cruel", e aí ele erra o alvo.
     expect(ABERTA).toMatch(/Off limits, no exceptions: appearance, body, family, origin, religion, sexuality/);
@@ -102,7 +132,9 @@ describe('as seções condicionais do prompt', () => {
 describe('a primeira bolha da tela', () => {
   it('abre em português, porque o system prompt não alcança string de cliente', () => {
     expect(CHAT).not.toContain("I'm Cady. What do you wanna talk about today?");
-    expect(CHAT).toMatch(/sou a Cady/);
+    expect(CHAT).toMatch(/Oi \$\{name \|\| 'você'\}! Eu sou a Cady!/);
+    expect(CHAT, 'a frase antiga saiu').not.toMatch(/calado não/);
+    expect(CHAT).toMatch(/o importante é tentar e ir aprendendo comigo/);
     // E ainda assim entrega uma linha em inglês pra pessoa digitar: é o método.
     expect(CHAT).toMatch(/Tell me what you did today\./);
   });

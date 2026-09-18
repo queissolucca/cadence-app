@@ -39,7 +39,7 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
          O que se perde aqui é a abertura personalizada pela memória, só no
          texto — e a Cady segue sabendo tudo a partir do primeiro turno, porque
          a memória continua indo no system prompt. */
-      : `e aí ${name || 'você'}. sou a Cady. me conta em inglês o que cê fez hoje — torto tá valendo, calado não.
+      : `Oi ${name || 'você'}! Eu sou a Cady! Tente escrever — o importante é tentar e ir aprendendo comigo!
 
 Tell me what you did today.`;
   const [messages, setMessages] = useState(
