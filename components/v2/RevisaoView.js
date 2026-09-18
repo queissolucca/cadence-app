@@ -321,8 +321,16 @@ export function RevisaoView({ initialItems = [], firstName = '' }) {
         </div>
       )}
 
+      {/* O texto anterior ensinava a dizer "save this" — uma ação MANUAL. Ela
+          continua funcionando, mas virou o caminho secundário: a Cady já salva
+          as correções sozinha nos dois modos (na voz pelo /api/review/extract
+          no fim da conversa, na escrita pela tool save_to_review, que o prompt
+          manda chamar em silêncio). Pedir uma senha mágica pra algo que já
+          acontece sozinho fazia o produto parecer mais trabalhoso do que é. */}
       <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5 }}>
-        Durante a conversa, diga <strong>&quot;save this&quot;</strong> ou <strong>&quot;memorize that&quot;</strong> que a Cady guarda aqui. Você revisa com espaçamento; o que domina vira <strong>Aprendidos</strong> sozinho.
+        Durante a conversa a Cady vai memorizando sozinha seus erros para você revisar. Ela tem uma
+        inteligência que vai fazer você revisar com espaçamento e o que dominar virar um assunto
+        aprendido automaticamente.
       </p>
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -379,7 +387,7 @@ export function RevisaoView({ initialItems = [], firstName = '' }) {
 
       {shown.length === 0 && (
         <div className="v2-card" style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13.5, lineHeight: 1.5, padding: 22 }}>
-          Nada por aqui ainda. Fale uma conversa e mande a Cady <strong>&quot;save this&quot;</strong>, ou toque em <strong>+ adicionar</strong>.
+          Nada por aqui ainda. Fale em uma conversa e a Cady vai memorizar e registrar sozinha seus erros aqui.
         </div>
       )}
 
