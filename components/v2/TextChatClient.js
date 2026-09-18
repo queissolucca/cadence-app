@@ -23,7 +23,25 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
     ? `Quick practice with "${cardDrill.term}"${cardDrill.example ? ` — like: "${cardDrill.example}"` : ''}. Write a sentence using it, something from your own life!`
     : unit
       ? `Alright ${name || 'there'}! Let's nail ${unit.focus}. Here's an example — ${unit.example} Now your turn: write one like that!`
-      : (openingGreeting || `Hi ${name || 'there'}! I'm Cady. What do you wanna talk about today?`);
+      /* A PRIMEIRA BOLHA DA CONVERSA ABERTA ESCRITA É EM PORTUGUÊS.
+
+         Ela é string do cliente, não saída do modelo — então o system prompt
+         não a alcança. Ficar em inglês aqui desmentia a Cady na primeira linha
+         da tela: ela abriria dizendo "what do you wanna talk about" pra depois
+         escrever tudo em português.
+
+         `openingGreeting` sai de propósito DESTE caminho (e só deste): ele vem
+         de /api/conversar/saudacao, é gerado em inglês a partir da memória, e é
+         o mesmo valor que alimenta o `opening_line` do agente de voz. Traduzir
+         a rota mudaria a abertura da voz de carona, onde quem manda no idioma é
+         o prompt do painel do ElevenLabs. O Falar continua com ele intacto.
+
+         O que se perde aqui é a abertura personalizada pela memória, só no
+         texto — e a Cady segue sabendo tudo a partir do primeiro turno, porque
+         a memória continua indo no system prompt. */
+      : `e aí ${name || 'você'}. sou a Cady. me conta em inglês o que cê fez hoje — torto tá valendo, calado não.
+
+Tell me what you did today.`;
   const [messages, setMessages] = useState(
     resuming
       ? initialMessages.map((m) => ({ role: m.role === 'you' ? 'you' : 'coach', text: m.text }))
