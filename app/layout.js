@@ -1,4 +1,5 @@
 import './globals.css';
+import { SemZoom } from '../components/SemZoom';
 import { Bricolage_Grotesque, Hanken_Grotesk, Spline_Sans_Mono } from 'next/font/google';
 import { ZoomLock } from '../components/ZoomLock';
 
@@ -45,6 +46,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR" className={`${bricolage.variable} ${hanken.variable} ${splineMono.variable}`}>
       <body>
+        {/* Trava a pinça em todas as rotas. O <meta viewport> sozinho não
+            basta: o iOS Safari o ignora de propósito. */}
+        <SemZoom />
         <ZoomLock />
         {children}
       </body>

@@ -1,3 +1,8 @@
+/* Mata o zoom por toque duplo, que o <meta viewport> não cobre. O /comecar já
+   tinha isto na folha dele; o /v2 não tinha nenhum. `manipulation` mantém
+   rolagem e toque normais — só o duplo-toque-pra-ampliar sai. */
+html, body { touch-action: manipulation; }
+
 :root {
   color-scheme: light;
   --font-display: var(--font-display-loaded), 'Hanken Grotesk', sans-serif;

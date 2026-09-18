@@ -5,7 +5,11 @@ import '../../comecar/comecar.css';
 // meio de um fluxo de senha, que é justamente quando ela precisa reconhecer que
 // está no site certo.
 export const metadata = { title: 'cadence — nova senha' };
-export const viewport = { themeColor: '#0C0A0C' };
+// A barra do navegador acompanha o topo da tela. Era #0C0A0C, de quando
+// estas rotas eram escuras; num app claro isso vira uma tarja preta em
+// cima do conteúdo, que só aparece no celular e passa despercebido no
+// computador.
+export const viewport = { themeColor: '#EAF6EE' };
 
 export default function NovaSenhaLayout({ children }) {
   return children;

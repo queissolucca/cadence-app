@@ -46,7 +46,7 @@ export const metadata = {
 // aqui só pinta a barra do navegador de preto, porque esta rota é escura e o
 // tema global do site é claro.
 export const viewport = {
-  themeColor: '#0C0A0C',
+  themeColor: '#EAF6EE',   // era #0C0A0C, de quando a tela era escura
 };
 
 export default function ComecarLayout({ children }) {
