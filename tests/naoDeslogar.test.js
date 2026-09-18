@@ -174,10 +174,13 @@ describe('a conversa não pode ser travada pela nossa API', () => {
   });
 
   /* Cair e encerrar de propósito eram indistinguíveis: a tela voltava pro
-     repouso calada nos dois casos. */
-  it('queda de conexão é dita, encerramento pedido não', () => {
+     repouso calada nos dois casos. O que a tela diz mudou de texto quando o
+     app parou de religar sozinho, mas a regra é a mesma: fim que a pessoa não
+     pediu é ANUNCIADO, fim que ela pediu é silencioso. */
+  it('fim não pedido é dito, encerramento pedido não', () => {
     expect(CONV).toContain('pediuParar.current = true;');
-    expect(CONV).toMatch(/A conexão caiu/);
+    expect(CONV).toMatch(/if \(!pedido\) \{[\s\S]{0,1200}?setAviso\(/);
+    expect(CONV).toMatch(/A conversa chegou ao fim/);
   });
 
   /* O SDK diz POR QUE a conversa acabou — 'user', 'agent' ou 'error', com
@@ -190,13 +193,14 @@ describe('a conversa não pode ser travada pela nossa API', () => {
   it('o motivo da desconexão é lido, mostrado e registrado', () => {
     expect(CONV).toMatch(/onDisconnect: \(detalhes\)/);
     expect(CONV).toMatch(/detalhes\?\.reason/);
-    expect(CONV).toMatch(/motivo === 'agent'/);
-    /* A prosa mudou quando o fim do agente deixou de ser tratado como falha
-       (ver tests/conversaSalva.test.js). O que este teste guarda é a
-       ESTRUTURA: o motivo 'agent' tem um desfecho próprio na tela, separado do
-       vermelho de queda de rede. */
+    /* O motivo NÃO decide mais o texto da tela, e isso é deliberado: o teto de
+       duração do ElevenLabs chega como 'error', igual a uma queda de rede, e
+       ramificar nele foi exatamente a correção que falhou. O que sobrou de
+       estrutural é: todo fim que não foi o botão vira um aviso calmo, e o
+       motivo continua indo INTEIRO pra telemetria, que é onde ele serve. */
     expect(CONV).toMatch(/setAviso\(/);
-    expect(CONV).toMatch(/A conexão caiu/);
+    expect(CONV, 'o fim da conversa não pode mais ser anunciado como falha')
+      .not.toMatch(/A conexão caiu/);
     expect(CONV).toMatch(/cadenceTrack\?\.\('voz_encerrada'/);
     // closeCode é o que separa um limite do agente de uma queda de rede.
     expect(CONV).toMatch(/closeCode/);

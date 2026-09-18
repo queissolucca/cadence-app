@@ -56,7 +56,7 @@ describe('contexto de retomada', () => {
   });
 });
 
-describe('quando o app reabre a conversa sozinho', () => {
+describe('o app não reabre a conversa sozinho', () => {
   const base = { motivo: 'error', pedido: false, aberta: true, falas: 8, duracaoMs: 120000, jaRetomou: 0 };
 
   /* O BUG QUE ESTE BLOCO EXISTE PRA IMPEDIR.
@@ -67,50 +67,33 @@ describe('quando o app reabre a conversa sozinho', () => {
      Uma despedida desmentida por quem acabou de dá-la, e o teto configurado no
      painel valendo nada.
 
-     Fim decidido pela plataforma (teto de duração, End Conversation after
-     silence, End Call) chega aqui como motivo 'agent' e NÃO pode reabrir. */
-  it('o agente encerrou: é fim de verdade, não reabre', () => {
-    expect(deveRetomar({ ...base, motivo: 'agent' })).toBe(false);
-    // Nem com tudo o mais perfeito: conversa longa, muitas falas, zero retomadas.
+     A primeira correção tirou só `motivo === 'agent'`, apostando que o SDK
+     classificaria o teto como fim do agente. Foi a produção e o bug continuou:
+     o teto chega como 'error', indistinguível de queda de rede pelo `reason`.
+
+     Por isso o teste não lista motivos: qualquer combinação devolve false. Um
+     teste que checasse motivo por motivo teria passado na versão quebrada. */
+  it('nenhuma combinação reabre — nem a que antes reabria', () => {
+    for (const motivo of ['agent', 'error', 'user', 'desconhecido', undefined]) {
+      expect(deveRetomar({ ...base, motivo }), `motivo=${motivo}`).toBe(false);
+    }
+  });
+
+  it('nem com a conversa longa, cheia de falas e sem retomada anterior', () => {
+    expect(deveRetomar({ ...base, falas: 40, duracaoMs: 300000, jaRetomou: 0 })).toBe(false);
     expect(deveRetomar({ ...base, motivo: 'agent', falas: 40, duracaoMs: 300000, jaRetomou: 0 })).toBe(false);
   });
 
-  it('queda de rede continua reabrindo — ninguém decidiu encerrar', () => {
-    expect(deveRetomar(base)).toBe(true);
+  it('sem argumento nenhum também é false — é o padrão, não um caso de borda', () => {
+    expect(deveRetomar({})).toBe(false);
+    expect(deveRetomar()).toBe(false);
   });
 
-  it('quem encerrou foi a pessoa: nunca reabre', () => {
-    // O pior bug possível aqui seria reabrir depois do "Encerrar": a pessoa
-    // desliga e o microfone volta sozinho, gravando e cobrando.
-    expect(deveRetomar({ ...base, motivo: 'user' })).toBe(false);
-    expect(deveRetomar({ ...base, pedido: true })).toBe(false);
-    expect(deveRetomar({ ...base, motivo: 'user', pedido: true })).toBe(false);
-  });
-
-  it('lição e revisão não são reabertas nem por queda', () => {
-    expect(deveRetomar({ ...base, aberta: false })).toBe(false);
-  });
-
-  it('caiu logo no começo é configuração errada, não queda no meio', () => {
-    expect(deveRetomar({ ...base, duracaoMs: MINIMO_MS - 1 })).toBe(false);
-    expect(deveRetomar({ ...base, duracaoMs: MINIMO_MS })).toBe(true);
-  });
-
-  it('sem conversa pra continuar, não continua', () => {
-    expect(deveRetomar({ ...base, falas: 0 })).toBe(false);
-    expect(deveRetomar({ ...base, falas: 1 })).toBe(false);
-    expect(deveRetomar({ ...base, falas: 2 })).toBe(true);
-  });
-
-  it('o teto existe pra um agente quebrado não virar um laço infinito', () => {
-    expect(deveRetomar({ ...base, jaRetomou: MAX_RETOMADAS - 1 })).toBe(true);
-    expect(deveRetomar({ ...base, jaRetomou: MAX_RETOMADAS })).toBe(false);
-    expect(deveRetomar({ ...base, jaRetomou: 99 })).toBe(false);
-  });
-
-  it('motivo desconhecido não reabre — só o que a gente sabe interpretar', () => {
-    expect(deveRetomar({ ...base, motivo: 'desconhecido' })).toBe(false);
-    expect(deveRetomar({ ...base, motivo: undefined })).toBe(false);
+  /* Os limites continuam exportados: são a referência de qualquer versão futura
+     que volte a reabrir em caso restrito (ver o comentário em lib/retomada.js). */
+  it('os limites históricos seguem documentados', () => {
+    expect(MAX_RETOMADAS).toBe(3);
+    expect(MINIMO_MS).toBe(15000);
   });
 });
 

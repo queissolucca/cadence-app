@@ -464,14 +464,20 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
       }
 
       if (!pedido) {
-        /* Os dois desfechos deixaram de ser a mesma coisa. 'agent' é a
-           plataforma cumprindo o que está configurado — fim previsto, aviso
-           calmo. Qualquer outro é falha de verdade, e continua em vermelho. */
-        if (motivo === 'agent') {
-          setAviso('A conversa chegou ao fim. Toque na Cady pra começar outra — o que vocês já falaram está salvo.');
-        } else {
-          setErrorMsg('A conexão caiu. Toque pra continuar — o que vocês já falaram está salvo.');
-        }
+        /* UM texto só, e em cinza, para todo fim que não foi o botão.
+
+           Tentei separar em dois — 'agent' como fim previsto, o resto como
+           falha vermelha. Não funciona: o teto de duração do ElevenLabs chega
+           aqui como 'error', igualzinho a uma queda de rede, e era esse o
+           motivo de a versão anterior não ter consertado nada. Sem conseguir
+           distinguir, o vermelho acusaria falha depois de toda sessão normal
+           de 5 minutos.
+
+           E, agora que o app não religa sozinho (lib/retomada.js), os dois
+           desfechos são a mesma coisa da cadeira de quem fala: acabou, toca de
+           novo pra continuar. O motivo real segue registrado no
+           'voz_encerrada' com closeCode, que é onde ele serve pra alguma coisa. */
+        setAviso('A conversa chegou ao fim. Toque na Cady pra começar outra — o que vocês já falaram está salvo.');
       }
 
       // O fecho do que já vinha sendo gravado turno a turno: duração e ended_at.
