@@ -54,11 +54,23 @@ export function ConversarView({ firstName, memoryText }) {
      produto fazia era dizer não. Abrindo no texto, ela usa — e encontra o
      caixa quando QUISER falar, que é quando a oferta faz sentido. */
   const [mode, setMode] = useState('text'); // 'text' = escrever | 'voice' = microfone
-  const { pedirPlano } = usePortao();
 
-  /* Uma porta só pro modo voz. Retomar uma conversa antiga POR VOZ (linha ~110)
-     passa por aqui também — senão haveria um caminho lateral pro que é pago. */
-  const irParaVoz = () => { if (!pedirPlano(FALA)) setMode('voice'); };
+  const { temPlano, pedirPlano } = usePortao();
+
+  /* MOSTRA A TELA, DEPOIS BLOQUEIA.
+
+     Antes o popup abria e o modo NÃO mudava: a pessoa via a oferta sobre a
+     tela de escrever, sem nunca ver o que estava comprando. Agora ela entra no
+     modo voz — vê a Cady, o microfone, o desenho todo — e o popup sobe por
+     cima, com aquilo aparecendo no fundo.
+
+     O `aoFechar` devolve pro Escrever. Falar não é rota, é um modo: fechar
+     aqui não pode navegar pra lugar nenhum, senão a pessoa perde a conversa
+     que estava escrevendo. */
+  const irParaVoz = () => {
+    setMode('voice');
+    pedirPlano(FALA, () => setMode('text'));
+  };
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -120,9 +132,10 @@ export function ConversarView({ firstName, memoryText }) {
     if (!detail) return;
     const topic = detail.title || selected?.title || 'nossa conversa';
     setResume({ context: contextoDeRetomada(detail.messages, topic), topic, id: detail.id, messages: detail.messages || [] });
-    // Retomar por voz também passa pela porta — ver irParaVoz.
-    if (targetMode === 'voice') { if (pedirPlano(FALA)) return; }
+    // Retomar uma conversa antiga POR VOZ passa pela mesma porta — senão
+    // haveria um caminho lateral pro que é pago.
     setMode(targetMode);
+    if (targetMode === 'voice') pedirPlano(FALA, () => setMode('text'));
     setSelected(null);
     setDetail(null);
     setRailOpen(false);
@@ -273,6 +286,11 @@ export function ConversarView({ firstName, memoryText }) {
               />
             ) : (
               <ConversationClient
+                /* Vitrine: a tela aparece, mas não busca URL assinada nem abre
+                   sessão. Sem isto, todo mundo que espiasse o modo voz dispararia
+                   um /api/convai/signed-url que volta 402 e é engolido por um
+                   catch — chamada desperdiçada a cada espiada. */
+                vitrine={!temPlano}
                 firstName={firstName}
                 /* `onSaved` agora roda DURANTE a conversa (ela é gravada turno a
                    turno), então ele só atualiza a lista. Zerar a retomada aqui

@@ -62,7 +62,7 @@ let sessoesNesteDocumento = 0;
 // custa a aula.
 const FORCA = { elogiando: 1, corrigindo: 2 };
 
-function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting }) {
+function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting, vitrine }) {
   const isReview = Array.isArray(reviewItems) && reviewItems.length > 0;
   const isCard = !!(cardDrill && cardDrill.term); // drill relâmpago de 1 card da Revisão
   const [starting, setStarting] = useState(false);
@@ -710,15 +710,23 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
   }, [buscarSignedUrl]);
 
   useEffect(() => {
+    // Vitrine não aquece: a URL assinada custa uma ida ao ElevenLabs, e pra
+    // quem não pode falar ela volta 402 de qualquer jeito.
+    if (vitrine) return;
     const voz = agent?.id || 'cadi';
     const p = urlPronta.current;
     if (p.voz === voz && p.url && Date.now() - p.em < MAX_IDADE_URL) return;
     urlPronta.current = { voz: null, url: null, em: 0 };
     aquecerUrl(voz);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent?.id]);
+  }, [agent?.id, vitrine]);
 
   const start = useCallback(async (opcoes) => {
+    /* VITRINE NÃO CONVERSA. A tela existe pra ser vista por quem ainda não tem
+       o plano; o popup cobre o botão, mas cobrir não é impedir — teclado,
+       leitor de tela e um `display:none` removido no inspetor chegam nele.
+       Quem barra de verdade é a API (402), e isto evita a ida inútil. */
+    if (vitrine) return;
     // `automatico` = não foi a pessoa que tocou; foi a retomada depois de o
     // agente ter derrubado a conversa. Muda a 1ª fala e a mensagem de erro.
     const automatico = !!(opcoes && opcoes.automatico);
@@ -858,7 +866,7 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
     } finally {
       setStarting(false);
     }
-  }, [conversation, firstName, agent, resumeContext, resumeTopic, unit, isReview, reviewItems, memoryText, isCard, cardDrill, openingGreeting, buscarSignedUrl, aquecerUrl]);
+  }, [conversation, firstName, agent, resumeContext, resumeTopic, unit, isReview, reviewItems, memoryText, isCard, cardDrill, openingGreeting, buscarSignedUrl, aquecerUrl, vitrine]);
 
   // A retomada automática mora dentro do onDisconnect, que é registrado antes de
   // `start` existir. O ref é o que fura essa ordem.
@@ -1402,10 +1410,16 @@ function ConversationInner({ firstName, onSaved, onEncerrada, agent, resumeConte
   );
 }
 
-export function ConversationClient({ firstName, onSaved, onEncerrada, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting }) {
+/* `vitrine`: a tela inteira aparece, mas não toca em rede nem em microfone.
+
+   Serve pra quem não tem o plano completo espiar como é falar com a Cady antes
+   de decidir pagar. Sem isso, montar a tela dispara a busca da URL assinada
+   (que volta 402 e é engolida por um catch) e o botão de começar ficaria
+   armado por trás de um popup que só um `display:none` separa do clique. */
+export function ConversationClient({ firstName, onSaved, onEncerrada, agent, resumeContext, resumeTopic, resumeMessages, resumeId, unit, reviewItems, memoryText, cardDrill, openingGreeting, vitrine = false }) {
   return (
     <ConversationProvider>
-      <ConversationInner firstName={firstName} onSaved={onSaved} onEncerrada={onEncerrada} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} memoryText={memoryText} cardDrill={cardDrill} openingGreeting={openingGreeting} />
+      <ConversationInner vitrine={vitrine} firstName={firstName} onSaved={onSaved} onEncerrada={onEncerrada} agent={agent} resumeContext={resumeContext} resumeTopic={resumeTopic} resumeMessages={resumeMessages} resumeId={resumeId} unit={unit} reviewItems={reviewItems} memoryText={memoryText} cardDrill={cardDrill} openingGreeting={openingGreeting} />
     </ConversationProvider>
   );
 }

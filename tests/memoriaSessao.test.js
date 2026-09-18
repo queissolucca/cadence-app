@@ -49,12 +49,22 @@ describe('o teto de sessões por página', () => {
   });
 
   it('começar a falar cancela a recarga marcada', () => {
-    // Em dois lugares: ao tocar (start) e ao conectar. Sem isso, a tela pode
-    // recarregar 3s depois de a pessoa já ter recomeçado a conversar.
-    const iStart = FONTE.indexOf('const start = useCallback(async (opcoes)');
-    expect(FONTE.slice(iStart, iStart + 400)).toContain('clearTimeout(recargaAgendada.current)');
-    const iCon = FONTE.indexOf('onConnect: () => {');
-    expect(FONTE.slice(iCon, iCon + 500)).toContain('clearTimeout(recargaAgendada.current)');
+    /* Em dois lugares: ao tocar (start) e ao conectar. Sem isso, a tela pode
+       recarregar 3s depois de a pessoa já ter recomeçado a conversar.
+
+       As fatias eram por número fixo de caracteres (400 e 500) e quebraram
+       quando um comentário entrou no começo do `start` — falha por um motivo
+       que não tem relação nenhuma com o que o teste afirma. Agora contam
+       LINHAS de código, que é a unidade em que a distância importa. */
+    const linhasApos = (marca, n) => {
+      const i = FONTE.indexOf(marca);
+      expect(i, `não achei "${marca}"`).toBeGreaterThan(-1);
+      return FONTE.slice(i).split('\n').slice(0, n).join('\n');
+    };
+    expect(linhasApos('const start = useCallback(async (opcoes)', 14))
+      .toContain('clearTimeout(recargaAgendada.current)');
+    expect(linhasApos('onConnect: () => {', 14))
+      .toContain('clearTimeout(recargaAgendada.current)');
   });
 
   it('deixa registro de que recarregou, e por quê', () => {

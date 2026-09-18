@@ -123,20 +123,39 @@ describe('escrever é o primeiro caminho', () => {
   });
 
   it('todo caminho pro modo voz passa pela porta', () => {
-    /* São dois caminhos: o botão "Falar" e a retomada de uma conversa antiga
-       por voz. Ambos podem chamar setMode('voice') — o que não pode é chamar
-       SEM passar por pedirPlano antes, que seria uma porta lateral pro que é
-       pago. Então a asserção olha o que vem imediatamente antes de cada
-       chamada, e não se a chamada existe. */
+    /* A ORDEM INVERTEU, de propósito. Antes o `pedirPlano` vinha ANTES e
+       impedia a troca de modo: a pessoa via a oferta sobre a tela de escrever,
+       sem nunca ver o que estava comprando. Agora ela entra no modo voz — vê a
+       Cady, o microfone, o desenho todo — e o popup sobe por cima.
+
+       Então a asserção deixou de ser sobre ordem e passou a ser sobre
+       VIZINHANÇA: todo `setMode('voice')` precisa ter um `pedirPlano` por
+       perto, antes ou depois. Um sozinho seria porta lateral pro que é pago. */
     const chamadas = [...view.matchAll(/setMode\('voice'\)/g)];
     expect(chamadas.length, 'nenhum caminho pro modo voz — a tela quebrou?')
       .toBeGreaterThan(0);
-    const desprotegidas = chamadas.filter((m) => {
-      const antes = view.slice(Math.max(0, m.index - 140), m.index);
-      return !antes.includes('pedirPlano');
+    const desacompanhadas = chamadas.filter((m) => {
+      const perto = view.slice(Math.max(0, m.index - 200), m.index + 200);
+      return !perto.includes('pedirPlano');
     });
-    expect(desprotegidas.length, "setMode('voice') sem pedirPlano antes").toBe(0);
-    expect(view).toContain('pedirPlano(FALA)');
+    expect(desacompanhadas.length, "setMode('voice') sem pedirPlano por perto").toBe(0);
+    expect(view).toContain('pedirPlano(FALA,');
+  });
+
+  it('fechar o popup devolve pro Escrever, sem navegar', () => {
+    /* Falar não é rota, é um modo. Fechar ali não pode mandar a pessoa pra
+       outro lugar: ela perderia a conversa que estava escrevendo. Por isso o
+       `pedirPlano` aceita o que desfazer. */
+    expect(view).toMatch(/pedirPlano\(FALA, \(\) => setMode\('text'\)\)/);
+    expect(ler('components/v2/PortaoProvider.js')).toContain('desfazer.current');
+  });
+
+  it('a tela de voz não gasta rede pra quem só está espiando', () => {
+    // Montar o cliente busca URL assinada no ElevenLabs; pra quem não pagou ela
+    // volta 402 e some num catch — chamada desperdiçada a cada espiada.
+    expect(view).toMatch(/vitrine=\{!temPlano\}/);
+    const cliente = ler('components/v2/ConversationClient.js');
+    expect(cliente).toMatch(/if \(vitrine\) return;/);
   });
 });
 

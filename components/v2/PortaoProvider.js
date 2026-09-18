@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { PortaoPago } from './PortaoPago';
 import { recursoPagoDaPagina } from '../../lib/acesso';
@@ -44,8 +44,17 @@ export function PortaoProvider({ temPlano = false, children }) {
 
   /* Devolve true quando ENGOLIU a ação. Quem chama usa isso pra decidir se
      segue ou para — o que mantém os links sendo links de verdade. */
-  const pedirPlano = useCallback((qual) => {
+  /* Quem abre o popup pode dizer O QUE DESFAZER ao fechá-lo.
+
+     Voltar pro início resolve quando o bloqueio é uma ROTA. Mas falar não é
+     rota — é um modo dentro de /v2/conversar. Fechar ali tem que devolver pro
+     Escrever, não navegar pra lugar nenhum; sem isso a pessoa fica olhando a
+     tela do microfone que ela não pode usar. */
+  const desfazer = useRef(null);
+
+  const pedirPlano = useCallback((qual, aoFechar) => {
     if (temPlano) return false;
+    desfazer.current = aoFechar || null;
     setRecurso(qual || null);
     return true;
   }, [temPlano]);
@@ -55,6 +64,9 @@ export function PortaoProvider({ temPlano = false, children }) {
      sem caminho de saída além do botão de voltar do navegador. */
   const fechar = useCallback(() => {
     setRecurso(null);
+    const volta = desfazer.current;
+    desfazer.current = null;
+    if (volta) { volta(); return; }        // quem pediu sabe desfazer melhor
     if (recursoPagoDaPagina(caminho)) router.push('/v2');
   }, [caminho, router]);
 
