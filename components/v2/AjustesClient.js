@@ -11,6 +11,7 @@ import { BottomSheet } from './BottomSheet';
 import { SegmentedControl } from './SegmentedControl';
 import { MemoriesDialog } from './MemoriesDialog';
 import { PasswordDialog } from './PasswordDialog';
+import { ProfileDialog } from './ProfileDialog';
 import { JourneyCard } from './JourneyCard';
 import { Toast } from './Toast';
 
@@ -61,6 +62,24 @@ const WEEKLY_LABEL = (n) => `${n} dias/sem`;
 
 export function AjustesClient({ profile, email, game, hasPassword = false }) {
   const router = useRouter();
+  /* O MESMO DIÁLOGO DO MOBILE, AGORA TAMBÉM AQUI.
+
+     No celular, a foto no cabeçalho da Início abre este diálogo (ver
+     components/ui/AppHeader.js). No desktop não existe aquele cabeçalho: a
+     barra lateral substitui, e a pessoa ficava sem NENHUM caminho pra trocar
+     nome e foto — os dados estavam na tela do Perfil, só que como texto morto.
+
+     Reusar o ProfileDialog em vez de escrever um editor próprio é o ponto: ele
+     já sabe subir avatar, salvar o nome e fechar. Duas telas de edição do mesmo
+     perfil divergiriam no primeiro ajuste. */
+  const [showProfile, setShowProfile] = useState(false);
+  // Mesmo formato da Início: data em pt-BR e no fuso de São Paulo, pra não
+  // virar "ontem" pra quem abre de madrugada.
+  const membroDesde = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })
+    : null;
+  // O recorde nunca pode aparecer menor que a sequência atual.
+  const recordeStreak = Math.max(profile?.streak_count || 0, profile?.streak_max || 0);
   const { setTheme } = useTheme();
   const { toast, save } = usePreferenceSave();
 
@@ -99,8 +118,14 @@ export function AjustesClient({ profile, email, game, hasPassword = false }) {
 
   return (
     <>
-      {/* Perfil */}
-      <div className="v2-card-dark" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {/* Perfil — clicável: abre o mesmo diálogo do mobile. */}
+      <button
+        type="button"
+        className="v2-card-dark"
+        onClick={() => setShowProfile(true)}
+        aria-label="Abrir perfil: editar nome e foto"
+        style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: 'none', textAlign: 'left', cursor: 'pointer', font: 'inherit' }}
+      >
         <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'grid', placeItems: 'center', fontSize: 18, fontWeight: 700, flexShrink: 0 }}>
           {(profile?.full_name || email || '?').charAt(0).toUpperCase()}
         </div>
@@ -117,7 +142,21 @@ export function AjustesClient({ profile, email, game, hasPassword = false }) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.9 6.1 6.7.9-4.9 4.6 1.2 6.6L12 17.8 6.1 20.8l1.2-6.6L2.4 9l6.7-.9L12 2z" /></svg>
           Plano Pro
         </span>
-      </div>
+        {/* A seta é o que diz que dá pra clicar. Sem ela o cartão parece só um
+            cabeçalho, e foi por isso que ninguém tentou clicar até agora. */}
+        <ChevronRight size={18} strokeWidth={2} style={{ flexShrink: 0, opacity: 0.55 }} />
+      </button>
+
+      <ProfileDialog
+        open={showProfile}
+        onClose={() => setShowProfile(false)}
+        fullName={profile?.full_name || ''}
+        email={email}
+        memberSince={membroDesde}
+        streakMax={recordeStreak}
+        avatarUrl={profile?.avatar_url}
+        avatarInitial={profile?.full_name || email}
+      />
 
       {/* Sua jornada (gamificação) */}
       {game && (
