@@ -401,7 +401,7 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
-          placeholder="Escreva em inglês… (Enter envia)"
+          placeholder="Escreva aqui... (tente escrever em inglês para começar a praticar)"
           style={{
             flex: 1, resize: 'none', border: '1px solid var(--line)', borderRadius: 14, padding: '11px 14px',
             fontSize: 14.5, lineHeight: 1.4, color: 'var(--v2-card-fg, var(--ink))', background: 'var(--v2-card-bg)',
