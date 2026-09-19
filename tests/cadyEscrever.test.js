@@ -175,3 +175,28 @@ describe('o convite pra experimentar o Falar', () => {
     expect(CHAT.slice(i - 300, i)).toMatch(/if \(!unit && !cardDrill\)/);
   });
 });
+
+describe('o teto de 500 caracteres na caixa', () => {
+  it('são DUAS camadas — o atributo e o corte no estado', () => {
+    /* `maxLength` é atributo de UI: não vale pra valor setado por código e some
+       se alguém editar o atributo no inspetor. O slice é o que garante que o
+       ESTADO nunca passa de 500 — e é o estado que acaba indo pra API. */
+    expect(CHAT).toMatch(/const MAX_CARACTERES = 500;/);
+    expect(CHAT, 'o atributo é quem trunca a colagem').toMatch(/maxLength=\{MAX_CARACTERES\}/);
+    expect(CHAT, 'e o slice é o cinto').toMatch(/setInput\(e\.target\.value\.slice\(0, MAX_CARACTERES\)\)/);
+  });
+
+  it('o limite é dito, e só quando chega perto', () => {
+    // Caixa que para de aceitar tecla sem dizer nada lê como travamento; e
+    // contador visível o tempo todo transforma escrever numa prova.
+    expect(CHAT).toMatch(/AVISA_A_PARTIR_DE/);
+    expect(CHAT).toMatch(/input\.length >= AVISA_A_PARTIR_DE/);
+    expect(CHAT).toMatch(/caracteres restantes/);
+  });
+
+  it('o número não fica solto em três lugares diferentes', () => {
+    // O 500 literal só pode aparecer na constante e no texto que o anuncia.
+    const literais = (CHAT.match(/\b500\b/g) || []).length;
+    expect(literais, 'usar MAX_CARACTERES em vez de repetir o número').toBeLessThanOrEqual(2);
+  });
+});

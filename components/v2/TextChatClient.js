@@ -36,6 +36,25 @@ function deriveTitle(messages) {
 const CONVITE_FALAR = 'Seria melhor aprender como falar né? Clique no ícone acima de 🎙 Falar e fale comigo agora!';
 const INTERVALO_CONVITE = () => 5 + Math.floor(Math.random() * 4);   // 5, 6, 7 ou 8
 
+/* TETO DE 500 CARACTERES NA CAIXA.
+
+   Duas camadas, de propósito:
+
+   1. `maxLength` no textarea é quem faz o trabalho de verdade. O navegador
+      para de aceitar tecla no 501 e TRUNCA colagem — colar 2.000 caracteres
+      preenche até 500 e descarta o resto, sem erro e sem limpar o que já
+      estava escrito.
+   2. O `.slice(0, MAX_CARACTERES)` no onChange é o cinto. `maxLength` é
+      atributo de UI: ele não vale pra valor setado por código, e some se
+      alguém editar o atributo no inspetor. O slice garante que o ESTADO nunca
+      passa de 500, que é o que acaba indo pra API.
+
+   O contador só aparece nos últimos 50 porque a alternativa é pior: caixa que
+   simplesmente para de aceitar tecla, sem dizer nada, lê como travamento. E um
+   contador visível o tempo todo transforma escrever numa prova com limite. */
+const MAX_CARACTERES = 500;
+const AVISA_A_PARTIR_DE = 450;
+
 export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit, cardDrill, openingGreeting }) {
   const name = firstName || '';
   const resuming = Array.isArray(initialMessages) && initialMessages.length > 0;
@@ -394,12 +413,24 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
 
       {errorMsg && <p style={{ margin: 0, fontSize: 13, color: 'var(--red, #c0392b)', textAlign: 'center' }}>{errorMsg}</p>}
 
+      {input.length >= AVISA_A_PARTIR_DE && (
+        <p style={{
+          margin: '0 56px 0 0', fontSize: 12, textAlign: 'right',
+          color: input.length >= MAX_CARACTERES ? 'var(--red, #c0392b)' : 'var(--ink-soft)',
+        }}>
+          {input.length === MAX_CARACTERES
+            ? 'Limite de 500 caracteres. Manda esse e continua no próximo!'
+            : `${MAX_CARACTERES - input.length} caracteres restantes`}
+        </p>
+      )}
+
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <textarea
           ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => setInput(e.target.value.slice(0, MAX_CARACTERES))}
           onKeyDown={onKeyDown}
+          maxLength={MAX_CARACTERES}
           rows={1}
           placeholder="Escreva aqui... (tente escrever em inglês para começar a praticar)"
           style={{
