@@ -134,8 +134,44 @@ describe('a primeira bolha da tela', () => {
     expect(CHAT).not.toContain("I'm Cady. What do you wanna talk about today?");
     expect(CHAT).toMatch(/Oi \$\{name \|\| 'você'\}! Eu sou a Cady!/);
     expect(CHAT, 'a frase antiga saiu').not.toMatch(/calado não/);
-    expect(CHAT).toMatch(/o importante é tentar e ir aprendendo comigo/);
+    // Sem o artigo: ele é "o" no meio da frase e "O" depois de ponto, e a
+    // regra de caixa normal faz isso variar legitimamente.
+    expect(CHAT).toMatch(/importante é tentar e ir aprendendo comigo/);
     // E ainda assim entrega uma linha em inglês pra pessoa digitar: é o método.
-    expect(CHAT).toMatch(/Tell me what you did today\./);
+    /* Sem fixar a pontuação: o que importa é a bolha entregar UMA linha em
+       inglês pra pessoa digitar. Era `today\.` e travou quando a frase virou
+       "today!" — teste vermelho por causa de um ponto de exclamação é teste
+       medindo estilo, não comportamento. */
+    expect(CHAT).toMatch(/Tell me what you did today[.!]/);
+  });
+});
+
+describe('o convite pra experimentar o Falar', () => {
+  it('existe, e usa o mesmo emoji do botão', () => {
+    expect(CHAT).toContain('Seria melhor aprender como falar né?');
+    // O convite manda clicar num ícone logo acima; emoji diferente do botão
+    // faria a pessoa procurar um botão que não existe.
+    const CONVERSAR = lerFonte('components/v2/ConversarView.js');
+    expect(CONVERSAR).toContain('🎙 Falar');
+    expect(CHAT).toContain('🎙 Falar');
+  });
+
+  it('aparece a cada 5 a 8 mensagens, sorteado — não é metrônomo', () => {
+    expect(CHAT).toMatch(/5 \+ Math\.floor\(Math\.random\(\) \* 4\)/);
+  });
+
+  it('é só tela: não vai pro modelo nem pro banco', () => {
+    /* Se fosse pro modelo, chegaria como fala da Cady e ela passaria a achar
+       que convidou. Se fosse pro banco, voltaria no prior_context de uma
+       retomada dias depois, com o mesmo efeito. */
+    expect(CHAT).toMatch(/const paraFora = \(lista\) => lista\.filter\(\(m\) => m\.role !== 'convite'\)/);
+    expect(CHAT).toMatch(/const history = paraFora\(withYou\)/);
+    expect(CHAT).toMatch(/persist\(paraFora\(withReply\)\)/);
+  });
+
+  it('não interrompe lição nem drill de card', () => {
+    const i = CHAT.indexOf('faltamPraConvite.current = INTERVALO_CONVITE()');
+    expect(i).toBeGreaterThan(-1);
+    expect(CHAT.slice(i - 300, i)).toMatch(/if \(!unit && !cardDrill\)/);
   });
 });

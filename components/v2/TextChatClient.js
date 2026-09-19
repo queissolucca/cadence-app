@@ -16,6 +16,26 @@ function deriveTitle(messages) {
 // Conversa aberta por TEXTO — a Cady via Claude (Haiku, barato). Corrige inline,
 // salva na Revisão sozinha (tool server-side), e conta streak/histórico igual à
 // conversa por voz. Alternativa ao microfone dentro da mesma aba.
+/* O CONVITE PRA FALAR, A CADA 5-8 MENSAGENS.
+
+   O Escrever é o plano grátis e o Falar é o pago; quem só digita nunca esbarra
+   no microfone sozinho. Este é o empurrãozinho.
+
+   Por que não é o modelo que escreve isso: um LLM não conta turnos. Pedir no
+   prompt "a cada 5 a 8 mensagens, convide" dá um convite a cada duas
+   mensagens num dia e nenhum no outro — e ainda gasta espaço de prompt numa
+   regra que ele não consegue cumprir. Contar turno é trabalho de código.
+
+   O intervalo é sorteado entre 5 e 8 a cada convite, e não fixo em 5, pra não
+   virar metrônomo: um aviso que chega sempre na mesma contagem lê como banner,
+   e banner o olho aprende a pular.
+
+   O emoji é o MESMO do botão (🎙 em ConversarView), de propósito — o convite
+   manda clicar num ícone que está logo acima, e um emoji diferente faria a
+   pessoa procurar um botão que não existe. */
+const CONVITE_FALAR = 'Seria melhor aprender como falar né? Clique no ícone acima de 🎙 Falar e fale comigo agora!';
+const INTERVALO_CONVITE = () => 5 + Math.floor(Math.random() * 4);   // 5, 6, 7 ou 8
+
 export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit, cardDrill, openingGreeting }) {
   const name = firstName || '';
   const resuming = Array.isArray(initialMessages) && initialMessages.length > 0;
@@ -39,14 +59,13 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
          O que se perde aqui é a abertura personalizada pela memória, só no
          texto — e a Cady segue sabendo tudo a partir do primeiro turno, porque
          a memória continua indo no system prompt. */
-      : `Oi ${name || 'você'}! Eu sou a Cady! Tente escrever — o importante é tentar e ir aprendendo comigo!
-
-Tell me what you did today.`;
+      : `Oi ${name || 'você'}! Eu sou a Cady! Tente escrever em inglês. O importante é tentar e ir aprendendo comigo! Tell me what you did today!`;
   const [messages, setMessages] = useState(
     resuming
       ? initialMessages.map((m) => ({ role: m.role === 'you' ? 'you' : 'coach', text: m.text }))
       : [{ role: 'coach', text: greeting }],
   );
+  const faltamPraConvite = useRef(0);   // 0 = ainda não sorteado
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [notConfigured, setNotConfigured] = useState(false);
@@ -139,7 +158,17 @@ Tell me what you did today.`;
     setSending(true);
     userCountRef.current += 1;
 
-    const history = withYou.map((m) => ({ role: m.role === 'you' ? 'user' : 'assistant', content: m.text }));
+    /* O CONVITE É SÓ TELA. Ele não vai pro modelo nem pro banco.
+
+       Pro modelo: ele chegaria como fala da Cady, e ela passaria a achar que
+       convidou — repetindo, ou respondendo ao próprio convite.
+       Pro banco: ele entraria no transcript salvo e voltaria no `prior_context`
+       de uma retomada, com o mesmo efeito, dias depois.
+
+       Filtrar aqui (e não tirar do `messages`) mantém o convite VISÍVEL na
+       conversa. Tirá-lo do estado faria ele sumir da tela no envio seguinte. */
+    const paraFora = (lista) => lista.filter((m) => m.role !== 'convite');
+    const history = paraFora(withYou).map((m) => ({ role: m.role === 'you' ? 'user' : 'assistant', content: m.text }));
 
     try {
       const res = await fetch('/api/chat', {
@@ -159,6 +188,17 @@ Tell me what you did today.`;
       const { reply, saved } = await res.json();
       const withReply = [...withYou, { role: 'coach', text: reply }];
       setMessages(withReply);
+
+      /* Só na conversa aberta: em lição e em drill de card a pessoa está no
+         meio de um exercício, e mandar ela sair no meio é atrapalhar. */
+      if (!unit && !cardDrill) {
+        if (!faltamPraConvite.current) faltamPraConvite.current = INTERVALO_CONVITE();
+        faltamPraConvite.current -= 1;
+        if (faltamPraConvite.current <= 0) {
+          faltamPraConvite.current = INTERVALO_CONVITE();
+          setMessages((atual) => [...atual, { role: 'convite', text: CONVITE_FALAR }]);
+        }
+      }
       if (Array.isArray(saved) && saved.length) setSavedFlash((n) => n + saved.length);
 
       // Beat de "acabei de te responder", e a cara brava só se de fato corrigiu.
@@ -171,7 +211,7 @@ Tell me what you did today.`;
         corrT.current = setTimeout(() => setCorrigindo(false), 5200);
       }
 
-      if (!cardDrill) persist(withReply); // drill de card é micro-interação: não salva no histórico
+      if (!cardDrill) persist(paraFora(withReply)); // drill de card é micro-interação: não salva no histórico
       // Só conta pro streak se foi atividade real: uma lição de fato (>=4 trocas)
       // ou uma conversa aberta com troca real (>=2 mensagens suas). Card drill não conta.
       const streakQualifies = cardDrill ? false : unit ? userCountRef.current >= 4 : userCountRef.current >= 2;
@@ -307,6 +347,22 @@ Tell me what you did today.`;
         }}
       >
         {messages.map((line, i) => (
+          line.role === 'convite' ? (
+            /* Borda verde e largura cheia: o convite não é um turno da conversa,
+               é a tela falando. Com a mesma cara de bolha da Cady, ele entraria
+               no fluxo de leitura e a pessoa responderia a ele. */
+            <div
+              key={i}
+              style={{
+                alignSelf: 'stretch', fontSize: 13.5, lineHeight: 1.45,
+                background: 'var(--green-soft)', color: 'var(--green-dark, var(--green))',
+                border: '1px solid var(--green)', borderRadius: 12,
+                padding: '9px 12px', textAlign: 'center', fontWeight: 600,
+              }}
+            >
+              {line.text}
+            </div>
+          ) : (
           <div
             key={i}
             style={{
@@ -320,6 +376,7 @@ Tell me what you did today.`;
           >
             {line.text}
           </div>
+          )
         ))}
         {sending && (
           <div style={{ alignSelf: 'flex-start', padding: '4px 4px' }}>
