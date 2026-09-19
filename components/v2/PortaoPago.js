@@ -113,7 +113,7 @@ export function PortaoPago({ recurso, aberto, aoFechar }) {
           </svg>
         </button>
 
-        <p className="pg-kicker">plano completo</p>
+        <p className="pg-kicker">Plano Pro</p>
         <h2 id="pg-titulo" className="pg-titulo">{convite.titulo}</h2>
         <p className="pg-linha">{convite.linha}</p>
 
