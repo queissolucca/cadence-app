@@ -42,12 +42,45 @@ describe('a persona e o idioma do Escrever', () => {
     }
   });
 
-  it('manda escrever em português do Brasil, com o inglês na última linha', () => {
+  it('manda escrever em português do Brasil', () => {
     expect(ABERTA).toMatch(/Portuguese from Brazil/);
-    // O método inteiro depende disso: todo turno termina numa linha em inglês
-    // pra pessoa digitar. Sem ela, virou papo em português e parou de ensinar.
-    expect(ABERTA).toMatch(/English line always goes last, alone, on its own line/);
-    expect(ABERTA).toMatch(/Every single turn ends with a line in English/);
+  });
+
+  /* A CADY ÀS VEZES TERMINAVA O TURNO SÓ EM PORTUGUÊS.
+
+     A causa não era o modelo ignorando o prompt — era o prompt brigando
+     consigo mesmo. A regra do português vinha com "all of it, every single
+     turn, no exceptions" MAIS um teste de falha nomeado ("if an entire message
+     came out in English, you broke the rule"). A regra do fecho em inglês vinha
+     sem ênfase, sem exemplo e sem teste de falha, enterrada no meio de um
+     parágrafo três seções depois.
+
+     Entre duas instruções que se contradizem, o modelo segue a que insiste
+     mais. Estes testes guardam o desempate. */
+  it('o fecho em inglês é obrigatório e tem teste de falha próprio', () => {
+    expect(ABERTA, 'a seção final precisa existir').toMatch(/# THE LAST LINE/);
+    expect(ABERTA).toMatch(/NEVER ends in plain Portuguese/);
+    // Sem um teste de falha nomeado, a regra do português ganha de novo.
+    expect(ABERTA).toMatch(/you broke the bigger one/);
+    // E uma autoverificação antes de mandar, que é o que pega o turno esquecido.
+    expect(ABERTA).toMatch(/read your own last line/);
+  });
+
+  it('vem POR ÚLTIMO no prompt, e diz que manda mais que o resto', () => {
+    /* Posição é ênfase: a última seção é a que fica mais perto da geração.
+       Se alguém acrescentar uma seção depois desta, o fecho perde a posição e
+       o bug volta — por isso o teste mede ORDEM, não só presença. */
+    expect(ABERTA.indexOf('# THE LAST LINE')).toBeGreaterThan(ABERTA.indexOf('# How you write here'));
+    expect(ABERTA.indexOf('# THE LAST LINE')).toBeGreaterThan(ABERTA.indexOf('# Acid'));
+    expect(ABERTA.trimEnd().endsWith('`;') || ABERTA.lastIndexOf('#') === ABERTA.indexOf('# THE LAST LINE')).toBe(true);
+    expect(ABERTA).toMatch(/this outranks everything above/);
+  });
+
+  it('aceita as três formas de fecho, pra não virar template', () => {
+    // Uma forma só, repetida turno a turno, o olho aprende a pular.
+    expect(ABERTA).toMatch(/for him to copy and type/);
+    expect(ABERTA).toMatch(/Tell me about that in English/);
+    expect(ABERTA).toMatch(/A Portuguese order that demands English back/);
   });
 
   it('é a Cady Mosby do agente de voz, não a Whitfield antiga', () => {
