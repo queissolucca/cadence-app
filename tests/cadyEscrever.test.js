@@ -118,6 +118,34 @@ describe('a persona e o idioma do Escrever', () => {
     expect('Cê tá aí, você?'.match(solto)?.length, 'o regex tem que achar o Cê e ignorar o você').toBe(1);
   });
 
+  it('não xinga — e os palavrões só aparecem sendo proibidos', () => {
+    /* A Cady nasceu "foul mouthed". O pedido foi baixar a agressividade, e
+       tirar só "porra" e "caralho" seria trocar de palavra, não de registro:
+       "puta que pariu" e "vá se foder" continuariam na lista.
+
+       Os termos PRECISAM aparecer no prompt uma vez, dentro da proibição —
+       proibição que não nomeia o que proíbe não proíbe nada. Por isso o teste
+       conta ocorrências em vez de exigir ausência: uma é a regra, duas é um
+       exemplo que voltou. */
+    expect(ABERTA).toMatch(/NO VULGARITY, ever/);
+    for (const palavra of ['porra', 'caralho', 'caceta', 'puta que pariu', 'vá se foder', 'merda', 'foda']) {
+      const n = (ABERTA.match(new RegExp(palavra, 'gi')) || []).length;
+      expect(n, `"${palavra}" tem que aparecer só na linha que o proíbe`).toBe(1);
+    }
+    for (const palavra of ['fuck', 'shit', 'bullshit']) {
+      expect(ABERTA.toLowerCase(), `"${palavra}" não pode estar no prompt`).not.toContain(palavra);
+    }
+  });
+
+  it('a mordida vem da ironia, não do palavrão', () => {
+    // Sem esta justificativa o modelo lê "não xingue" como "seja educada", e a
+    // personagem inteira se desmancha.
+    expect(ABERTA).toMatch(/a swear is the laziest way to sound harsh/);
+    expect(ABERTA).toMatch(/Irony is the default/);
+    // E o que impede de virar professora simpática continua lá.
+    expect(ABERTA).toMatch(/merciless/);
+  });
+
   it('mantém o freio: o ácido é sobre a frase, nunca sobre a pessoa', () => {
     // Sem esta lista o prompt é só "seja cruel", e aí ele erra o alvo.
     expect(ABERTA).toMatch(/Off limits, no exceptions: appearance, body, family, origin, religion, sexuality/);
