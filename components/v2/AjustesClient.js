@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight, Brain, KeyRound } from 'lucide-react';
+import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight, Brain, KeyRound, Megaphone } from 'lucide-react';
 import { createClient } from '../../lib/supabase/client';
 import { APP_VERSION } from '../../lib/version';
 import { usePreferenceSave } from '../../lib/usePreferenceSave';
@@ -11,6 +11,7 @@ import { BottomSheet } from './BottomSheet';
 import { SegmentedControl } from './SegmentedControl';
 import { MemoriesDialog } from './MemoriesDialog';
 import { PasswordDialog } from './PasswordDialog';
+import { CreatorsDialog } from './CreatorsDialog';
 import { ProfileDialog } from './ProfileDialog';
 import { JourneyCard } from './JourneyCard';
 import { Toast } from './Toast';
@@ -91,6 +92,7 @@ export function AjustesClient({ profile, email, game, hasPassword = false }) {
   const [signingOut, setSigningOut] = useState(false);
   const [showMemories, setShowMemories] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showCreators, setShowCreators] = useState(false);
   // Depois de definir/redefinir, a linha já mostra "definida" sem recarregar.
   const [passwordSet, setPasswordSet] = useState(hasPassword);
 
@@ -206,6 +208,11 @@ export function AjustesClient({ profile, email, game, hasPassword = false }) {
         />
       </Group>
 
+      {/* Para Creators — quem cria conteúdo deixa os contatos (/api/creators). */}
+      <Group title="Para Creators">
+        <Row icon={Megaphone} label="Para Creators" onClick={() => setShowCreators(true)} />
+      </Group>
+
       {/* Ajuda */}
       <Group title="Ajuda">
         <Row icon={Send} label="Enviar feedback" onClick={() => router.push('/v2/ajuda/feedback')} />
@@ -253,6 +260,8 @@ export function AjustesClient({ profile, email, game, hasPassword = false }) {
         hasPassword={passwordSet}
         onSaved={() => setPasswordSet(true)}
       />
+
+      <CreatorsDialog open={showCreators} onClose={() => setShowCreators(false)} email={email} />
 
       <Toast message={toast} />
     </>
