@@ -40,6 +40,44 @@ const SAVE_TOOL = {
 
    A data vira linguagem ("ontem", "semana passada") porque o prompt pede que
    ela DIGA quando era, e timestamp cru viraria timestamp na bolha. */
+const textoDe = (resp) => (resp.content || [])
+  .filter((b) => b.type === 'text')
+  .map((b) => b.text)
+  .join('\n')
+  .trim();
+
+/* QUANDO A RESPOSTA VEM SEM TEXTO, PERGUNTA DE NOVO — NÃO INVENTA UMA FRASE.
+
+   Aqui morava o bug mais visível do Escrever: `text || "Go on — tell me more!"`.
+   Quando o turno terminava sem bloco de texto — o caso comum é o modelo gastar
+   os tokens na chamada do save_to_review e parar por max_tokens —, o servidor
+   entregava essa frase. Era por isso que ela se repetia IDÊNTICA, palavra por
+   palavra, e por isso aparecia mais em mensagem curta: mensagem curta com um
+   errinho é exatamente o turno que vira "chama a ferramenta e acaba".
+
+   Ninguém ia achar isso mexendo no prompt, porque não era o modelo falando.
+
+   O conserto é pedir de novo, e a segunda ida vai SEM `tools`: sem ferramenta
+   disponível, não existe resposta que não seja texto. É uma chamada a mais só
+   no caso raro, e ela devolve a Cady de verdade em vez de um bordão.
+
+   A frase de último recurso ficou, porque prometer que nunca falha é pior que
+   ter um plano B. Mas ela agora é honesta sobre o que houve e ainda cobra
+   inglês — e, ao contrário da anterior, praticamente nunca deve aparecer. */
+async function comTexto(texto, system, convo) {
+  if (texto) return texto;
+  try {
+    const r = await client.messages.create({
+      model: MODEL, max_tokens: 500, temperature: 0.7, system, messages: convo,
+    });
+    const segundo = textoDe(r);
+    if (segundo) return segundo;
+  } catch {
+    /* a rede falhou na segunda tentativa: cai no plano B abaixo */
+  }
+  return 'Opa, me perdi aqui — manda de novo? And say it in English this time: what were you telling me?';
+}
+
 async function loadPastCorrections(supabase, userId) {
   const r = await supabase
     .from('review_saved')
@@ -201,18 +239,25 @@ ${memoryBlock}
 ` : ''}
 # THE LAST LINE — this outranks everything above
 
-Your message NEVER ends in plain Portuguese. The last line always pushes ${who} to produce English. No turn is exempt: not a greeting, not a joke, not an explanation, not a correction, not a callback, not an answer about your own life.
+Your message NEVER ends in plain Portuguese, and it ALWAYS ends with a QUESTION in English that ${who} has to answer in English. No turn is exempt: not a greeting, not a joke, not an explanation, not a correction, not a callback, not an answer about your own life.
 
-Three shapes count, and you rotate between them so it never reads like a template:
+The question has to be about WHAT HE JUST WROTE. Name the thing he named. Here is the test, and it is not optional: if that same question would fit word for word under any other message he could have sent, it is filler — delete it and write a real one.
 
-1. An English sentence for him to copy and type.
-   "I have been working here for two years."
-2. An English question or order, straight at him.
-   "Tell me about that in English."   /   "Now say that again, in English."
-3. A Portuguese order that demands English back.
-   "Boa! Agora escreve isso que você acabou de me dizer, em inglês."
+BANNED, no matter how well they seem to fit: "Go on", "Tell me more", "Keep going", "What else?", "Tell me about that in English", "What's on your mind?", "Anything else?". Every one of them asks for VOLUME instead of asking for something. They are what you reach for when you did not read what he wrote, and he can tell.
 
-Before you send ANYTHING, read your own last line. If it does not ask for English, it is not finished — rewrite it. A turn that ends in Portuguese with nothing to write back is a conversation, and he did not come here to have a conversation in Portuguese.
+Three words is not a dodge, it is a door. Take the one noun in there and open it:
+  He wrote "I like coffee." -> "Coffee at home or at a café? In English."
+  He wrote "Work was hard." -> "What happened at work? Two sentences, in English."
+  He wrote "I am tired." -> "Tired from what? Tell me in English."
+
+After a correction, the question comes right after the fixed sentence, and it makes him USE what you just fixed:
+  "É 'I have been working', não 'I am working since'. Agora: how long have you been working there?"
+
+Two other shapes still count when they end in a question — rotate so it never reads like a template:
+  A sentence to copy, then the question: "Type this: I have been working here for two years. And then tell me — do you like it there?"
+  A Portuguese order, then the question: "Boa! Agora escreve isso em inglês. What made you decide that?"
+
+Before you send ANYTHING, read your own last line. No question mark, or a question that could belong to any other conversation? Then it is not finished — rewrite it.
 `;
 }
 // Modo LIÇÃO (trilha por escrita): drill focado no alvo da unidade, não papo.
@@ -345,7 +390,7 @@ export async function POST(request) {
     for (let step = 0; step < 4; step += 1) {
       const resp = await client.messages.create({
         model: MODEL,
-        max_tokens: 400,
+        max_tokens: 700,   // 400 era apertado: o turno estourava dentro da chamada da ferramenta e voltava sem texto
         temperature: 0.7,
         system,
         tools: [SAVE_TOOL],
@@ -378,17 +423,14 @@ export async function POST(request) {
         continue;
       }
 
-      const text = (resp.content || [])
-        .filter((b) => b.type === 'text')
-        .map((b) => b.text)
-        .join('\n')
-        .trim();
       logChat();
-      return NextResponse.json({ reply: text || "Go on — tell me more!", saved });
+      return NextResponse.json({ reply: await comTexto(textoDe(resp), system, convo), saved });
     }
 
+    /* Quatro rodadas e nenhuma virou texto: o modelo ficou preso chamando a
+       ferramenta. Mesmo remédio — uma última ida SEM ferramenta. */
     logChat();
-    return NextResponse.json({ reply: "Let's keep going — what's on your mind?", saved });
+    return NextResponse.json({ reply: await comTexto('', system, convo), saved });
   } catch (err) {
     console.error('chat error:', err);
     return NextResponse.json({ error: 'chat_failed' }, { status: 500 });

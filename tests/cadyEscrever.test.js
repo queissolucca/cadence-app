@@ -76,11 +76,39 @@ describe('a persona e o idioma do Escrever', () => {
     expect(ABERTA).toMatch(/this outranks everything above/);
   });
 
-  it('aceita as três formas de fecho, pra não virar template', () => {
+  /* "GO ON — TELL ME MORE!" TINHA DUAS CAUSAS, E SÓ UMA ERA O PROMPT.
+
+     A outra era uma frase fixa no servidor (`text || "Go on — tell me more!"`)
+     que entrava quando o turno voltava sem bloco de texto. Está coberta em
+     'o fallback do servidor' mais abaixo.
+
+     Do lado do prompt, a regra ANTIGA era cúmplice: ela aceitava "uma pergunta
+     ou ordem em inglês" e dava como exemplo "Tell me about that in English" —
+     que é o mesmo filler com outro nome. Fecho genérico era permitido, então
+     apareceu. */
+  it('o fecho é pergunta, e específica ao que a pessoa escreveu', () => {
+    expect(ABERTA).toMatch(/ALWAYS ends with a QUESTION in English/);
+    // O teste da especificidade é o que separa pergunta de filler.
+    expect(ABERTA).toMatch(/if that same question would fit word for word under any other message/);
+    expect(ABERTA).toMatch(/Three words is not a dodge, it is a door/);
+  });
+
+  it('proíbe os fillers pelo nome', () => {
+    const i = ABERTA.indexOf('BANNED, no matter how well they seem to fit');
+    expect(i, 'a lista de proibidos precisa existir').toBeGreaterThan(-1);
+    const lista = ABERTA.slice(i, i + 420);
+    for (const filler of ['Go on', 'Tell me more', 'Keep going', 'What else?', 'Tell me about that in English']) {
+      expect(lista, `"${filler}" tem que estar proibido pelo nome`).toContain(filler);
+    }
+    /* E o motivo junto: sem ele o modelo troca de filler em vez de parar de
+       usar filler — inventa um "So?" e cumpre a letra da regra. */
+    expect(ABERTA).toMatch(/asks for VOLUME instead of asking for something/);
+  });
+
+  it('as outras formas de fecho sobrevivem, mas terminando em pergunta', () => {
     // Uma forma só, repetida turno a turno, o olho aprende a pular.
-    expect(ABERTA).toMatch(/for him to copy and type/);
-    expect(ABERTA).toMatch(/Tell me about that in English/);
-    expect(ABERTA).toMatch(/A Portuguese order that demands English back/);
+    expect(ABERTA).toMatch(/A sentence to copy, then the question/);
+    expect(ABERTA).toMatch(/A Portuguese order, then the question/);
   });
 
   it('é a Cady Mosby do agente de voz, não a Whitfield antiga', () => {
@@ -259,5 +287,42 @@ describe('o teto de 500 caracteres na caixa', () => {
     // O 500 literal só pode aparecer na constante e no texto que o anuncia.
     const literais = (CHAT.match(/\b500\b/g) || []).length;
     expect(literais, 'usar MAX_CARACTERES em vez de repetir o número').toBeLessThanOrEqual(2);
+  });
+});
+
+describe('o fallback do servidor quando a resposta vem sem texto', () => {
+  const ROTA = lerFonte('app/api/chat/route.js');
+
+  /* A frase que o usuário via repetida não era do modelo: era
+     `reply: text || "Go on — tell me more!"`. Quando o turno terminava sem
+     bloco de texto — tipicamente o modelo gastando os tokens na chamada do
+     save_to_review —, o servidor entregava esse bordão. Sempre idêntico,
+     porque foi escrito à mão uma vez. */
+  it('as frases fixas antigas não existem mais', () => {
+    expect(ROTA).not.toContain('Go on — tell me more!');
+    expect(ROTA).not.toContain("Let's keep going — what's on your mind?");
+  });
+
+  it('pergunta de novo em vez de inventar a resposta', () => {
+    expect(ROTA).toMatch(/async function comTexto\(/);
+    expect(ROTA, 'os dois retornos passam pelo reparo').toMatch(/reply: await comTexto\(textoDe\(resp\)/);
+    expect(ROTA).toMatch(/reply: await comTexto\(''/);
+  });
+
+  it('a segunda tentativa vai SEM ferramenta — é o que garante texto', () => {
+    /* Com `tools` disponível, a segunda ida pode voltar em tool_use de novo e
+       o problema se repete. Sem ferramenta, não existe resposta que não seja
+       texto. */
+    const i = ROTA.indexOf('async function comTexto(');
+    const corpo = ROTA.slice(i, ROTA.indexOf('\n}', i));
+    expect(corpo).toMatch(/client\.messages\.create/);
+    expect(corpo, 'passar tools aqui reabriria o buraco').not.toMatch(/tools:/);
+  });
+
+  it('o teto de tokens deixou de ser apertado', () => {
+    // 400 era o que fazia o turno estourar dentro da chamada da ferramenta.
+    const m = ROTA.match(/max_tokens: (\d+),\s+\/\/ 400 era apertado/);
+    expect(m, 'a chamada principal precisa do comentário explicando o teto').toBeTruthy();
+    expect(Number(m[1])).toBeGreaterThanOrEqual(600);
   });
 });
