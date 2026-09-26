@@ -93,6 +93,10 @@ export function OnboardingClient({ firstName = '' }) {
           Antes de começar, dá uma olhada nos nossos Termos e Condições de Uso.
         </p>
 
+        {/* Este questionário saiu do funil (o middleware expulsa quem cai no
+            /onboarding), mas o aceite daqui fala a mesma língua do /comecar:
+            os Termos são só pra maiores de 18 (cláusula 2), e a declaração
+            vai na própria caixinha, sem mudar a lógica do aceite. */}
         <label
           style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginTop: 22, padding: '15px 16px', background: accepted ? 'var(--green-soft)' : 'var(--v2-card-bg)', border: `1.5px solid ${accepted ? 'var(--green)' : 'var(--line)'}`, borderRadius: 14, cursor: 'pointer' }}
         >
@@ -107,7 +111,7 @@ export function OnboardingClient({ firstName = '' }) {
             <a href="/termos" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--green)', fontWeight: 700, textDecoration: 'underline' }}>
               Termos e Condições de Uso
             </a>
-            .
+            {' '}e declaro ter 18 anos ou mais.
           </span>
           <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
         </label>

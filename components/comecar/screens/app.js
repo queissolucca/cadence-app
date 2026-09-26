@@ -419,7 +419,7 @@ export function Conta({ go, a }) {
   const aceiteRef = useRef(null);
   const exigirAceite = () => {
     if (aceito) return true;
-    setErro('Pra criar a conta, você precisa aceitar os termos de uso e a política de privacidade.');
+    setErro('Pra criar a conta, você precisa confirmar que tem 18 anos ou mais e aceitar os termos de uso e a política de privacidade.');
     setPiscar(true);
     setTimeout(() => setPiscar(false), 1200);
     try {
@@ -576,10 +576,17 @@ export function Conta({ go, a }) {
             <Field label="Código de convite (opcional)" type="text" placeholder="tem um código? cola aqui"
               autoComplete="off" value={f.convite} onChange={campo('convite')} />
 
+            {/* "Declaro ter 18 anos ou mais" mora NA MESMA caixinha do aceite,
+                não numa segunda. Os Termos (cláusula 2) passaram a ser só pra
+                maiores de 18, e a declaração só vale se estiver escrita no que
+                a pessoa marca — mas uma caixinha a mais seria mais uma condição
+                pro "criar conta" cobrar, num funil que já teve problema com
+                isso (ver exigirAceite). Mesmo `aceito`, mesma lógica: muda o
+                texto, não o fluxo. */}
             <label className={`termos ${piscar ? 'exigido' : ''}`} ref={aceiteRef}>
               <input type="checkbox" required aria-required="true" checked={aceito}
                 onChange={e => { setAceito(e.target.checked); if (e.target.checked) setErro(''); }} />
-              <span>Aceito os <a href="/termos" target="_blank" rel="noreferrer">termos de uso</a> e a{' '}
+              <span>Declaro ter 18 anos ou mais e aceito os <a href="/termos" target="_blank" rel="noreferrer">termos de uso</a> e a{' '}
                 <a href="/privacy" target="_blank" rel="noreferrer">política de privacidade</a>.</span>
             </label>
 
