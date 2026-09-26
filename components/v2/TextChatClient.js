@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { proximosSinaisTom } from '../../lib/cady/tom';
 import { CadyLive } from './CadyLive';
 import { TypingDots } from './TypingDots';
 
@@ -106,6 +107,18 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
   const streakDoneRef = useRef(false);
   const progressDoneRef = useRef(false);
   const userCountRef = useRef(0);
+  /* OS SINAIS DE TOM DESTA CONVERSA — só da conversa aberta.
+
+     O servidor decide o tom da Cady a cada turno (lib/cady/tom.js), mas duas
+     coisas ele não tem como saber sozinho, porque não guarda nada entre um
+     turno e outro: quantas frases em inglês a pessoa já acertou AQUI (a acidez
+     da Equilibrada só aparece depois de 3) e quantas respostas seguidas da
+     Cady foram correção. As duas saem do `saved` que a /api/chat já devolve.
+
+     É ref e não estado porque nada na tela depende disso. Numa retomada começa
+     do zero: não dá pra saber quais mensagens antigas foram corrigidas, e zero
+     acertos é o lado gentil. */
+  const sinaisTom = useRef({ acertos: 0, correcoesSeguidas: 0 });
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -197,6 +210,9 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
           messages: history,
           ...(unit ? { unit: { title: unit.title, focus: unit.focus, context: unit.context, drill: unit.drill } } : {}),
           ...(cardDrill ? { cardDrill: { term: cardDrill.term, example: cardDrill.example } } : {}),
+          /* `conversaId` é pra contagem das "3 primeiras conversas" não contar
+             esta mesma, que já está salva a partir da 2ª mensagem. */
+          ...(!unit && !cardDrill ? { tom: { ...sinaisTom.current, conversaId: convIdRef.current } } : {}),
         }),
       });
       if (res.status === 503) {
@@ -205,6 +221,7 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
       }
       if (!res.ok) throw new Error('chat');
       const { reply, saved } = await res.json();
+      if (!unit && !cardDrill) sinaisTom.current = proximosSinaisTom(sinaisTom.current, text, saved);
       const withReply = [...withYou, { role: 'coach', text: reply }];
       setMessages(withReply);
 

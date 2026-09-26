@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../lib/supabase/server';
+import { ESTILOS_CADY } from '../../../../lib/cady/tom';
 
 // Um único endpoint pra toda preferência de profiles — a aba Ajustes (v2)
 // reusa este em vez de criar uma rota por campo.
@@ -48,13 +49,38 @@ export async function POST(request) {
     update[def.column] = body[key];
   }
 
-  if (Object.keys(update).length === 0) {
+  /* O ESTILO DA CADY VAI NUM UPDATE SÓ DELE, e de propósito fora de FIELDS.
+
+     A coluna `cady_estilo` nasce na migration 0040, rodada à mão. Enquanto ela
+     não roda, um update que a inclua é recusado INTEIRO pelo Postgres — e se
+     ela estivesse em FIELDS, qualquer corpo que a trouxesse junto de `theme`
+     derrubaria a troca de tema também. Separado, o pior caso é só o estilo
+     não salvar (e a aba Perfil nem mostra a linha enquanto a coluna não
+     existe: ver lerEstiloCady em lib/cady/tomServidor.js). */
+  let cadyEstilo;
+  if (body.cadyEstilo !== undefined) {
+    if (!ESTILOS_CADY.includes(body.cadyEstilo)) {
+      return NextResponse.json({ error: 'invalid_cadyEstilo' }, { status: 400 });
+    }
+    cadyEstilo = body.cadyEstilo;
+  }
+
+  if (Object.keys(update).length === 0 && cadyEstilo === undefined) {
     return NextResponse.json({ error: 'nothing_to_update' }, { status: 400 });
   }
 
-  const { error } = await supabase.from('profiles').update(update).eq('id', user.id);
-  if (error) {
-    return NextResponse.json({ error: 'update_failed', details: error.message }, { status: 500 });
+  if (Object.keys(update).length > 0) {
+    const { error } = await supabase.from('profiles').update(update).eq('id', user.id);
+    if (error) {
+      return NextResponse.json({ error: 'update_failed', details: error.message }, { status: 500 });
+    }
+  }
+
+  if (cadyEstilo !== undefined) {
+    const { error } = await supabase.from('profiles').update({ cady_estilo: cadyEstilo }).eq('id', user.id);
+    if (error) {
+      return NextResponse.json({ error: 'update_failed', details: error.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });

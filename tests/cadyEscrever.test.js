@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { lerFonte } from './fonte.js';
+import { systemPrompt } from '../lib/cady/promptEscrever.js';
 
 /* A CADY DO ESCREVER FALA PORTUGUÊS.
 
@@ -20,11 +21,17 @@ const CHAT = lerFonte('components/v2/TextChatClient.js');
 /* SÓ O PROMPT DA CONVERSA ABERTA. `lessonPrompt` (drill da Trilha) e
    `cardDrillPrompt` (1 card da Revisão) continuam em inglês de propósito: são
    outras features, e o pedido foi sobre o Escrever da Conversa Aberta. Varrer
-   o arquivo inteiro faria este teste falhar por causa delas. */
-const ABERTA = ROTA.slice(
-  ROTA.indexOf('function systemPrompt('),
-  ROTA.indexOf('function lessonPrompt('),
-);
+   o arquivo inteiro faria este teste falhar por causa delas.
+
+   Esta fatia era `ROTA.slice('function systemPrompt(', 'function
+   lessonPrompt(')`. O prompt saiu da rota pra lib/cady/promptEscrever.js
+   quando ganhou três níveis de tom, e esse arquivo contém SÓ ele — então a
+   fatia virou o arquivo inteiro, e continua medindo a mesma coisa: o texto
+   da conversa aberta, sem as outras features. O que muda por nível é medido
+   montando cada um (NIVEIS, abaixo, e tests/tomCady.test.js). */
+const ABERTA = lerFonte('lib/cady/promptEscrever.js');
+const NIVEIS = ['iniciante', 'suave', 'acida'];
+const montado = (nivel) => systemPrompt('Ana', 'Mora em Recife.', '- "I have 30 years" (ontem)', nivel);
 
 describe('quem responde no Escrever', () => {
   it('é a Anthropic, não o ElevenLabs — e isso não pode virar ambíguo', () => {
@@ -69,11 +76,24 @@ describe('a persona e o idioma do Escrever', () => {
   it('vem POR ÚLTIMO no prompt, e diz que manda mais que o resto', () => {
     /* Posição é ênfase: a última seção é a que fica mais perto da geração.
        Se alguém acrescentar uma seção depois desta, o fecho perde a posição e
-       o bug volta — por isso o teste mede ORDEM, não só presença. */
-    expect(ABERTA.indexOf('# THE LAST LINE')).toBeGreaterThan(ABERTA.indexOf('# How you write here'));
-    expect(ABERTA.indexOf('# THE LAST LINE')).toBeGreaterThan(ABERTA.indexOf('# Acid'));
-    expect(ABERTA.trimEnd().endsWith('`;') || ABERTA.lastIndexOf('#') === ABERTA.indexOf('# THE LAST LINE')).toBe(true);
-    expect(ABERTA).toMatch(/this outranks everything above/);
+       o bug volta — por isso o teste mede ORDEM, não só presença.
+
+       Antes este teste media a ordem na FONTE (o índice de '# THE LAST LINE'
+       depois de '# Acid' dentro da função). Com o prompt montado de blocos, a
+       ordem na fonte deixou de ser a ordem do prompt: o bloco ácido é definido
+       numa função e entra por interpolação. Então agora mede o prompt MONTADO,
+       em cada um dos três níveis, e com memória e callbacks ligados — que são
+       as seções condicionais que entram logo antes do fecho. */
+    for (const nivel of NIVEIS) {
+      const p = montado(nivel);
+      const titulos = p.match(/^# .+$/gm);
+      expect(titulos.at(-1), `no nível ${nivel}, a última seção tem que ser o fecho`).toMatch(/^# THE LAST LINE/);
+      expect(p.indexOf('# THE LAST LINE')).toBeGreaterThan(p.indexOf('# How you write here'));
+      expect(p.indexOf('# THE LAST LINE')).toBeGreaterThan(p.indexOf('# Callbacks'));
+      expect(p.indexOf('# THE LAST LINE')).toBeGreaterThan(p.indexOf('# What you already know about Ana'));
+      expect(p).toMatch(/this outranks everything above/);
+    }
+    expect(montado('acida').indexOf('# THE LAST LINE')).toBeGreaterThan(montado('acida').indexOf('# Acid'));
   });
 
   /* "GO ON — TELL ME MORE!" TINHA DUAS CAUSAS, E SÓ UMA ERA O PROMPT.
@@ -124,9 +144,12 @@ describe('a persona e o idioma do Escrever', () => {
     expect(ABERTA).toMatch(/NORMAL SENTENCE CASE/);
     expect(ABERTA).toMatch(/after every period, question mark and exclamation point/);
     expect(ABERTA).toMatch(/Oi! Eu sou a Cady!/);
-    // Animada E ácida: se um dia "merciless" sair, virou outra personagem.
-    expect(ABERTA).toMatch(/Animated does not mean soft/);
-    expect(ABERTA).toMatch(/merciless/);
+    /* Animada E ácida: se um dia "merciless" sair do nível ácido, virou outra
+       personagem. Só do nível ácido: desde o ajuste de tom, a Cady suave e a
+       iniciante são animadas SEM ser impiedosas — é exatamente o pedido. */
+    expect(montado('acida')).toMatch(/Animated does not mean soft/);
+    expect(montado('acida')).toMatch(/merciless/);
+    for (const nivel of NIVEIS) expect(montado(nivel), nivel).toMatch(/Oi! Eu sou a Cady!/);
   });
 
   it('trata o usuário por "você", não por "cê"', () => {
@@ -169,15 +192,25 @@ describe('a persona e o idioma do Escrever', () => {
     // Sem esta justificativa o modelo lê "não xingue" como "seja educada", e a
     // personagem inteira se desmancha.
     expect(ABERTA).toMatch(/a swear is the laziest way to sound harsh/);
-    expect(ABERTA).toMatch(/Irony is the default/);
-    // E o que impede de virar professora simpática continua lá.
-    expect(ABERTA).toMatch(/merciless/);
+    /* E o que impede de virar professora simpática continua lá — no nível
+       ácido, que agora é um dos três (e o que a pessoa escolhe como Ácida). */
+    expect(montado('acida')).toMatch(/Irony is the default/);
+    expect(montado('acida')).toMatch(/merciless/);
+    // A proibição do palavrão não depende do nível: vale pras três Cadys.
+    for (const nivel of NIVEIS) {
+      expect(montado(nivel), nivel).toMatch(/NO VULGARITY, ever/);
+      expect(montado(nivel), nivel).toMatch(/a swear is the laziest way to sound harsh/);
+    }
   });
 
   it('mantém o freio: o ácido é sobre a frase, nunca sobre a pessoa', () => {
     // Sem esta lista o prompt é só "seja cruel", e aí ele erra o alvo.
     expect(ABERTA).toMatch(/Off limits, no exceptions: appearance, body, family, origin, religion, sexuality/);
     expect(ABERTA).toMatch(/never at who he is/);
+    // A lista vale em todo nível: o humor da suave também não mira a pessoa.
+    for (const nivel of NIVEIS) {
+      expect(montado(nivel), nivel).toMatch(/Off limits, no exceptions: appearance, body, family, origin, religion, sexuality/);
+    }
   });
 
   it('proíbe markdown, porque a bolha não tem parser', () => {
@@ -212,8 +245,11 @@ describe('as seções condicionais do prompt', () => {
   it('as correções antigas vêm da Revisão, e em paralelo com a memória', () => {
     expect(ROTA).toMatch(/from\('review_saved'\)/);
     expect(ROTA).toMatch(/eq\('category', 'correction'\)/);
-    const i = ROTA.indexOf('const [memoryBlock, pastCorrections]');
-    expect(i, 'as duas leituras precisam sair juntas').toBeGreaterThan(-1);
+    /* Era `const [memoryBlock, pastCorrections]`. O tom da Cady entrou como
+       terceira leitura NO MESMO Promise.all (ver tests/estiloCady.test.js),
+       então o teste passou a aceitar a lista com mais itens depois destes. */
+    const i = ROTA.indexOf('const [memoryBlock, pastCorrections');
+    expect(i, 'as leituras precisam sair juntas').toBeGreaterThan(-1);
     expect(ROTA.slice(i, i + 200)).toContain('Promise.all');
   });
 });

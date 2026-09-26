@@ -6,6 +6,7 @@ import { streakFromDayKeys } from '../../../../lib/streak';
 import { dayKeySP, weekStartSP, addDays, todayKeySP } from '../../../../lib/dates';
 import { hasPasswordFor } from '../../../../lib/passwordAccount';
 import { identidade, perfilV2, diasComSessao } from '../../../../lib/sessaoServidor';
+import { lerEstiloCady } from '../../../../lib/cady/tomServidor';
 
 // Aba Perfil (antiga Ajustes): a gamificação (patente/XP/missões) mora aqui + o
 // perfil e as configurações.
@@ -23,9 +24,9 @@ export default async function AjustesPageV2() {
 
      `identidade`, `perfilV2` e `diasComSessao` não custam ida à rede aqui: o
      layout acima já pediu as mesmas coisas e o cache de requisição as devolve
-     prontas. Sobram três consultas de verdade, e elas vão juntas. */
+     prontas. Sobram quatro consultas de verdade, e elas vão juntas. */
   const eu = await identidade();
-  const [profile, { dias: doneSet, inicios }, hasPassword, up, cl] = await Promise.all([
+  const [profile, { dias: doneSet, inicios }, hasPassword, up, cl, cadyEstilo] = await Promise.all([
     perfilV2(),
     diasComSessao(),
     // Separada de propósito: se a migration 0033 ainda não rodou, devolve false
@@ -33,6 +34,12 @@ export default async function AjustesPageV2() {
     hasPasswordFor(supabase, eu),
     supabase.from('unit_progress').select('unit_id, completed_at').eq('user_id', eu.id),
     supabase.from('review_saved').select('id', { count: 'exact', head: true }).eq('user_id', eu.id).eq('status', 'learned'),
+    /* Também separada, pelo mesmo motivo da senha: `cady_estilo` é da
+       migration 0040. Posta no perfilV2, uma coluna que não existe faria o
+       select cair pro degrau de baixo EM TODA TELA do /v2 — uma ida à rede a
+       mais pra todo mundo até a migration rodar. Aqui, sem a coluna, volta
+       null e a linha "Estilo da Cady" simplesmente não aparece. */
+    lerEstiloCady(supabase, eu?.id),
   ]);
 
   // ---- Gamificação (derivada dos dados; best-effort se tabelas faltarem) ----
@@ -63,7 +70,7 @@ export default async function AjustesPageV2() {
   return (
     <div className="web-narrow" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <SectionHead title="Perfil" />
-      <AjustesClient profile={profile} email={eu?.email || ''} game={game} hasPassword={hasPassword} />
+      <AjustesClient profile={profile} email={eu?.email || ''} game={game} hasPassword={hasPassword} cadyEstilo={cadyEstilo} />
     </div>
   );
 }
