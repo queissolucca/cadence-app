@@ -143,6 +143,51 @@ describe('juntarTextos — a bolha é a soma das rodadas', () => {
   });
 });
 
+/* O LOOP JUNTO COM O MODO INICIANTE (lote de 2026-09-26).
+
+   As duas branches foram feitas separadas: a do "me perdi" juntou as rodadas
+   com deduplicação por frase, e a do tom criou o modo iniciante, que fecha todo
+   turno com uma pergunta e as opções embaixo, "a) ..." em linhas próprias. Só
+   juntas aparece o problema: "a) Yes." e "b) No." são frases curtas que se
+   repetem de verdade debaixo de perguntas diferentes, e a deduplicação as
+   tirava da pergunta nova — que ficava pelada, o que o prompt do iniciante
+   proíbe com todas as letras. */
+describe('juntarTextos — as opções do modo iniciante', () => {
+  const INICIANTE = "Quase! É 'I went', porque foi ontem.\nWhere did you go yesterday?\na) I went to work.\nb) I went to the gym.\nc) I went to my mom's house.";
+
+  it('a resposta inteira repetida depois do tool_result sai uma vez, com as opções por último', () => {
+    expect(juntarTextos([INICIANTE, ''])).toBe(INICIANTE);
+    expect(juntarTextos([INICIANTE, INICIANTE])).toBe(INICIANTE);
+    // Repetiu só a pergunta e as opções: nada entra de novo.
+    expect(juntarTextos([INICIANTE, "Where did you go yesterday?\na) I went to work.\nb) I went to the gym.\nc) I went to my mom's house."]))
+      .toBe(INICIANTE);
+  });
+
+  it('pergunta NOVA com as mesmas opções curtas: as opções ficam com ela', () => {
+    /* Antes: "Do you like it?\na) Yes.\nb) No.\nDid you go again?" — a segunda
+       pergunta sem opção nenhuma. */
+    expect(juntarTextos(['Do you like it?\na) Yes.\nb) No.', 'Did you go again?\na) Yes.\nb) No.']))
+      .toBe('Do you like it?\na) Yes.\nb) No.\nDid you go again?\na) Yes.\nb) No.');
+  });
+
+  it('pergunta repetida colada numa frase nova: as opções repetidas saem com ela', () => {
+    expect(juntarTextos(['Coffee or tea?\na) Coffee.\nb) Tea.', 'Boa! Coffee or tea?\na) Coffee.\nb) Tea.']))
+      .toBe('Coffee or tea?\na) Coffee.\nb) Tea.\nBoa!');
+  });
+
+  it('opção nunca sai cortada pela metade', () => {
+    /* "Really." já foi dito, mas a opção vai inteira debaixo da pergunta nova.
+       Antes saía "a) It was fine." — a opção que ele ia copiar, mudada. */
+    expect(juntarTextos(['Nice. Really.', 'How was it?\na) It was fine. Really.\nb) Not great.']))
+      .toBe('Nice. Really.\nHow was it?\na) It was fine. Really.\nb) Not great.');
+  });
+
+  it('as frases prontas com lacuna continuam deduplicadas como frase', () => {
+    const lacunas = 'I usually ___ on weekends.\nMy favorite food is ___.';
+    expect(juntarTextos([`Boa! Você tentou.\n${lacunas}`, lacunas])).toBe(`Boa! Você tentou.\n${lacunas}`);
+  });
+});
+
 /* Um client falso com a MESMA regra da API que derrubava a versão anterior:
    requisição com bloco tool_use/tool_result sem `tools` definido é 400. */
 function clientFalso(resposta) {

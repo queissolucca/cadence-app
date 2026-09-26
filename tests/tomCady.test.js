@@ -416,6 +416,40 @@ describe('o prompt de cada nível', () => {
     }
   });
 
+  /* COM A OFERTA NA TELA, A CADY NÃO VENDE O FALAR DE NOVO (lote de 2026-09-26).
+
+     A linha do Falar acima nasceu numa branch; a oferta com botão que o
+     TextChatClient põe embaixo da resposta, em outra. Juntas, o mesmo pedido
+     ("poxa, mas eu queria falar") ganhava duas propagandas no mesmo turno. Com
+     `ofertaNaTela`, só a linha do Falar muda: o resto do prompt é o mesmo. */
+  it('com a oferta na tela, a Cady acolhe o pedido sem vender o Falar de novo', () => {
+    for (const n of NIVEIS) {
+      const t = systemPrompt('Ana', '', '', n, { ofertaNaTela: true });
+      expect(t, n).toMatch(/THIS turn the app already answers that: right under your message it shows him the Falar offer/);
+      expect(t, n).toMatch(/So do not pitch it again/);
+      expect(t, n).not.toMatch(/part of the Plano Pro/);
+      expect(t, n).not.toMatch(/in the Falar button at the top of this screen/);
+      expect(t, n).toMatch(/never tease it as laziness/);
+      // Os fatos do produto continuam: "conversa", nunca "ligação".
+      expect(t.match(/ligação|chamada/g), n).toEqual(['ligação', 'chamada']);
+      // THE LAST LINE continua por último e valendo pra este turno também.
+      expect(t, n).toMatch(/close with THE LAST LINE like any other turn/);
+      expect(t.match(/^# .+$/gm).at(-1), n).toBe('# THE LAST LINE — this outranks everything above');
+    }
+  });
+
+  it('só a linha do Falar muda com a oferta; sem ela, o prompt é o de antes', () => {
+    for (const n of NIVEIS) {
+      const antes = p(n, 'Mora em Recife.', '- "I have 30 years" (ontem)');
+      const com = systemPrompt('Ana', 'Mora em Recife.', '- "I have 30 years" (ontem)', n, { ofertaNaTela: true });
+      const linhaDoFalar = /^(If he says he would rather talk|His last message says he would rather talk).*$/m;
+      expect(com.replace(linhaDoFalar, ''), n).toBe(antes.replace(linhaDoFalar, ''));
+      expect(systemPrompt('Ana', 'Mora em Recife.', '- "I have 30 years" (ontem)', n, {}), n).toBe(antes);
+      // Só `true` liga: um "true" em string (body forjado) não troca nada.
+      expect(systemPrompt('Ana', 'Mora em Recife.', '- "I have 30 years" (ontem)', n, { ofertaNaTela: 'true' }), n).toBe(antes);
+    }
+  });
+
   it('a identidade não muda com o nível', () => {
     for (const n of NIVEIS) {
       const t = p(n);

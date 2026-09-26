@@ -323,6 +323,31 @@ describe('a oferta no Escrever', () => {
     expect(OFERTA).not.toMatch(/pregui/i);
   });
 
+  /* LOTE DE 2026-09-26: a oferta, os sinais de tom e o loop novo juntos.
+
+     Três branches mexeram no mesmo send(). O que tem que continuar valendo com
+     as três juntas: a Cady fica sabendo que a oferta vai aparecer (senão ela
+     mesma vende o Falar, e a pessoa lê duas propagandas); e a oferta não pesa
+     no tom — os acertos e as correções seguidas saem do texto que a PESSOA
+     mandou e do `saved` da resposta, nunca de uma bolha da tela. */
+  it('avisa a /api/chat quando a oferta vai aparecer, e só nesse caso', () => {
+    expect(CHAT).toMatch(/\.\.\.\(pediuPraFalar \? \{ ofertaFalar: true \} : \{\}\)/);
+    // O aviso sai no MESMO fetch da mensagem, junto dos sinais de tom.
+    const i = CHAT.indexOf("fetch('/api/chat'");
+    const corpo = CHAT.slice(i, CHAT.indexOf('});', i));
+    expect(corpo).toContain('ofertaFalar: true');
+    expect(corpo).toContain('tom: { ...sinaisTom.current');
+    // E a decisão da oferta vem antes do fetch — não dá pra avisar depois.
+    expect(CHAT.indexOf('const pediuPraFalar =')).toBeLessThan(i);
+  });
+
+  it('a oferta não entra na conta do tom', () => {
+    // Os sinais saem do texto dela e do `saved` — a lista de mensagens não entra.
+    expect(CHAT).toMatch(/sinaisTom\.current = proximosSinaisTom\(sinaisTom\.current, text, saved\)/);
+    // E o histórico que o servidor lê pra "travando" já vai sem convite nem oferta.
+    expect(CHAT).toMatch(/const history = paraFora\(withYou\)/);
+  });
+
   it('o convite sorteado continua igual', () => {
     expect(CHAT).toContain('Seria melhor aprender como falar né?');
   });

@@ -252,6 +252,10 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
           /* `conversaId` é pra contagem das "3 primeiras conversas" não contar
              esta mesma, que já está salva a partir da 2ª mensagem. */
           ...(!unit && !cardDrill ? { tom: { ...sinaisTom.current, conversaId: convIdRef.current } } : {}),
+          /* A oferta vai aparecer embaixo desta resposta: a Cady precisa saber,
+             senão ela mesma vende o Falar e a pessoa lê a propaganda duas vezes
+             (ver FALAR_NA_TELA em lib/cady/promptEscrever.js). */
+          ...(pediuPraFalar ? { ofertaFalar: true } : {}),
         }),
       });
       if (res.status === 503) {

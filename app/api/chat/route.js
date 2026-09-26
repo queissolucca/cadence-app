@@ -194,11 +194,22 @@ export async function POST(request) {
     aberta ? loadPastCorrections(supabase, user.id) : '',
     aberta ? carregarTom(supabase, user.id, messages, body.tom) : null,
   ]);
+  /* A OFERTA DO FALAR JÁ VAI APARECER NA TELA NESTE TURNO.
+
+     O TextChatClient reconhece "poxa, mas eu queria falar" antes de mandar a
+     mensagem e, com a resposta na mão, põe embaixo dela a oferta do Falar com
+     o botão. Ele avisa com `ofertaFalar: true`, e o prompt troca a linha em que
+     a Cady vende o Falar por uma em que ela só acolhe o pedido — senão a pessoa
+     leria a mesma propaganda duas vezes no mesmo turno (ver FALAR_NA_TELA em
+     lib/cady/promptEscrever.js). Só `true` de verdade conta, e só na conversa
+     aberta: lição e drill de card não têm oferta nem essa linha. O pior que um
+     valor forjado faz é a Cady não falar do Falar pra quem forjou. */
+  const ofertaNaTela = aberta && body.ofertaFalar === true;
   const system = unit
     ? lessonPrompt(firstName, unit)
     : card
       ? cardDrillPrompt(firstName, card, memoryBlock)
-      : systemPrompt(firstName, memoryBlock, pastCorrections, tom);
+      : systemPrompt(firstName, memoryBlock, pastCorrections, tom, { ofertaNaTela });
 
   const convo = [...messages];
   const saved = [];

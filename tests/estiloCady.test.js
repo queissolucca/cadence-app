@@ -153,7 +153,53 @@ describe('o /api/chat monta a Cady do nível certo', () => {
     expect(i, 'as leituras precisam sair juntas').toBeGreaterThan(-1);
     const bloco = ROTA.slice(i, ROTA.indexOf(']);', i));
     expect(bloco).toMatch(/aberta \? carregarTom\(supabase, user\.id, messages, body\.tom\) : null/);
-    expect(ROTA).toMatch(/: systemPrompt\(firstName, memoryBlock, pastCorrections, tom\)/);
+    /* Era `systemPrompt(firstName, memoryBlock, pastCorrections, tom)`, fechado
+       no `tom`. No lote de 2026-09-26 entrou um quinto argumento, só com a
+       oferta do Falar na tela (ver o describe logo abaixo); o tom continua
+       sendo o quarto, e é ele que este teste guarda. */
+    expect(ROTA).toMatch(/: systemPrompt\(firstName, memoryBlock, pastCorrections, tom, \{ ofertaNaTela \}\)/);
+  });
+});
+
+/* A OFERTA DO FALAR NA TELA E A LINHA DO FALAR NO PROMPT (lote de 2026-09-26).
+
+   O TextChatClient manda `ofertaFalar: true` quando vai mostrar a oferta do
+   Falar embaixo da resposta; a rota troca a linha em que a Cady vende o Falar
+   por uma em que ela só acolhe o pedido. Sem isso, as duas branches juntas
+   davam duas propagandas no mesmo turno. */
+describe('o /api/chat com a oferta do Falar na tela', () => {
+  const chaveAntes = process.env.ANTHROPIC_API_KEY;
+  beforeEach(() => { process.env.ANTHROPIC_API_KEY = 'teste'; });
+  afterEach(() => {
+    if (chaveAntes === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = chaveAntes;
+  });
+  const QUER_FALAR = [...INGLES, { role: 'user', content: 'poxa, mas eu queria falar' }];
+
+  it('com ofertaFalar, a Cady não vende o Falar de novo — em qualquer nível', async () => {
+    for (const estilo of ESTILOS_CADY) {
+      const s = await systemDoChat(bancoDoChat({ estilo, conversas: 9 }), { messages: QUER_FALAR, ofertaFalar: true });
+      expect(s, estilo).toMatch(/right under your message it shows him the Falar offer/);
+      expect(s, estilo).not.toMatch(/part of the Plano Pro/);
+      expect(s, estilo).toContain('# THE LAST LINE');
+    }
+  });
+
+  it('sem ofertaFalar (ou com lixo no lugar), a linha do Falar é a de sempre', async () => {
+    for (const extra of [{}, { ofertaFalar: 'true' }, { ofertaFalar: 1 }, { ofertaFalar: false }]) {
+      const s = await systemDoChat(bancoDoChat({ conversas: 9 }), { messages: QUER_FALAR, ...extra });
+      expect(s, JSON.stringify(extra)).toMatch(/part of the Plano Pro/);
+      expect(s, JSON.stringify(extra)).not.toMatch(/shows him the Falar offer/);
+    }
+  });
+
+  it('a segunda tentativa usa o MESMO prompt, com a oferta levada em conta', async () => {
+    /* O comTexto reaproveita o `system` já montado. Se ele montasse outro, a
+       resposta de reserva poderia voltar a vender o Falar. */
+    const ROTA = lerFonte('app/api/chat/route.js');
+    const i = ROTA.indexOf('const pedidoSoTexto = {');
+    expect(i).toBeGreaterThan(-1);
+    expect(ROTA.slice(i, ROTA.indexOf('};', i))).toMatch(/\bsystem,/);
   });
 });
 
