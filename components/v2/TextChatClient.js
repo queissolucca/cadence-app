@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { proximosSinaisTom } from '../../lib/cady/tom';
 import { CadyLive } from './CadyLive';
 import { TypingDots } from './TypingDots';
-import { proximosSinaisTom } from '../../lib/cady/tom';
 
 function deriveTitle(messages) {
   const firstYou = messages.find((m) => m.role === 'you' && (m.text || '').trim().split(/\s+/).length >= 2);

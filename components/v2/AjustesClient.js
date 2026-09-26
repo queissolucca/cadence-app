@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight, Brain, KeyRound, Smile, Check } from 'lucide-react';
+import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight, Brain, KeyRound } from 'lucide-react';
 import { createClient } from '../../lib/supabase/client';
 import { APP_VERSION } from '../../lib/version';
 import { usePreferenceSave } from '../../lib/usePreferenceSave';
@@ -14,6 +14,10 @@ import { PasswordDialog } from './PasswordDialog';
 import { ProfileDialog } from './ProfileDialog';
 import { JourneyCard } from './JourneyCard';
 import { Toast } from './Toast';
+// Os ícones do Estilo da Cady ficam numa linha à parte da lista de cima: é
+// aquela linha que toda linha nova do Perfil edita, e duas edições nela ao
+// mesmo tempo viram conflito de merge.
+import { Smile, Check } from 'lucide-react';
 
 // Ajustes enxuto pro app voice-first: só o que realmente funciona hoje —
 // perfil, meta semanal (que alimenta a sequência da aba Hoje), tema, ajuda e
