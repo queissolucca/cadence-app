@@ -66,7 +66,12 @@ export function ConversarView({ firstName, memoryText }) {
 
      O `aoFechar` devolve pro Escrever. Falar não é rota, é um modo: fechar
      aqui não pode navegar pra lugar nenhum, senão a pessoa perde a conversa
-     que estava escrevendo. */
+     que estava escrevendo.
+
+     E voltar pro Escrever tem que ser voltar pra MESMA conversa. Ver o
+     comentário da renderização lá embaixo: pra quem não tem o plano, o
+     TextChatClient fica montado (escondido) enquanto a vitrine do Falar
+     aparece, e fechar o popup só o mostra de novo. */
   const irParaVoz = () => {
     setMode('voice');
     pedirPlano(FALA, () => setMode('text'));
@@ -273,24 +278,44 @@ export function ConversarView({ firstName, memoryText }) {
               <button type="button" className={mode === 'text' ? 'on' : ''} onClick={() => setMode('text')}>⌨️ Escrever</button>
               <button type="button" className={mode === 'voice' ? 'on' : ''} onClick={irParaVoz}>🎙 Falar</button>
             </div>
-            {mode === 'text' ? (
-              <TextChatClient
-                key={resume?.id || 'new-text'}
-                firstName={firstName}
-                agent={activeAgent}
-                onSaved={fetchHistory}
-                initialMessages={resume?.messages}
-                resumeId={resume?.id}
-                resumeTopic={resume?.topic}
-                openingGreeting={openingGreeting}
-                /* A oferta que aparece quando a pessoa ESCREVE que preferia
-                   falar tem um botão, e ele é este mesmo `irParaVoz` do 🎙
-                   Falar — com a porta do Plano Pro e o desfazer junto. Um
-                   caminho próprio lá dentro seria uma porta lateral pro que é
-                   pago, e duas versões do mesmo clique divergindo. */
-                onQuerFalar={irParaVoz}
-              />
-            ) : (
+            {/* QUEM NÃO TEM O PLANO VOLTA DA VITRINE PRA MESMA CONVERSA.
+
+                Era um ternário: `mode === 'voice'` DESMONTAVA o TextChatClient,
+                e fechar o popup do Plano Pro montava um novo. A conversa sumia
+                da tela, voltava a saudação, e os sinais de tom (acertos) e o id
+                da conversa zeravam — a próxima mensagem abria uma conversa nova
+                no banco, e cada ida e volta gastava uma das 3 primeiras
+                conversas suaves. Com o botão "🎙 Falar agora" da oferta, isso
+                acontecia bem no meio da conversa, justo com quem acabou de
+                dizer que queria falar — que é, quase sempre, quem não pagou.
+
+                Agora, sem o plano, o TextChatClient continua montado durante a
+                vitrine, só escondido (display none), e o wrapper usa
+                `display: contents` no modo texto pra a tela ficar idêntica à de
+                antes. Quem TEM o plano continua exatamente como era: entra no
+                Falar de verdade e o texto desmonta, como sempre. */}
+            {(mode === 'text' || !temPlano) && (
+              <div style={{ display: mode === 'text' ? 'contents' : 'none' }}>
+                <TextChatClient
+                  key={resume?.id || 'new-text'}
+                  firstName={firstName}
+                  agent={activeAgent}
+                  onSaved={fetchHistory}
+                  initialMessages={resume?.messages}
+                  resumeId={resume?.id}
+                  resumeTopic={resume?.topic}
+                  openingGreeting={openingGreeting}
+                  /* A oferta que aparece quando a pessoa ESCREVE que preferia
+                     falar tem um botão, e ele é este mesmo `irParaVoz` do 🎙
+                     Falar — com a porta do Plano Pro e o desfazer junto. Um
+                     caminho próprio lá dentro seria uma porta lateral pro que é
+                     pago, e duas versões do mesmo clique divergindo. */
+                  onQuerFalar={irParaVoz}
+                  visivel={mode === 'text'}
+                />
+              </div>
+            )}
+            {mode === 'voice' && (
               <ConversationClient
                 /* Vitrine: a tela aparece, mas não busca URL assinada nem abre
                    sessão. Sem isto, todo mundo que espiasse o modo voz dispararia

@@ -156,8 +156,9 @@ describe('o /api/chat monta a Cady do nível certo', () => {
     /* Era `systemPrompt(firstName, memoryBlock, pastCorrections, tom)`, fechado
        no `tom`. No lote de 2026-09-26 entrou um quinto argumento, só com a
        oferta do Falar na tela (ver o describe logo abaixo); o tom continua
-       sendo o quarto, e é ele que este teste guarda. */
-    expect(ROTA).toMatch(/: systemPrompt\(firstName, memoryBlock, pastCorrections, tom, \{ ofertaNaTela \}\)/);
+       sendo o quarto, e é ele que este teste guarda. Depois entrou também o
+       aviso do respiro (`ofertaRecente`), no mesmo objeto. */
+    expect(ROTA).toMatch(/: systemPrompt\(firstName, memoryBlock, pastCorrections, tom, \{ ofertaNaTela, ofertaRecente \}\)/);
   });
 });
 
@@ -186,11 +187,26 @@ describe('o /api/chat com a oferta do Falar na tela', () => {
   });
 
   it('sem ofertaFalar (ou com lixo no lugar), a linha do Falar é a de sempre', async () => {
-    for (const extra of [{}, { ofertaFalar: 'true' }, { ofertaFalar: 1 }, { ofertaFalar: false }]) {
+    for (const extra of [{}, { ofertaFalar: 'true' }, { ofertaFalar: 1 }, { ofertaFalar: false }, { ofertaRecente: 'true' }]) {
       const s = await systemDoChat(bancoDoChat({ conversas: 9 }), { messages: QUER_FALAR, ...extra });
       expect(s, JSON.stringify(extra)).toMatch(/part of the Plano Pro/);
       expect(s, JSON.stringify(extra)).not.toMatch(/shows him the Falar offer/);
     }
+  });
+
+  it('com ofertaRecente (o respiro), a Cady também não vende — e só na conversa aberta', async () => {
+    const s = await systemDoChat(bancoDoChat({ conversas: 9 }), { messages: QUER_FALAR, ofertaRecente: true });
+    expect(s).toMatch(/already showed him the Falar offer, with its own button, a moment ago/);
+    expect(s).not.toMatch(/part of the Plano Pro/);
+    // As duas juntas: vale a da tela, que é a que tem o botão agora.
+    const juntas = await systemDoChat(bancoDoChat({ conversas: 9 }), { messages: QUER_FALAR, ofertaFalar: true, ofertaRecente: true });
+    expect(juntas).toMatch(/right under your message it shows him the Falar offer/);
+    expect(juntas).not.toMatch(/a moment ago/);
+    // Lição não tem linha do Falar nenhuma.
+    const licao = await systemDoChat(bancoDoChat({ conversas: 9 }), {
+      messages: QUER_FALAR, ofertaRecente: true, unit: { title: 'Past', focus: 'past simple', context: 'weekend', drill: 'x' },
+    });
+    expect(licao).not.toMatch(/Falar/);
   });
 
   it('a segunda tentativa usa o MESMO prompt, com a oferta levada em conta', async () => {
@@ -315,9 +331,10 @@ describe('o TextChatClient manda os sinais de tom', () => {
     expect(CHAT).toMatch(/\.\.\.\(!unit && !cardDrill \? \{ tom: \{ \.\.\.sinaisTom\.current, conversaId: convIdRef\.current \} \} : \{\}\)/);
   });
 
-  it('atualiza os sinais com a MESMA heurística do servidor, a partir do `saved`', () => {
+  it('atualiza os sinais com a MESMA heurística do servidor, a partir do `saved` e do `corrigiu`', () => {
     expect(CHAT).toMatch(/import \{ proximosSinaisTom \} from '\.\.\/\.\.\/lib\/cady\/tom'/);
-    expect(CHAT).toMatch(/if \(!unit && !cardDrill\) sinaisTom\.current = proximosSinaisTom\(sinaisTom\.current, text, saved\);/);
+    expect(CHAT).toMatch(/const \{ reply, saved, corrigiu \} = await res\.json\(\);/);
+    expect(CHAT).toMatch(/if \(!unit && !cardDrill\) sinaisTom\.current = proximosSinaisTom\(sinaisTom\.current, text, saved, corrigiu\);/);
   });
 });
 

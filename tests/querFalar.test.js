@@ -92,6 +92,25 @@ describe('frases no mesmo sentido disparam', () => {
     'do you have a voice?',
     'can we use voice?',
     'voice mode?',
+    // pedidos óbvios que escapavam (achado da revisão)
+    'queria falar com você por voz',
+    'Cady, queria falar com você por voz',
+    'queria falar com vc por audio',
+    'prefiro falar com voce por audio',
+    'prefiro falar doq escrever',
+    'prefiro falar dq escrever',
+    'pode ser por áudio?',
+    'posso mandar um audinho?',
+    'posso te falar por áudio?',
+    'lets talk by voice',
+    "let's just talk instead",
+    'is easier to speak',
+    'is possible to speak?',
+    // o pedido e, depois, só muleta ou só o meio
+    'Queria falar. Sério.',
+    'Poxa. Queria falar. Tipo, por voz.',
+    'I want to speak. By voice.',
+    'Estou no trânsito. Posso falar?',
   ])('"%s"', (frase) => {
     expect(querFalar(frase)).toBe(true);
   });
@@ -183,8 +202,73 @@ describe('falar DE alguma coisa não é pedir pra falar POR voz', () => {
     // citação: pergunta SOBRE a frase, não a diz
     'Is "I\'d rather talk" correct?',
     'Como se diz "prefiro falar" em inglês?',
+    /* A MENSAGEM INTEIRA DECIDE (achado da revisão). Os negativos lá de cima,
+       com a vírgula trocada por ponto: o assunto vem na oração seguinte, e
+       antes só a primeira era olhada. */
+    'I hate writing. Essays are the worst.',
+    'Tenho preguiça de escrever. No trabalho é só relatório.',
+    'Cansei de escrever! Hoje foram 40 e-mails no trabalho.',
+    'Não quero escrever. Em inglês eu travo.',
+    'I prefer talking. In person, I mean.',
+    'I want to speak. English is important for my job.',
+    // licença pra CONTAR, não pra falar por voz
+    'Posso falar? Acho que meu inglês piorou muito.',
+    'Posso falar? Eu discordo de você.',
+    'can I talk to you? I need advice',
+    'posso te falar?',
+    'Posso te falar? Hoje foi um dia horrível no trabalho.',
+    'Posso te falar? Eu odeio meu chefe kkk',
+    // meta de estudo antes do "quero falar"
+    'Meu objetivo é simples: quero falar.',
+    'Por que estou aprendendo? Quero falar.',
+    'My goal? I want to speak.',
+    'Why am I learning? I want to speak.',
+    // desabafo comprido antes: "queria falar" é "queria falar disso"
+    'Tive um dia horrível no trabalho, meu chefe gritou comigo e eu fiquei mal. Queria falar.',
+    // resposta de vocabulário, hábito e mensagem de celular
+    'Voice. She has a beautiful voice.',
+    'out loud',
+    'aloud',
+    'eu mando audio',
+    'mando áudio',
+    'eu mando audio. minha mae nao le mensagem',
+    'I hate texting.',
+    'I dont like texting',
+    'texting is boring',
+    'Texting or calling? I prefer talking.',
   ])('"%s"', (frase) => {
     expect(querFalar(frase)).toBe(false);
+  });
+});
+
+/* RESPOSTA À PERGUNTA DA CADY NÃO É PEDIDO (achado da revisão). Ela pergunta
+   "X ou Y?" o tempo todo, e o modo iniciante dá as respostas prontas. Com
+   falar de um lado e escrever/ler/mensagem do outro na pergunta dela, "I
+   prefer talking" é a resposta digitada. */
+describe('a última fala da Cady', () => {
+  it.each([
+    ['I prefer talking', 'Boa! Do you prefer texting or talking with friends?'],
+    ['Speaking is easier', 'Olha só! What is easier for you in English, reading or speaking?'],
+    ['I prefer talking.', 'Texting or calling?\na) I prefer texting.\nb) I prefer talking.'],
+    ['Talking is better', 'Hm. Calling or texting your mom, what is better?'],
+  ])('"%s" respondendo a "%s" não dispara', (frase, daCady) => {
+    expect(querFalar(frase, daCady)).toBe(false);
+    // Sem a pergunta, a mesma frase continua sendo pedido.
+    expect(querFalar(frase)).toBe(true);
+  });
+
+  it.each([
+    ['poxa, queria falar', 'Isso! What did you talk about with your boss?'],
+    ['dá preguiça de escrever, era mais fácil falar', 'Quase! Agora escreve isso em inglês. Where did you go?'],
+    ['Poxa mas eu queria falar', 'Oi Ana! Eu sou a Cady! Tente escrever em inglês. Tell me what you did today!'],
+    // Falar e escrever FORA da pergunta (a Cady acolhendo um pedido) não contam.
+    ['sim, quero falar', 'Falar é bem mais gostoso que escrever, né.\nSo, what did you do today?'],
+  ])('"%s" depois de "%s" continua disparando', (frase, daCady) => {
+    expect(querFalar(frase, daCady)).toBe(true);
+  });
+
+  it('fala da Cady que não é texto não atrapalha', () => {
+    for (const x of [undefined, null, 42, {}]) expect(querFalar('queria falar', x)).toBe(true);
   });
 });
 
@@ -229,6 +313,9 @@ describe('tolerante a acento, caixa, pontuação e dedo escorregando', () => {
       `${'voice chat '.repeat(14)}voice x`,
       `${'da preguica de escrever '.repeat(7)}x`,
       `${'queria falar por voz '.repeat(7)}x`,
+      `${'poxa ne sabe '.repeat(9)}x`,
+      `${'queria falar com voce por voz '.repeat(5)}x`,
+      `${'posso falar. '.repeat(40)}x`,
       'a'.repeat(5000),
     ];
     querFalar('aquece');   // a primeira chamada compila a regex
@@ -256,9 +343,11 @@ describe('a oferta no Escrever', () => {
   const VIEW = lerFonte('components/v2/ConversarView.js');
   const OFERTA = (CHAT.match(/const OFERTA_FALAR = '([^']+)'/) || [])[1];
 
-  it('usa o detector, com o texto que a pessoa mandou', () => {
+  it('usa o detector, com o texto que a pessoa mandou e a última fala da Cady', () => {
     expect(CHAT).toMatch(/import \{[^}]*querFalar[^}]*\} from '\.\.\/\.\.\/lib\/cady\/querFalar'/);
-    expect(CHAT).toMatch(/querFalar\(text\)/);
+    expect(CHAT).toMatch(/querFalar\(text, ultimaDaCady\)/);
+    // A última fala da Cady é dela mesmo: nem a da pessoa, nem convite/oferta.
+    expect(CHAT).toMatch(/const ultimaDaCady = \[\.\.\.messages\]\.reverse\(\)\.find\(\(m\) => m\.role === 'coach'\)/);
   });
 
   it('entra DEPOIS da resposta da Cady — ela nunca é interrompida', () => {
@@ -284,7 +373,9 @@ describe('a oferta no Escrever', () => {
   });
 
   it('só na conversa aberta, e só com o botão ligado', () => {
-    expect(CHAT).toMatch(/const pediuPraFalar = !unit && !cardDrill && typeof onQuerFalar === 'function'/);
+    expect(CHAT).toMatch(/const naConversaAberta = !unit && !cardDrill && typeof onQuerFalar === 'function'/);
+    expect(CHAT).toMatch(/const pediuPraFalar = naConversaAberta && /);
+    expect(CHAT).toMatch(/const ofertaRecente = naConversaAberta && /);
     // Sem callback (lição, drill de card) não há botão, e a oferta não aparece.
     for (const arq of ['components/v2/LessonRunner.js', 'components/v2/CardPracticeDialog.js']) {
       expect(lerFonte(arq), arq).not.toContain('onQuerFalar');
@@ -301,8 +392,14 @@ describe('a oferta no Escrever', () => {
   });
 
   it('respeita o respiro de 3 mensagens', () => {
-    expect(CHAT).toMatch(/ofertaLiberada\(estaMensagem, ultimaOferta\.current\)/);
+    expect(CHAT).toMatch(/const liberada = ofertaLiberada\(estaMensagem, ultimaOferta\.current\)/);
     expect(CHAT).toMatch(/ultimaOferta\.current = estaMensagem/);
+    /* Dentro do respiro, a tela não oferece — e avisa a Cady que ofereceu há
+       pouco, senão ela mesma vende o Falar no lugar da tela. O detector vai
+       SEM a fala da Cady: ela pode ter acabado de acolher o pedido falando de
+       "falar" e "escrever", e o "sim, quero falar!" é o pedido de novo. */
+    expect(CHAT).toMatch(/const pediuPraFalar = naConversaAberta && liberada && querFalar\(text, ultimaDaCady\)/);
+    expect(CHAT).toMatch(/const ofertaRecente = naConversaAberta && !liberada && querFalar\(text\)/);
   });
 
   it('o botão é o mesmo clique do 🎙 Falar lá de cima', () => {
@@ -312,6 +409,29 @@ describe('a oferta no Escrever', () => {
     // …e quem liga os dois é o mesmo irParaVoz, com a porta do Plano Pro junto.
     expect(VIEW).toMatch(/onQuerFalar=\{irParaVoz\}/);
     expect(VIEW).toMatch(/pedirPlano\(FALA, \(\) => setMode\('text'\)\)/);
+  });
+
+  /* FECHAR O POPUP VOLTA PRA MESMA CONVERSA (achado da revisão).
+
+     Era um ternário: o modo voz DESMONTAVA o TextChatClient, e fechar o popup
+     do Plano Pro montava outro. Quem não pagou, clicou em "🎙 Falar agora" e
+     fechou o popup via a saudação de novo, com a conversa sumida da tela, os
+     acertos zerados e uma conversa nova no banco a cada ida e volta. */
+  it('sem o plano, o Escrever fica montado (escondido) durante a vitrine do Falar', () => {
+    expect(VIEW, 'o ternário que desmontava o texto voltou').not.toMatch(/mode === 'text' \? \(\s*<TextChatClient/);
+    const texto = VIEW.indexOf('<TextChatClient');
+    const voz = VIEW.indexOf('<ConversationClient');
+    const antesDoTexto = VIEW.slice(VIEW.lastIndexOf('{(', texto), texto);
+    expect(antesDoTexto).toContain("(mode === 'text' || !temPlano) && (");
+    expect(antesDoTexto).toContain("<div style={{ display: mode === 'text' ? 'contents' : 'none' }}>");
+    // A voz só monta no modo voz, e continua vitrine pra quem não pagou.
+    expect(VIEW.slice(VIEW.lastIndexOf('{', voz), voz)).toContain("{mode === 'voice' && (");
+    expect(VIEW).toMatch(/vitrine=\{!temPlano\}/);
+    /* Escondida com display none, a caixa de rolagem perde a posição: ao
+       reaparecer, o chat desce pro fim de novo em vez de abrir no começo. */
+    expect(VIEW).toMatch(/visivel=\{mode === 'text'\}/);
+    expect(CHAT).toMatch(/if \(visivel === false\) return;/);
+    expect(CHAT).toMatch(/\}, \[messages, sending, visivel\]\);/);
   });
 
   it('o texto é curto, em português, e fala de conversa — nunca de ligação', () => {
@@ -331,7 +451,7 @@ describe('a oferta no Escrever', () => {
      no tom — os acertos e as correções seguidas saem do texto que a PESSOA
      mandou e do `saved` da resposta, nunca de uma bolha da tela. */
   it('avisa a /api/chat quando a oferta vai aparecer, e só nesse caso', () => {
-    expect(CHAT).toMatch(/\.\.\.\(pediuPraFalar \? \{ ofertaFalar: true \} : \{\}\)/);
+    expect(CHAT).toMatch(/\.\.\.\(pediuPraFalar \? \{ ofertaFalar: true \} : ofertaRecente \? \{ ofertaRecente: true \} : \{\}\)/);
     // O aviso sai no MESMO fetch da mensagem, junto dos sinais de tom.
     const i = CHAT.indexOf("fetch('/api/chat'");
     const corpo = CHAT.slice(i, CHAT.indexOf('});', i));
@@ -342,8 +462,8 @@ describe('a oferta no Escrever', () => {
   });
 
   it('a oferta não entra na conta do tom', () => {
-    // Os sinais saem do texto dela e do `saved` — a lista de mensagens não entra.
-    expect(CHAT).toMatch(/sinaisTom\.current = proximosSinaisTom\(sinaisTom\.current, text, saved\)/);
+    // Os sinais saem do texto dela, do `saved` e do `corrigiu` — a lista de mensagens não entra.
+    expect(CHAT).toMatch(/sinaisTom\.current = proximosSinaisTom\(sinaisTom\.current, text, saved, corrigiu\)/);
     // E o histórico que o servidor lê pra "travando" já vai sem convite nem oferta.
     expect(CHAT).toMatch(/const history = paraFora\(withYou\)/);
   });

@@ -21,6 +21,8 @@ export function supabaseFalso(responder, { userId = 'u1' } = {}) {
         select(colunas, opcoes) { q.colunas = colunas; q.opcoes = opcoes || null; return b; },
         eq(coluna, valor) { q.filtros.push(['eq', coluna, valor]); return b; },
         neq(coluna, valor) { q.filtros.push(['neq', coluna, valor]); return b; },
+        gte(coluna, valor) { q.filtros.push(['gte', coluna, valor]); return b; },
+        not(coluna, operador, valor) { q.filtros.push(['not', coluna, operador, valor]); return b; },
         order() { return b; },
         limit() { return b; },
         update(obj) { q.update = obj; return b; },

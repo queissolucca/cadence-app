@@ -94,7 +94,7 @@ const paraFora = (lista) => lista.filter((m) => m.role !== 'convite');
 const MAX_CARACTERES = 500;
 const AVISA_A_PARTIR_DE = 450;
 
-export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit, cardDrill, openingGreeting, onQuerFalar }) {
+export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit, cardDrill, openingGreeting, onQuerFalar, visivel }) {
   const name = firstName || '';
   const resuming = Array.isArray(initialMessages) && initialMessages.length > 0;
   const greeting = cardDrill
@@ -152,7 +152,8 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
      coisas ele não tem como saber sozinho, porque não guarda nada entre um
      turno e outro: quantas frases em inglês a pessoa já acertou AQUI (a acidez
      da Equilibrada só aparece depois de 3) e quantas respostas seguidas da
-     Cady foram correção. As duas saem do `saved` que a /api/chat já devolve.
+     Cady foram correção. As duas saem do `saved` e do `corrigiu` que a
+     /api/chat devolve.
 
      É ref e não estado porque nada na tela depende disso. Numa retomada começa
      do zero: não dá pra saber quais mensagens antigas foram corrigidas, e zero
@@ -161,10 +162,16 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
+  /* `visivel` só existe na ConversarView, que deixa este componente montado e
+     escondido (display none) enquanto quem não tem o plano espia o Falar. Uma
+     caixa com rolagem escondida assim perde a posição, e voltar do popup
+     mostraria o COMEÇO da conversa. Ao reaparecer, desce pro fim de novo. Em
+     qualquer outro uso ele não vem, e o efeito roda como sempre rodou. */
   useEffect(() => {
+    if (visivel === false) return;
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, sending]);
+  }, [messages, sending, visivel]);
 
   // Extrai memória (fatos pessoais) ao SAIR de uma conversa aberta — não em lição.
   const snapRef = useRef({ msgs: messages, users: 0 });
@@ -234,9 +241,22 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
     /* A decisão da oferta sai daqui, do texto que ELA mandou, antes da ida ao
        servidor — mas a oferta só entra na tela depois que a resposta chega.
        Mesma regra do convite: só na conversa aberta. E só com o botão ligado
-       (`onQuerFalar`), senão não há o que oferecer. */
-    const pediuPraFalar = !unit && !cardDrill && typeof onQuerFalar === 'function'
-      && querFalar(text) && ofertaLiberada(estaMensagem, ultimaOferta.current);
+       (`onQuerFalar`), senão não há o que oferecer.
+
+       O detector recebe também a última fala da Cady: "I prefer talking"
+       digitado embaixo de "Do you prefer texting or talking?" é a resposta
+       que ela pediu, não um pedido (ver querFalar).
+
+       Dentro do respiro a tela não oferece de novo, mas a Cady precisa saber
+       que ofereceu há pouco (`ofertaRecente`), senão ela mesma vende o Falar
+       no lugar da tela. Aqui o detector vai sem a fala da Cady: se ela acabou
+       de acolher o pedido falando de "falar" e "escrever", o "sim, quero
+       falar!" que vem depois é o pedido de novo. */
+    const naConversaAberta = !unit && !cardDrill && typeof onQuerFalar === 'function';
+    const ultimaDaCady = [...messages].reverse().find((m) => m.role === 'coach')?.text || '';
+    const liberada = ofertaLiberada(estaMensagem, ultimaOferta.current);
+    const pediuPraFalar = naConversaAberta && liberada && querFalar(text, ultimaDaCady);
+    const ofertaRecente = naConversaAberta && !liberada && querFalar(text);
 
     // O convite e a oferta ficam de fora do que vai pro modelo: ver paraFora.
     const history = paraFora(withYou).map((m) => ({ role: m.role === 'you' ? 'user' : 'assistant', content: m.text }));
@@ -254,8 +274,9 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
           ...(!unit && !cardDrill ? { tom: { ...sinaisTom.current, conversaId: convIdRef.current } } : {}),
           /* A oferta vai aparecer embaixo desta resposta: a Cady precisa saber,
              senão ela mesma vende o Falar e a pessoa lê a propaganda duas vezes
-             (ver FALAR_NA_TELA em lib/cady/promptEscrever.js). */
-          ...(pediuPraFalar ? { ofertaFalar: true } : {}),
+             (ver FALAR_NA_TELA em lib/cady/promptEscrever.js). No respiro, o
+             aviso é outro: a oferta já apareceu há pouco (FALAR_JA_OFERECIDA). */
+          ...(pediuPraFalar ? { ofertaFalar: true } : ofertaRecente ? { ofertaRecente: true } : {}),
         }),
       });
       if (res.status === 503) {
@@ -263,8 +284,11 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
         return;
       }
       if (!res.ok) throw new Error('chat');
-      const { reply, saved } = await res.json();
-      if (!unit && !cardDrill) sinaisTom.current = proximosSinaisTom(sinaisTom.current, text, saved);
+      const { reply, saved, corrigiu } = await res.json();
+      /* `corrigiu` vem da rota: a Cady pediu pra salvar uma correção, gravada
+         ou não. Sem ele, um insert que falhava na Revisão fazia a frase
+         corrigida contar como acerto. */
+      if (!unit && !cardDrill) sinaisTom.current = proximosSinaisTom(sinaisTom.current, text, saved, corrigiu);
       const withReply = [...withYou, { role: 'coach', text: reply }];
       setMessages(withReply);
 

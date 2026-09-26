@@ -6,6 +6,7 @@ import {
 import { lerEstiloCady, contarOutrasConversas, carregarTom } from '../lib/cady/tomServidor.js';
 import { systemPrompt } from '../lib/cady/promptEscrever.js';
 import { supabaseFalso, COLUNA_INEXISTENTE } from './supabaseFalso.js';
+import { lerFonte } from './fonte.js';
 
 /* O TOM DA CADY NO ESCREVER.
 
@@ -70,6 +71,18 @@ describe('parece inglês', () => {
       expect(pareceIngles(t), t).toBe(false);
     }
   });
+
+  it('uma palavra com acento no meio do inglês não vira o placar', () => {
+    /* "At a café." é a opção c) do exemplo do próprio modo iniciante. Com o
+       acento valendo um ponto inteiro, "café" empatava com "at" e a resposta
+       certa contava como travar. */
+    for (const t of ['At a café.', 'At a café, usually.', 'I ate pão de queijo', 'Pão de queijo and coffee']) {
+      expect(pareceIngles(t), t).toBe(true);
+      expect(sinalDeTravar(t), t).toBe(false);
+    }
+    // Sozinho, o acento ainda decide: "comprei pão" é português.
+    expect(sinalDeTravar('comprei pão')).toBe(true);
+  });
 });
 
 describe('pedido de socorro', () => {
@@ -81,9 +94,35 @@ describe('pedido de socorro', () => {
 
   it('não confunde frase boa em inglês com socorro', () => {
     /* "I don't know" dentro de uma frase inteira é inglês bom, não travar —
-       por isso as frases em inglês só contam em mensagem curta. */
+       por isso "I don't know" puro só conta em mensagem curta. */
     for (const t of ["I don't know if I like my new job, but the people are nice", "I'm fine", 'How do you say that?', 'My help desk job is boring and long']) {
       expect(pedeSocorro(t), t).toBe(false);
+    }
+  });
+
+  /* O SOCORRO QUE O BRASILEIRO TRAVADO ESCREVE EM INGLÊS (achado da revisão).
+
+     Estas frases eram inglês de mais de duas palavras que ninguém corrige —
+     então contavam como ACERTO, e três delas liberavam a acidez da
+     Equilibrada justo pra quem estava travando. Com Ácida escolhida, a
+     pessoa nunca era suavizada. */
+  it('as frases de socorro em inglês contam em qualquer tamanho, e nunca como acerto', () => {
+    for (const t of [
+      "I don't understand", 'i dont understand', "I didn't understand", "Sorry, I don't understand what you said",
+      "I don't know what to say", "I don't know how to say it in English", 'My English is very bad',
+      'Sorry, my english is very bad', "I don't speak English", 'Can you speak Portuguese?', "I'm lost",
+      'I am beginner', "I'm a beginner, sorry",
+    ]) {
+      expect(pedeSocorro(t), t).toBe(true);
+      expect(sinalDeTravar(t), t).toBe(true);
+      expect(contaComoAcerto(t), t).toBe(false);
+    }
+  });
+
+  it('"não entendi" e "lost" em relato continuam sendo frase boa', () => {
+    for (const t of ["I didn't understand the movie", "I don't understand the ending of the movie", 'I got lost in São Paulo', 'I speak Portuguese at home']) {
+      expect(pedeSocorro(t), t).toBe(false);
+      expect(contaComoAcerto(t), t).toBe(true);
     }
   });
 });
@@ -102,6 +141,37 @@ describe('travando', () => {
   it('frase curta e certa em inglês não é travar', () => {
     expect(estaTravando([eu("I'm fine"), cady('...'), eu("I'm good, thanks"), cady('...'), eu('Work was hard')])).toBe(false);
     expect(sinalDeTravar("I'm fine")).toBe(false);
+  });
+
+  /* NÃO ACHAR PALAVRA DA LISTA NÃO É PORTUGUÊS (achado da revisão).
+
+     Era `!pareceIngles`: a lista curta não conhece "reading", "cooking",
+     "Netflix", e toda resposta curta sem palavra dela virava sinal de travar.
+     Duas em três punham no modo iniciante até quem escolheu Ácida. Estas
+     mensagens agora são neutras: nem travam, nem contam como acerto. */
+  it('resposta curta em inglês sem palavra da lista não é travar', () => {
+    for (const t of ['Reading a book', 'Playing soccer', 'Watching TV', 'Cooking dinner', 'Nothing special',
+      'Same as always', 'Stranger Things', 'Maybe later', 'Software engineer', 'Traveling to Japan next month',
+      'Programming, mostly.', 'Pizza, definitely.', 'Netflix, obviously.', 'Definitely, although traffic sucks.']) {
+      expect(sinalDeTravar(t), t).toBe(false);
+    }
+    const conversa = [eu('Honestly, my manager keeps scheduling meetings during lunch.'), eu('Programming, mostly.'), eu('At a café, usually.')];
+    expect(estaTravando(conversa)).toBe(false);
+    expect(resolverTom({ estilo: 'acida', travando: estaTravando(conversa), conversasAnteriores: 10, acertos: 5 })).toBe('acida');
+    expect(estaTravando([eu('I had a long day at work today'), eu('Cooking dinner'), eu('Pão de queijo and coffee')])).toBe(false);
+  });
+
+  it('um pedido de socorro na mensagem ATUAL basta sozinho', () => {
+    /* Quem escolheu Ácida e chega dizendo "não entendi nada, me ajuda" recebia
+       a Cady ácida: um sinal só, em uma mensagem, não chegava a dois. */
+    expect(estaTravando([eu('não entendi nada, me ajuda')])).toBe(true);
+    expect(resolverTom({ estilo: 'acida', travando: estaTravando([eu('não entendi nada, me ajuda')]) })).toBe('iniciante');
+    expect(estaTravando([eu('I went to the beach'), eu('It was sunny'), eu("I don't understand")])).toBe(true);
+    // Português e uma palavra só, sozinhos, continuam precisando de dois.
+    expect(estaTravando([eu('I went to the beach'), eu('Eu fui com minha mãe')])).toBe(false);
+    expect(estaTravando([eu('I went to the beach'), eu('Yes.')])).toBe(false);
+    // E o socorro que ficou pra trás não prende no modo iniciante.
+    expect(estaTravando([eu('não sei'), eu('I went to the beach'), eu('It was sunny')])).toBe(false);
   });
 
   it('um sinal só, em três, não é travar', () => {
@@ -126,8 +196,10 @@ describe('travando', () => {
   });
 
   it('correções seguidas + um recuo = travando', () => {
-    expect(estaTravando([eu('Yesterday I go to the park'), eu('He run very fast'), eu('não sei')], 2)).toBe(true);
-    expect(estaTravando([eu('Yesterday I go to the park'), eu('He run very fast'), eu('não sei')], 1)).toBe(false);
+    /* O recuo aqui é o português, e não um "não sei": pedido de socorro na
+       mensagem atual já basta sozinho (teste acima). */
+    expect(estaTravando([eu('Yesterday I go to the park'), eu('He run very fast'), eu('Eu corri muito')], 2)).toBe(true);
+    expect(estaTravando([eu('Yesterday I go to the park'), eu('He run very fast'), eu('Eu corri muito')], 1)).toBe(false);
   });
 
   it('entrada estranha não derruba nada', () => {
@@ -167,6 +239,17 @@ describe('os acertos desta conversa (o que o TextChatClient guarda)', () => {
     expect(s.correcoesSeguidas).toBe(2);
     s = proximosSinaisTom(s, 'I went to school yesterday', []);
     expect(s).toEqual({ acertos: 1, correcoesSeguidas: 0 });
+  });
+
+  it('a correção que a rota pediu pra salvar conta, mesmo sem ter gravado', () => {
+    /* O insert na Revisão falhou: `saved` volta vazio, mas a Cady corrigiu. A
+       rota devolve `corrigiu: true`, e a frase não pode contar como acerto. */
+    expect(proximosSinaisTom({ acertos: 0, correcoesSeguidas: 0 }, 'I have 30 years', [], true))
+      .toEqual({ acertos: 0, correcoesSeguidas: 1 });
+    // Só `true` de verdade: lixo no lugar não inventa correção.
+    expect(proximosSinaisTom({ acertos: 0, correcoesSeguidas: 0 }, "I'm fine", [], 'true')).toEqual({ acertos: 1, correcoesSeguidas: 0 });
+    expect(corrigiu([], true)).toBe(true);
+    expect(corrigiu([], undefined)).toBe(false);
   });
 
   it('o teto também vale no cliente', () => {
@@ -218,6 +301,17 @@ describe('a regra de decisão', () => {
     expect(resolverTom({ estilo: 'sei lá', conversasAnteriores: null, acertos: 50 })).toBe('suave');
     expect(resolverTom()).toBe('suave');
   });
+
+  it('estilo que não pôde ser lido nunca vira ácida — pode ser alguém que escolheu Iniciante', () => {
+    /* Era normalizado pra Equilibrada, e a Equilibrada veterana com 3 acertos
+       ficava ácida num turno em que a leitura do Perfil falhou. */
+    for (const estilo of [null, undefined]) {
+      expect(resolverTom({ estilo, conversasAnteriores: 5, acertos: 3 }), String(estilo)).toBe('suave');
+      expect(resolverTom({ estilo, conversasAnteriores: 40, acertos: 50 }), String(estilo)).toBe('suave');
+      // Travando continua sendo iniciante.
+      expect(resolverTom({ estilo, travando: true }), String(estilo)).toBe('iniciante');
+    }
+  });
 });
 
 describe('as leituras do servidor', () => {
@@ -242,17 +336,30 @@ describe('as leituras do servidor', () => {
     expect(await lerEstiloCady(client, 'u1')).toBe('equilibrada');
   });
 
+  /* LIÇÃO E CONVERSA QUE NÃO ACONTECEU NÃO CONTAM (achado da revisão). A
+     lição da trilha também é linha de `conversations` ("Lição: …"), e um "oi"
+     abandonado vira linha com 3 falas. Contadas, quem fez três lições abria a
+     Conversa aberta pela primeira vez já fora da janela suave. */
+  const SO_CONVERSA_DE_VERDADE = [['not', 'title', 'like', 'Lição:%'], ['gte', 'turn_count', 4]];
+
   it('a contagem é head/count e tira a conversa atual pelo id', async () => {
     const { client, consultas } = supabaseFalso(() => ({ data: null, count: 2, error: null }));
     expect(await contarOutrasConversas(client, 'u1', UUID)).toBe(2);
     expect(consultas[0]).toMatchObject({ tabela: 'conversations', colunas: 'id', opcoes: { count: 'exact', head: true } });
-    expect(consultas[0].filtros).toEqual([['eq', 'user_id', 'u1'], ['neq', 'id', UUID]]);
+    expect(consultas[0].filtros).toEqual([['eq', 'user_id', 'u1'], ...SO_CONVERSA_DE_VERDADE, ['neq', 'id', UUID]]);
   });
 
-  it('sem id (conversa ainda não salva), conta todas', async () => {
+  it('sem id (conversa ainda não salva), conta todas as conversas de verdade', async () => {
     const { client, consultas } = supabaseFalso(() => ({ count: 0, error: null }));
     expect(await contarOutrasConversas(client, 'u1', null)).toBe(0);
-    expect(consultas[0].filtros).toEqual([['eq', 'user_id', 'u1']]);
+    expect(consultas[0].filtros).toEqual([['eq', 'user_id', 'u1'], ...SO_CONVERSA_DE_VERDADE]);
+  });
+
+  it('o filtro de lição casa com o título que o TextChatClient e a voz gravam', () => {
+    // Se o prefixo mudar lá, a lição volta a contar como conversa aqui.
+    for (const arq of ['components/v2/TextChatClient.js', 'components/v2/ConversationClient.js']) {
+      expect(lerFonte(arq), arq).toContain('`Lição: ${unit.title}`');
+    }
   });
 
   it('contagem que falha é "não sei" (null), nunca zero nem exceção', async () => {
@@ -264,6 +371,19 @@ describe('as leituras do servidor', () => {
   it('carregarTom: tudo falhando dá suave, o lado seguro', async () => {
     const { client } = supabaseFalso(() => COLUNA_INEXISTENTE);
     expect(await carregarTom(client, 'u1', [eu('I went to the beach')], { acertos: 50 })).toBe('suave');
+  });
+
+  it('carregarTom: sem a coluna é Equilibrada; um erro qualquer na leitura do estilo nunca dá ácida', async () => {
+    const ingles = [eu('I went to the beach'), eu('It was sunny'), eu('I love the ocean')];
+    const comEstilo = (estilo) => (q) => (q.tabela === 'profiles' ? estilo : { count: 5, error: null });
+    // Migration 0040 pendente: ninguém escolheu nada, todo mundo é Equilibrada.
+    expect(await carregarTom(supabaseFalso(comEstilo(COLUNA_INEXISTENTE)).client, 'u1', ingles, { acertos: 3 })).toBe('acida');
+    // Timeout no select: pode ser quem escolheu Iniciante. Suave.
+    const timeout = { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } };
+    expect(await carregarTom(supabaseFalso(comEstilo(timeout)).client, 'u1', ingles, { acertos: 3 })).toBe('suave');
+    // O Perfil continua vendo null pros dois (é o que esconde a linha do estilo).
+    expect(await lerEstiloCady(supabaseFalso(comEstilo(COLUNA_INEXISTENTE)).client, 'u1')).toBeNull();
+    expect(await lerEstiloCady(supabaseFalso(comEstilo(timeout)).client, 'u1')).toBeNull();
   });
 
   it('carregarTom: o caminho inteiro, do estilo e da contagem até o nível', async () => {
@@ -292,7 +412,7 @@ describe('as leituras do servidor', () => {
       from(tabela) {
         if (tabela === 'conversations') contagemPedida();
         const b = {
-          select: () => b, eq: () => b, neq: () => b,
+          select: () => b, eq: () => b, neq: () => b, not: () => b, gte: () => b,
           maybeSingle: () => Promise.race([
             pedida.then(() => ({ data: { cady_estilo: 'equilibrada' }, error: null })),
             new Promise((r) => setTimeout(() => { emFila = true; r({ data: null, error: null }); }, 200)),
@@ -344,6 +464,10 @@ describe('o prompt de cada nível', () => {
   it('a ácida é a de antes, com a mira corrigida', () => {
     const a = p('acida');
     expect(a).toContain('Acid, sarcastic');
+    /* "foul mouthed" brigava com NO VULGARITY: a primeira linha da personagem
+       dizia "boca suja" e a seção de limites proibia palavrão. */
+    expect(a).toContain('Acid, sarcastic, sharp-tongued');
+    for (const n of NIVEIS) expect(p(n), n).not.toMatch(/foul[ -]?mouth/i);
     expect(a).toMatch(/Irony is the default, not the seasoning — inside the rule on beginner mistakes/);
     expect(a).toMatch(/o ChatGPT tá logo ali/);
     // O convite sarcástico continua, mas nunca em cima de erro de iniciante.
@@ -398,6 +522,14 @@ describe('o prompt de cada nível', () => {
     expect(fecho).toMatch(/In beginner mode the question never comes bare/);
     expect(fecho).toMatch(/no options or blank right under it\? Then it is not finished/);
     expect(fecho).toMatch(/^ {2}a\) I went to work\.$/m);
+    /* A seção final vence as de cima ("this outranks everything above"), então
+       ela não pode afrouxar o bloco do modo iniciante: lá são DUAS OU TRÊS
+       frases prontas, e aqui era "a sentence for him to finish", uma só, com
+       um exemplo de uma lacuna só. */
+    expect(fecho).toMatch(/or two or three sentences for him to finish, blank included/);
+    expect(fecho).not.toMatch(/or a sentence for him to finish/);
+    const exemplo = fecho.slice(fecho.indexOf('He wrote "Não sei o que escrever."'), fecho.indexOf('After a correction'));
+    expect((exemplo.match(/___/g) || []).length, 'o exemplo tem que ter duas ou três lacunas').toBeGreaterThanOrEqual(2);
     // E os outros níveis continuam com as formas de antes.
     expect(p('suave')).toMatch(/A sentence to copy, then the question/);
     expect(p('acida')).toMatch(/A Portuguese order, then the question/);
@@ -425,8 +557,8 @@ describe('o prompt de cada nível', () => {
   it('com a oferta na tela, a Cady acolhe o pedido sem vender o Falar de novo', () => {
     for (const n of NIVEIS) {
       const t = systemPrompt('Ana', '', '', n, { ofertaNaTela: true });
-      expect(t, n).toMatch(/THIS turn the app already answers that: right under your message it shows him the Falar offer/);
-      expect(t, n).toMatch(/So do not pitch it again/);
+      expect(t, n).toMatch(/right under your message it shows him the Falar offer/);
+      expect(t, n).toMatch(/do not pitch it again/);
       expect(t, n).not.toMatch(/part of the Plano Pro/);
       expect(t, n).not.toMatch(/in the Falar button at the top of this screen/);
       expect(t, n).toMatch(/never tease it as laziness/);
@@ -438,12 +570,46 @@ describe('o prompt de cada nível', () => {
     }
   });
 
+  /* O DETECTOR ERRA, ENTÃO A LINHA NÃO AFIRMA (achado da revisão). Ela dizia
+     "His last message says he would rather talk" como fato — e todo falso
+     positivo do querFalar virava a Cady acolhendo um pedido que ninguém fez,
+     no turno em que a pessoa abriu um assunto. */
+  it('a linha da oferta na tela é condicional: se não era pedido, a Cady ignora', () => {
+    for (const n of NIVEIS) {
+      const t = systemPrompt('Ana', '', '', n, { ofertaNaTela: true });
+      expect(t, n).not.toMatch(/His last message says he would rather talk/);
+      expect(t, n).toMatch(/The app can misread, so check his message yourself/);
+      expect(t, n).toMatch(/If it does not ask that, ignore this line completely and never bring up talking, the Falar or plans/);
+    }
+  });
+
+  /* O RESPIRO NÃO PODE VIRAR A CADY VENDENDO (achado da revisão). A pessoa
+     repete o pedido logo depois da oferta; a tela respeita o respiro e não
+     oferece — e, sem aviso, o prompt caía na linha padrão, que manda a Cady
+     vender o Falar e o Plano Pro. */
+  it('com a oferta recente, a Cady acolhe sem vender, e a tela também não oferece', () => {
+    for (const n of NIVEIS) {
+      const t = systemPrompt('Ana', '', '', n, { ofertaRecente: true });
+      expect(t, n).toMatch(/the app already showed him the Falar offer, with its own button, a moment ago/);
+      expect(t, n).toMatch(/do not pitch it again/);
+      expect(t, n).not.toMatch(/part of the Plano Pro/);
+      expect(t, n).not.toMatch(/right under your message it shows him/);
+      expect(t.match(/ligação|chamada/g), n).toEqual(['ligação', 'chamada']);
+      // A oferta na tela vence: as duas juntas é a da tela.
+      expect(systemPrompt('Ana', '', '', n, { ofertaNaTela: true, ofertaRecente: true }), n)
+        .toBe(systemPrompt('Ana', '', '', n, { ofertaNaTela: true }));
+      expect(systemPrompt('Ana', '', '', n, { ofertaRecente: 'true' }), n).toBe(p(n));
+    }
+  });
+
   it('só a linha do Falar muda com a oferta; sem ela, o prompt é o de antes', () => {
     for (const n of NIVEIS) {
       const antes = p(n, 'Mora em Recife.', '- "I have 30 years" (ontem)');
       const com = systemPrompt('Ana', 'Mora em Recife.', '- "I have 30 years" (ontem)', n, { ofertaNaTela: true });
-      const linhaDoFalar = /^(If he says he would rather talk|His last message says he would rather talk).*$/m;
+      const recente = systemPrompt('Ana', 'Mora em Recife.', '- "I have 30 years" (ontem)', n, { ofertaRecente: true });
+      const linhaDoFalar = /^(If he says he would rather talk|The app read his last message|His last message may again).*$/m;
       expect(com.replace(linhaDoFalar, ''), n).toBe(antes.replace(linhaDoFalar, ''));
+      expect(recente.replace(linhaDoFalar, ''), n).toBe(antes.replace(linhaDoFalar, ''));
       expect(systemPrompt('Ana', 'Mora em Recife.', '- "I have 30 years" (ontem)', n, {}), n).toBe(antes);
       // Só `true` liga: um "true" em string (body forjado) não troca nada.
       expect(systemPrompt('Ana', 'Mora em Recife.', '- "I have 30 years" (ontem)', n, { ofertaNaTela: 'true' }), n).toBe(antes);

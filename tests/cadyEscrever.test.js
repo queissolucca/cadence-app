@@ -33,6 +33,19 @@ const ABERTA = lerFonte('lib/cady/promptEscrever.js');
 const NIVEIS = ['iniciante', 'suave', 'acida'];
 const montado = (nivel) => systemPrompt('Ana', 'Mora em Recife.', '- "I have 30 years" (ontem)', nivel);
 
+/* AFIRMAÇÃO POSITIVA É POR NÍVEL (achado da revisão).
+
+   ABERTA é a fonte inteira, e a fonte é a UNIÃO dos três níveis: "o prompt
+   tem X" medido nela quer dizer "ALGUM nível tem X". Duas asserções já
+   passavam só porque o texto estava no nível ácido. Então o que o prompt
+   PRECISA ter é conferido no prompt montado de cada nível (`emTodos`), e o que
+   um nível deixa de fora de propósito fica dito, com o motivo, no próprio
+   teste. ABERTA continua valendo pras PROIBIÇÕES, onde a união é a checagem
+   mais rígida: nada proibido pode estar em nível nenhum. */
+const emTodos = (re, msg = '') => {
+  for (const nivel of NIVEIS) expect(montado(nivel), `${msg} (nível ${nivel})`).toMatch(re);
+};
+
 describe('quem responde no Escrever', () => {
   it('é a Anthropic, não o ElevenLabs — e isso não pode virar ambíguo', () => {
     expect(ROTA).toContain("from '@anthropic-ai/sdk'");
@@ -50,7 +63,7 @@ describe('a persona e o idioma do Escrever', () => {
   });
 
   it('manda escrever em português do Brasil', () => {
-    expect(ABERTA).toMatch(/Portuguese from Brazil/);
+    emTodos(/Portuguese from Brazil/);
   });
 
   /* A CADY ÀS VEZES TERMINAVA O TURNO SÓ EM PORTUGUÊS.
@@ -65,12 +78,12 @@ describe('a persona e o idioma do Escrever', () => {
      Entre duas instruções que se contradizem, o modelo segue a que insiste
      mais. Estes testes guardam o desempate. */
   it('o fecho em inglês é obrigatório e tem teste de falha próprio', () => {
-    expect(ABERTA, 'a seção final precisa existir').toMatch(/# THE LAST LINE/);
-    expect(ABERTA).toMatch(/NEVER ends in plain Portuguese/);
+    emTodos(/# THE LAST LINE/, 'a seção final precisa existir');
+    emTodos(/NEVER ends in plain Portuguese/);
     // Sem um teste de falha nomeado, a regra do português ganha de novo.
-    expect(ABERTA).toMatch(/you broke the bigger one/);
+    emTodos(/you broke the bigger one/);
     // E uma autoverificação antes de mandar, que é o que pega o turno esquecido.
-    expect(ABERTA).toMatch(/read your own last line/);
+    emTodos(/read your own last line/);
   });
 
   it('vem POR ÚLTIMO no prompt, e diz que manda mais que o resto', () => {
@@ -107,32 +120,43 @@ describe('a persona e o idioma do Escrever', () => {
      que é o mesmo filler com outro nome. Fecho genérico era permitido, então
      apareceu. */
   it('o fecho é pergunta, e específica ao que a pessoa escreveu', () => {
-    expect(ABERTA).toMatch(/ALWAYS ends with a QUESTION in English/);
+    emTodos(/ALWAYS ends with a QUESTION in English/);
     // O teste da especificidade é o que separa pergunta de filler.
-    expect(ABERTA).toMatch(/if that same question would fit word for word under any other message/);
-    expect(ABERTA).toMatch(/Three words is not a dodge, it is a door/);
+    emTodos(/if that same question would fit word for word under any other message/);
+    emTodos(/Three words is not a dodge, it is a door/);
   });
 
   it('proíbe os fillers pelo nome', () => {
-    const i = ABERTA.indexOf('BANNED, no matter how well they seem to fit');
-    expect(i, 'a lista de proibidos precisa existir').toBeGreaterThan(-1);
-    const lista = ABERTA.slice(i, i + 420);
-    for (const filler of ['Go on', 'Tell me more', 'Keep going', 'What else?', 'Tell me about that in English']) {
-      expect(lista, `"${filler}" tem que estar proibido pelo nome`).toContain(filler);
+    for (const nivel of NIVEIS) {
+      const p = montado(nivel);
+      const i = p.indexOf('BANNED, no matter how well they seem to fit');
+      expect(i, `a lista de proibidos precisa existir (nível ${nivel})`).toBeGreaterThan(-1);
+      const lista = p.slice(i, i + 420);
+      for (const filler of ['Go on', 'Tell me more', 'Keep going', 'What else?', 'Tell me about that in English']) {
+        expect(lista, `"${filler}" tem que estar proibido pelo nome (nível ${nivel})`).toContain(filler);
+      }
     }
     /* E o motivo junto: sem ele o modelo troca de filler em vez de parar de
        usar filler — inventa um "So?" e cumpre a letra da regra. */
-    expect(ABERTA).toMatch(/asks for VOLUME instead of asking for something/);
+    emTodos(/asks for VOLUME instead of asking for something/);
   });
 
   it('as outras formas de fecho sobrevivem, mas terminando em pergunta', () => {
     // Uma forma só, repetida turno a turno, o olho aprende a pular.
-    expect(ABERTA).toMatch(/A sentence to copy, then the question/);
-    expect(ABERTA).toMatch(/A Portuguese order, then the question/);
+    for (const nivel of ['suave', 'acida']) {
+      expect(montado(nivel), nivel).toMatch(/A sentence to copy, then the question/);
+      expect(montado(nivel), nivel).toMatch(/A Portuguese order, then the question/);
+    }
+    /* O iniciante troca as duas de PROPÓSITO: frase pra copiar e ordem em
+       português são exatamente a "caixa vazia" que o modo iniciante proíbe.
+       No lugar delas, a pergunta vem com as opções ou as lacunas embaixo. */
+    const iniciante = montado('iniciante');
+    expect(iniciante).not.toMatch(/A sentence to copy, then the question/);
+    expect(iniciante).toMatch(/In beginner mode the question never comes bare/);
   });
 
   it('é a Cady Mosby do agente de voz, não a Whitfield antiga', () => {
-    expect(ABERTA).toContain('Cady" Mosby');
+    emTodos(/Cady" Mosby/);
     expect(ROTA, 'a bio antiga saiu do arquivo inteiro').not.toContain('Whitfield');
   });
 
@@ -141,9 +165,9 @@ describe('a persona e o idioma do Escrever', () => {
        aprendendo a ESCREVER inglês, e professor sem maiúscula ensina aluno sem
        maiúscula. */
     expect(ABERTA, 'a regra de minúscula não pode voltar').not.toMatch(/Format: lowercase/);
-    expect(ABERTA).toMatch(/NORMAL SENTENCE CASE/);
-    expect(ABERTA).toMatch(/after every period, question mark and exclamation point/);
-    expect(ABERTA).toMatch(/Oi! Eu sou a Cady!/);
+    emTodos(/NORMAL SENTENCE CASE/);
+    emTodos(/after every period, question mark and exclamation point/);
+    emTodos(/Oi! Eu sou a Cady!/);
     /* Animada E ácida: se um dia "merciless" sair do nível ácido, virou outra
        personagem. Só do nível ácido: desde o ajuste de tom, a Cady suave e a
        iniciante são animadas SEM ser impiedosas — é exatamente o pedido. */
@@ -153,7 +177,7 @@ describe('a persona e o idioma do Escrever', () => {
   });
 
   it('trata o usuário por "você", não por "cê"', () => {
-    expect(ABERTA).toMatch(/the pronoun is ALWAYS "você", never "cê"/);
+    emTodos(/the pronoun is ALWAYS "você", never "cê"/);
     /* Varre os exemplos de fala do prompt: "cê" só pode aparecer dentro da
        própria proibição, em nenhum outro lugar. Era o registro antigo, e um
        exemplo esquecido ensina o modelo o oposto da regra.
@@ -205,8 +229,13 @@ describe('a persona e o idioma do Escrever', () => {
 
   it('mantém o freio: o ácido é sobre a frase, nunca sobre a pessoa', () => {
     // Sem esta lista o prompt é só "seja cruel", e aí ele erra o alvo.
-    expect(ABERTA).toMatch(/Off limits, no exceptions: appearance, body, family, origin, religion, sexuality/);
-    expect(ABERTA).toMatch(/never at who he is/);
+    emTodos(/Off limits, no exceptions: appearance, body, family, origin, religion, sexuality/);
+    // Em todo nível, a piada é sobre a frase ou a situação, nunca sobre a pessoa.
+    emTodos(/Any joke is about the sentence or the situation, never about the person/);
+    /* "never at who he is" mira a IRONIA, e só o nível ácido tem ironia pra
+       mirar: a suave e a iniciante proíbem a ironia inteira ("No sarcasm about
+       his English", "Zero irony"), então a frase lá não teria o que limitar. */
+    expect(montado('acida')).toMatch(/never at who he is/);
     // A lista vale em todo nível: o humor da suave também não mira a pessoa.
     for (const nivel of NIVEIS) {
       expect(montado(nivel), nivel).toMatch(/Off limits, no exceptions: appearance, body, family, origin, religion, sexuality/);
@@ -217,7 +246,7 @@ describe('a persona e o idioma do Escrever', () => {
     // TextChatClient renderiza com whiteSpace: pre-wrap. Um `**` do modelo
     // aparece como `**` na tela.
     expect(CHAT).toMatch(/whiteSpace: 'pre-wrap'/);
-    expect(ABERTA).toMatch(/NO markdown, no asterisks/);
+    emTodos(/NO markdown, no asterisks/);
   });
 
   it('não sobra nenhuma variável de painel sem valor', () => {

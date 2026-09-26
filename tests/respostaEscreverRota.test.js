@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
    O SDK falso aplica a regra da API que derrubava a versão anterior: bloco
    tool_use/tool_result na conversa sem `tools` definido é 400. */
 
-const api = vi.hoisted(() => ({ respostas: [], chamadas: [], inserts: [] }));
+const api = vi.hoisted(() => ({ respostas: [], chamadas: [], inserts: [], usos: [], insertFalha: false }));
 
 vi.mock('@anthropic-ai/sdk', () => ({
   default: class {
@@ -43,7 +43,10 @@ vi.mock('../lib/supabase/server.js', () => {
     const q = {
       select: () => q, eq: () => q, order: () => q, limit: () => q,
       maybeSingle: async () => resultado,
-      insert: async (linha) => { api.inserts.push(linha); return { error: null }; },
+      insert: async (linha) => {
+        api.inserts.push(linha);
+        return { error: api.insertFalha ? { message: 'insert falhou' } : null };
+      },
       then: (ok, erro) => Promise.resolve(resultado).then(ok, erro),
     };
     return q;
@@ -56,7 +59,7 @@ vi.mock('../lib/supabase/server.js', () => {
 });
 
 vi.mock('../lib/memory.js', () => ({ loadMemoryBlock: async () => '' }));
-vi.mock('../lib/usage.js', () => ({ logUsage: async () => {} }));
+vi.mock('../lib/usage.js', () => ({ logUsage: async (_supabase, _userId, uso) => { api.usos.push(uso); } }));
 
 const { POST } = await import('../app/api/chat/route.js');
 const { FRASE_DE_RESERVA } = await import('../lib/respostaEscrever.js');
@@ -66,6 +69,8 @@ const salva = (id, input = { term: 'I went', example: 'I went to the beach.', ca
   type: 'tool_use', id, name: 'save_to_review', input,
 });
 const CORRECAO = "Ai. É 'I went', não 'I go'.\nAgora: who did you go to the beach with?";
+// Uma fala que ainda NÃO fecha o turno: sem pergunta, sem opção, sem lacuna.
+const PREAMBULO = "Ai. É 'I went', não 'I go'.";
 
 async function enviar(mensagem = 'I go to the beach yesterday') {
   const req = new Request('http://localhost/api/chat', {
@@ -85,6 +90,8 @@ beforeEach(() => {
   api.respostas.length = 0;
   api.chamadas.length = 0;
   api.inserts.length = 0;
+  api.usos.length = 0;
+  api.insertFalha = false;
   chaveAntes = process.env.ANTHROPIC_API_KEY;
   process.env.ANTHROPIC_API_KEY = 'chave-de-teste';
 });
@@ -95,7 +102,7 @@ afterEach(() => {
 });
 
 describe('o Escrever quando a Cady corrige e salva na Revisão', () => {
-  it('O BUG: [texto + tool_use] e depois rodada vazia — a bolha é o texto, sem frase de reserva', async () => {
+  it('O BUG: [texto + tool_use] — a bolha é o texto, sem frase de reserva, e o card é salvo', async () => {
     api.respostas.push(
       { stop_reason: 'tool_use', content: [texto(CORRECAO), salva('t1')] },
       { stop_reason: 'end_turn', content: [] },
@@ -106,18 +113,77 @@ describe('o Escrever quando a Cady corrige e salva na Revisão', () => {
     expect(corpo.reply).not.toBe(FRASE_DE_RESERVA);
     // Salvou na Revisão, e contou pra tela mostrar o "item guardado".
     expect(corpo.saved).toEqual([{ term: 'I went', category: 'correction' }]);
+    expect(corpo.corrigiu).toBe(true);
     expect(api.inserts).toHaveLength(1);
-    // Duas idas à API, não três: com texto na mão, não existe segunda tentativa.
-    expect(api.chamadas).toHaveLength(2);
+    /* UMA ida à API. A fala já fechava o turno (terminava na pergunta), então
+       a rodada do tool_result — a que voltava vazia no bug — nem é pedida. */
+    expect(api.chamadas).toHaveLength(1);
   });
 
-  it('se o modelo repete a pergunta depois do tool_result, ela não sai duas vezes', async () => {
+  /* A RODADA DO TOOL_RESULT REPETIA O TURNO (achado da revisão). Com a fala
+     inteira na rodada 0, a rodada 1 vinha com a correção reescrita, o anúncio
+     do salvamento (que o prompt proíbe) e uma segunda pergunta — e a bolha
+     somava as duas. Agora ela não é pedida. */
+  it('fala inteira + ferramenta: a rodada do tool_result não é pedida, e nada se duplica', async () => {
     api.respostas.push(
       { stop_reason: 'tool_use', content: [texto(CORRECAO), salva('t1')] },
-      { stop_reason: 'end_turn', content: [texto('Agora: who did you go to the beach with?')] },
+      { stop_reason: 'end_turn', content: [texto("Anotei 'I went' na sua Revisão! So, who went to the beach with you?")] },
     );
     const { corpo } = await enviar();
     expect(corpo.reply).toBe(CORRECAO);
+    expect(corpo.reply).not.toMatch(/Anotei/);
+    expect(api.chamadas).toHaveLength(1);
+    // Nenhum bloco de ferramenta ficou pendurado pro turno seguinte: o
+    // histórico que volta do cliente é só texto.
+    expect(api.chamadas[0].messages.every((m) => typeof m.content === 'string')).toBe(true);
+  });
+
+  it('no modo iniciante, as opções a) b) c) continuam sendo a última coisa da bolha', async () => {
+    const INICIANTE = "Quase! É 'I went', porque foi ontem. Where did you go?\na) I went to the beach.\nb) I went to the mall.";
+    api.respostas.push(
+      { stop_reason: 'tool_use', content: [texto(INICIANTE), salva('t1')] },
+      { stop_reason: 'end_turn', content: [texto('Where did you go?\na) I went to the park.\nb) I went to the gym.\nSalvei na sua Revisão!')] },
+    );
+    const { corpo } = await enviar();
+    expect(corpo.reply).toBe(INICIANTE);
+    expect(api.chamadas).toHaveLength(1);
+  });
+
+  it('a frase pronta com lacuna também fecha o turno', async () => {
+    const LACUNA = "Quase! O certo é 'I went'. Where did you go?\nI went to the ___.";
+    api.respostas.push({ stop_reason: 'tool_use', content: [texto(LACUNA), salva('t1')] });
+    const { corpo } = await enviar();
+    expect(corpo.reply).toBe(LACUNA);
+    expect(api.chamadas).toHaveLength(1);
+  });
+
+  it('preâmbulo antes da ferramenta: a rodada seguinte é a resposta, sem repetir o que já saiu', async () => {
+    api.respostas.push(
+      { stop_reason: 'tool_use', content: [texto(PREAMBULO), salva('t1')] },
+      { stop_reason: 'end_turn', content: [texto(CORRECAO)] },
+    );
+    const { corpo } = await enviar();
+    expect(corpo.reply).toBe(CORRECAO);
+    expect(api.chamadas).toHaveLength(2);
+    // A rodada 1 foi a de verdade, com o tool_result na conversa.
+    expect(temBlocoDeFerramenta(api.chamadas[1])).toBe(true);
+  });
+
+  it('o insert na Revisão falhou: `saved` vem vazio, mas `corrigiu` diz que ela corrigiu', async () => {
+    /* Achado da revisão: acerto era "a resposta não trouxe correção salva", e
+       o insert que falhava fazia a frase corrigida contar como acertada. */
+    api.insertFalha = true;
+    api.respostas.push({ stop_reason: 'tool_use', content: [texto(CORRECAO), salva('t1')] });
+    const { corpo } = await enviar();
+    expect(corpo.saved).toEqual([]);
+    expect(corpo.corrigiu).toBe(true);
+  });
+
+  it('salvar uma palavra a pedido não é correção; resposta sem ferramenta também não', async () => {
+    api.respostas.push({ stop_reason: 'tool_use', content: [texto('Boa! Where did you learn it?'), salva('t1', { term: 'awesome', category: 'word' })] });
+    expect((await enviar()).corpo.corrigiu).toBe(false);
+    api.respostas.push({ stop_reason: 'end_turn', content: [texto('Boa! Where did you go?')] });
+    expect((await enviar()).corpo.corrigiu).toBe(false);
   });
 
   it('a ferramenta veio sozinha e o texto só no fim: entrega o do fim', async () => {
@@ -143,14 +209,30 @@ describe('o Escrever quando a Cady corrige e salva na Revisão', () => {
 
   it('quatro rodadas seguidas de ferramenta: vale o que ela escreveu em qualquer uma', async () => {
     api.respostas.push(
-      { stop_reason: 'tool_use', content: [texto(CORRECAO), salva('t1')] },
+      { stop_reason: 'tool_use', content: [texto(PREAMBULO), salva('t1')] },
       { stop_reason: 'tool_use', content: [salva('t2', { term: 'went', category: 'word' })] },
       { stop_reason: 'tool_use', content: [salva('t3', { term: 'beach', category: 'word' })] },
       { stop_reason: 'tool_use', content: [salva('t4', { term: 'yesterday', category: 'word' })] },
     );
     const { corpo } = await enviar();
-    expect(corpo.reply).toBe(CORRECAO);
+    expect(corpo.reply).toBe(PREAMBULO);
     expect(api.chamadas, 'sem quinta chamada: já tinha texto').toHaveLength(4);
+  });
+});
+
+describe('o log de uso do Escrever', () => {
+  it('soma TODAS as idas à API, inclusive a segunda tentativa', async () => {
+    /* Achado da revisão: o logChat rodava antes do comTexto, e a terceira
+       chamada — justo a dos turnos problemáticos — ficava fora do custo. */
+    api.respostas.push(
+      { stop_reason: 'tool_use', content: [salva('t1')] },
+      { stop_reason: 'end_turn', content: [] },
+      { stop_reason: 'end_turn', content: [texto(CORRECAO)], usage: { input_tokens: 3000, output_tokens: 120 } },
+    );
+    await enviar();
+    expect(api.chamadas).toHaveLength(3);
+    expect(api.usos).toHaveLength(1);
+    expect(api.usos[0]).toMatchObject({ kind: 'chat', inputTokens: 3020, outputTokens: 130 });
   });
 });
 
@@ -162,14 +244,17 @@ describe('o Escrever quando a API cai no meio do loop', () => {
        `falas` — a pessoa via "Não consegui responder agora", o card já estava
        na Revisão, e reenviar salvava o mesmo termo de novo. */
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    /* Com a fala inteira na rodada 0 a rodada 1 nem é pedida; o caso que
+       sobra é o preâmbulo, em que a rodada 1 é a resposta e ela cai. */
     api.respostas.push(
-      { stop_reason: 'tool_use', content: [texto(CORRECAO), salva('t1')] },
+      { stop_reason: 'tool_use', content: [texto(PREAMBULO), salva('t1')] },
       Object.assign(new Error('529 overloaded'), { status: 529 }),
     );
     const { status, corpo } = await enviar();
     expect(status).toBe(200);
-    expect(corpo.reply).toBe(CORRECAO);
+    expect(corpo.reply).toBe(PREAMBULO);
     expect(corpo.saved).toEqual([{ term: 'I went', category: 'correction' }]);
+    expect(corpo.corrigiu).toBe(true);
     expect(api.inserts).toHaveLength(1);
     // Sem segunda tentativa: tinha texto, e a API estava caindo.
     expect(api.chamadas).toHaveLength(2);

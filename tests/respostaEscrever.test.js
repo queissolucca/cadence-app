@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { textoDe, juntarTextos, comTexto, FRASE_DE_RESERVA } from '../lib/respostaEscrever.js';
+import { textoDe, juntarTextos, comTexto, fechaOTurno, FRASE_DE_RESERVA } from '../lib/respostaEscrever.js';
 
 /* A RESPOSTA DO ESCREVER, TESTADA RODANDO.
 
@@ -274,12 +274,42 @@ describe('comTexto — a segunda tentativa', () => {
     expect(log.mock.calls[0][1]).toMatchObject({ status: 529, mensagem: '529 overloaded' });
   });
 
+  it('conta o uso da segunda tentativa pra rota pôr no log', async () => {
+    const { client } = clientFalso({ stop_reason: 'end_turn', content: [texto('Tá. Where did you go?')], usage: { input_tokens: 3000, output_tokens: 120 } });
+    const usos = [];
+    expect(await comTexto('', PEDIDO, client, (u) => usos.push(u))).toBe('Tá. Where did you go?');
+    expect(usos).toEqual([{ input_tokens: 3000, output_tokens: 120 }]);
+    // Sem callback, continua funcionando como antes.
+    expect(await comTexto('', PEDIDO, clientFalso({ content: [texto('Oi?')] }).client)).toBe('Oi?');
+  });
+
   it('se a segunda tentativa voltar vazia de novo, também fica no log', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { client } = clientFalso({ stop_reason: 'end_turn', content: [] });
     expect(await comTexto('', PEDIDO, client)).toBe(FRASE_DE_RESERVA);
     expect(log).toHaveBeenCalledTimes(1);
     expect(log.mock.calls[0][1]).toMatchObject({ stop_reason: 'end_turn' });
+  });
+});
+
+/* ESTA FALA JÁ FECHA O TURNO? — é o que a rota usa pra não pedir a rodada do
+   tool_result quando a Cady já respondeu inteira (ver o loop em
+   app/api/chat/route.js e tests/respostaEscreverRota.test.js). */
+describe('fechaOTurno', () => {
+  it('fecha com pergunta, opção ou lacuna na última linha', () => {
+    for (const t of [
+      "Ai. É 'I went', não 'I go'.\nAgora: who did you go to the beach with?",
+      'Where did you go? In English.',
+      'Where did you go?\na) I went to the beach.\nb) I went to the mall.',
+      'Where did you go?\nI went to the ___.',
+      'Boa!\nWhere did you go?\n\n',
+    ]) expect(fechaOTurno(t), t).toBe(true);
+  });
+
+  it('preâmbulo e fala sem fecho não fecham', () => {
+    for (const t of ['Claro, vou salvar essa!', "Ai. É 'I went', não 'I go'.", 'Where did you go?\nClaro, vou salvar.', '', '   ', undefined, null]) {
+      expect(fechaOTurno(t), String(t)).toBe(false);
+    }
   });
 });
 

@@ -5,7 +5,7 @@ import { carregarTom } from '../../../lib/cady/tomServidor';
 import { createClient } from '../../../lib/supabase/server';
 import { loadMemoryBlock } from '../../../lib/memory';
 import { logUsage } from '../../../lib/usage';
-import { textoDe, juntarTextos, comTexto } from '../../../lib/respostaEscrever';
+import { textoDe, juntarTextos, comTexto, fechaOTurno } from '../../../lib/respostaEscrever';
 
 export const dynamic = 'force-dynamic';
 
@@ -203,13 +203,18 @@ export async function POST(request) {
      leria a mesma propaganda duas vezes no mesmo turno (ver FALAR_NA_TELA em
      lib/cady/promptEscrever.js). Só `true` de verdade conta, e só na conversa
      aberta: lição e drill de card não têm oferta nem essa linha. O pior que um
-     valor forjado faz é a Cady não falar do Falar pra quem forjou. */
+     valor forjado faz é a Cady não falar do Falar pra quem forjou.
+
+     `ofertaRecente` é o outro aviso: a pessoa repetiu o pedido dentro do
+     respiro entre duas ofertas, a tela NÃO oferece de novo — e a Cady também
+     não pode (ver FALAR_JA_OFERECIDA). Os dois nunca valem juntos. */
   const ofertaNaTela = aberta && body.ofertaFalar === true;
+  const ofertaRecente = aberta && !ofertaNaTela && body.ofertaRecente === true;
   const system = unit
     ? lessonPrompt(firstName, unit)
     : card
       ? cardDrillPrompt(firstName, card, memoryBlock)
-      : systemPrompt(firstName, memoryBlock, pastCorrections, tom, { ofertaNaTela });
+      : systemPrompt(firstName, memoryBlock, pastCorrections, tom, { ofertaNaTela, ofertaRecente });
 
   const convo = [...messages];
   const saved = [];
@@ -218,8 +223,19 @@ export async function POST(request) {
      última era o que fazia a resposta da Cady sumir justo nos turnos em que ela
      corrigia e salvava na Revisão. Ver lib/respostaEscrever.js. */
   const falas = [];
+  /* A CADY CORRIGIU NESTE TURNO? — o sinal que o TextChatClient usa pra NÃO
+     contar a frase como acerto (lib/cady/tom.js).
+
+     `saved` só traz o que foi gravado; se o insert na Revisão falha, a
+     correção some dali, e a frase corrigida contava como acertada — o que
+     liberava a acidez da Equilibrada antes de a pessoa acertar alguma coisa.
+     Aqui conta o PEDIDO de salvar uma correção, gravado ou não, inclusive o
+     tool_use cortado por max_tokens (que não roda). Categoria ausente ou
+     inválida conta como correção, que é o que a rota grava nesse caso. */
+  let corrigiu = false;
   let usageIn = 0;
   let usageOut = 0;
+  const somarUso = (u) => { usageIn += u?.input_tokens || 0; usageOut += u?.output_tokens || 0; };
   const logChat = () => logUsage(supabase, user.id, { kind: unit ? 'chat_lesson' : card ? 'chat_card' : 'chat', model: MODEL, inputTokens: usageIn, outputTokens: usageOut });
 
   /* A SEGUNDA TENTATIVA, PRA QUANDO NENHUMA RODADA ESCREVEU NADA.
@@ -250,13 +266,12 @@ export async function POST(request) {
         tools: [SAVE_TOOL],
         messages: convo,
       });
-      usageIn += resp.usage?.input_tokens || 0;
-      usageOut += resp.usage?.output_tokens || 0;
+      somarUso(resp.usage);
       falas.push(textoDe(resp));
 
       const toolUses = (resp.content || []).filter((b) => b.type === 'tool_use');
+      if (toolUses.some((tu) => !CATEGORIES.includes(tu.input?.category) || tu.input.category === 'correction')) corrigiu = true;
       if (resp.stop_reason === 'tool_use' && toolUses.length) {
-        convo.push({ role: 'assistant', content: resp.content });
         const results = [];
         for (const tu of toolUses) {
           const { term, example, category } = tu.input || {};
@@ -274,6 +289,28 @@ export async function POST(request) {
           }
           results.push({ type: 'tool_result', tool_use_id: tu.id, content: ok ? 'Saved to review.' : 'Could not save.' });
         }
+        /* A FALA JÁ ESTAVA INTEIRA: O TURNO ACABA AQUI, sem a rodada do
+           tool_result.
+
+           O jeito comum do modelo corrigir é escrever a resposta toda E chamar
+           o save_to_review no mesmo turno. A rodada seguinte, que só existia
+           pra devolver o tool_result, não tinha o que acrescentar: ou voltava
+           vazia, ou reescrevia a correção, anunciava "Anotei na sua Revisão!"
+           (o prompt proíbe) e fazia uma segunda pergunta — e a bolha somava as
+           duas. No modo iniciante ainda empurrava texto pra DEPOIS das opções
+           a) b) c), que têm que ser a última coisa da mensagem.
+
+           Parar aqui é seguro porque o histórico nunca guarda bloco de
+           ferramenta: toAnthropicMessages só aceita string, e o cliente
+           persiste {role, text}. Nenhum tool_use fica pendurado no turno
+           seguinte. E sai uma ida inteira à API a menos em todo turno de
+           correção — menos espera, menos custo, menos chance de 529.
+
+           Só quando a fala FECHA o turno (fechaOTurno: pergunta, opção ou
+           lacuna no fim). Um "Claro, vou salvar essa!" antes da ferramenta é
+           preâmbulo, e aí a rodada seguinte é a resposta. */
+        if (fechaOTurno(falas[falas.length - 1])) break;
+        convo.push({ role: 'assistant', content: resp.content });
         convo.push({ role: 'user', content: results });
         continue;
       }
@@ -289,16 +326,20 @@ export async function POST(request) {
     /* Uma saída só, pros dois jeitos de sair do loop: o fim normal (break) e as
        quatro rodadas seguidas de ferramenta. Nos dois, vale o que a Cady já
        escreveu em qualquer rodada; a segunda tentativa só entra se não houver
-       texto nenhum — e, sem poder chamar ferramenta, ela não fica presa de novo. */
+       texto nenhum — e, sem poder chamar ferramenta, ela não fica presa de novo.
+       O log de uso vem DEPOIS da segunda tentativa, pra contar ela também. */
+    const resposta = { reply: await comTexto(juntarTextos(falas), pedidoSoTexto, client, somarUso), saved, corrigiu };
     logChat();
-    return NextResponse.json({ reply: await comTexto(juntarTextos(falas), pedidoSoTexto, client), saved });
+    return NextResponse.json(resposta);
   } catch (err) {
     console.error('chat error:', err);
     /* SE A CADY JÁ TINHA FALADO, A FALA SAI MESMO COM A API CAINDO NO MEIO.
 
-       O caso: a rodada 0 veio [texto, tool_use] — a correção escrita E o card
-       já salvo na Revisão — e a rodada 1, a que só existe pra devolver o
-       tool_result, estourou (529 depois dos retries do SDK, timeout, rede).
+       O caso: a rodada 0 veio [texto, tool_use] — um começo de fala E o card
+       já salvo na Revisão — e a rodada 1, a que devolve o tool_result, estourou
+       (529 depois dos retries do SDK, timeout, rede). Com a fala inteira na
+       rodada 0 a rodada 1 nem é pedida (ver fechaOTurno no loop); isto cobre o
+       preâmbulo, e qualquer rodada seguinte que caia.
        Devolver 500 aqui jogava fora uma resposta que estava pronta: a pessoa
        via "Não consegui responder agora", o card já estava na Revisão, e ao
        reenviar a mensagem o mesmo termo tendia a ser salvo de novo, em
@@ -310,7 +351,7 @@ export async function POST(request) {
     const jaTem = juntarTextos(falas);
     if (jaTem) {
       logChat();
-      return NextResponse.json({ reply: jaTem, saved });
+      return NextResponse.json({ reply: jaTem, saved, corrigiu });
     }
     return NextResponse.json({ error: 'chat_failed' }, { status: 500 });
   }
