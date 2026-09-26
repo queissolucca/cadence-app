@@ -283,6 +283,12 @@ export function ConversarView({ firstName, memoryText }) {
                 resumeId={resume?.id}
                 resumeTopic={resume?.topic}
                 openingGreeting={openingGreeting}
+                /* A oferta que aparece quando a pessoa ESCREVE que preferia
+                   falar tem um botão, e ele é este mesmo `irParaVoz` do 🎙
+                   Falar — com a porta do Plano Pro e o desfazer junto. Um
+                   caminho próprio lá dentro seria uma porta lateral pro que é
+                   pago, e duas versões do mesmo clique divergindo. */
+                onQuerFalar={irParaVoz}
               />
             ) : (
               <ConversationClient

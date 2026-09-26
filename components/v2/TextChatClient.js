@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { proximosSinaisTom } from '../../lib/cady/tom';
 import { CadyLive } from './CadyLive';
 import { TypingDots } from './TypingDots';
+import { querFalar, ofertaLiberada } from '../../lib/cady/querFalar';
 
 function deriveTitle(messages) {
   const firstYou = messages.find((m) => m.role === 'you' && (m.text || '').trim().split(/\s+/).length >= 2);
@@ -37,6 +38,43 @@ function deriveTitle(messages) {
 const CONVITE_FALAR = 'Seria melhor aprender como falar né? Clique no ícone acima de 🎙 Falar e fale comigo agora!';
 const INTERVALO_CONVITE = () => 5 + Math.floor(Math.random() * 4);   // 5, 6, 7 ou 8
 
+/* A OFERTA NA HORA, QUANDO A PESSOA DIZ QUE PREFERIA FALAR.
+
+   "poxa, mas eu queria falar", "dá preguiça de escrever", "I'd rather talk":
+   quem reconhece é `querFalar` (lib/cady/querFalar.js). O convite sorteado
+   acima é às cegas; este responde a um pedido, então vem na mensagem em que o
+   pedido veio — depois da resposta da Cady, nunca no lugar dela. A Cady não é
+   interrompida nem pela tela.
+
+   O texto não comenta a preguiça nem o "queria": a pessoa disse do que gosta,
+   a tela só abre a porta. "Conversar", não "ligar" — o Falar é conversa. E "no
+   seu ritmo" é verdade de produto: a Cady espera o turno, não corta ninguém.
+
+   A diferença pro convite é o BOTÃO. O convite manda procurar o 🎙 Falar lá em
+   cima; a oferta já traz ele na mão, e ele faz exatamente o que o de cima faz
+   (quem liga os dois é o `onQuerFalar` que a ConversarView passa). Sem esse
+   callback — lição, drill de card, qualquer uso futuro fora da ConversarView —
+   não há botão pra apertar, e a oferta simplesmente não aparece: um "clique
+   aqui" que não faz nada é pior que nenhum. */
+const OFERTA_FALAR = 'Prefere falar? Então vem conversar comigo por voz, no seu ritmo.';
+
+/* O CONVITE E A OFERTA SÃO SÓ TELA. Nenhum dos dois vai pro modelo nem pro banco.
+
+   Os dois moram no estado como role 'convite' (a oferta só ganha `acao: true`,
+   pra ter o botão), e este filtro é a única porta de saída do estado:
+
+   Pro modelo: chegaria como fala da Cady, e ela passaria a achar que convidou
+   — repetindo, ou respondendo ao próprio convite.
+   Pro banco: entraria no transcript salvo e voltaria no `prior_context` de uma
+   retomada, com o mesmo efeito, dias depois.
+   Pra memória: a extração de fatos no fim da conversa também é modelo. Antes
+   ela recebia o `messages` cru, e o convite chegava lá como "Coach: …" — agora
+   passa pelo mesmo filtro.
+
+   Filtrar na SAÍDA (e não tirar do `messages`) mantém o convite VISÍVEL na
+   conversa. Tirá-lo do estado faria ele sumir da tela no envio seguinte. */
+const paraFora = (lista) => lista.filter((m) => m.role !== 'convite');
+
 /* TETO DE 500 CARACTERES NA CAIXA.
 
    Duas camadas, de propósito:
@@ -56,7 +94,7 @@ const INTERVALO_CONVITE = () => 5 + Math.floor(Math.random() * 4);   // 5, 6, 7 
 const MAX_CARACTERES = 500;
 const AVISA_A_PARTIR_DE = 450;
 
-export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit, cardDrill, openingGreeting }) {
+export function TextChatClient({ firstName, agent, onSaved, initialMessages, resumeId, resumeTopic, unit, cardDrill, openingGreeting, onQuerFalar }) {
   const name = firstName || '';
   const resuming = Array.isArray(initialMessages) && initialMessages.length > 0;
   const greeting = cardDrill
@@ -86,6 +124,7 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
       : [{ role: 'coach', text: greeting }],
   );
   const faltamPraConvite = useRef(0);   // 0 = ainda não sorteado
+  const ultimaOferta = useRef(null);    // nº da mensagem da pessoa que levou a última oferta
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [notConfigured, setNotConfigured] = useState(false);
@@ -136,11 +175,12 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
     () => () => {
       if (unit || cardDrill) return;
       const { msgs, users } = snapRef.current;
-      if (users >= 3 && msgs.length >= 6) {
+      const conversa = paraFora(msgs);   // sem convite nem oferta: ver paraFora
+      if (users >= 3 && conversa.length >= 6) {
         fetch('/api/memory/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: msgs }),
+          body: JSON.stringify({ messages: conversa }),
         }).catch(() => {});
       }
     },
@@ -189,17 +229,16 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
     setInput('');
     setSending(true);
     userCountRef.current += 1;
+    const estaMensagem = userCountRef.current;
 
-    /* O CONVITE É SÓ TELA. Ele não vai pro modelo nem pro banco.
+    /* A decisão da oferta sai daqui, do texto que ELA mandou, antes da ida ao
+       servidor — mas a oferta só entra na tela depois que a resposta chega.
+       Mesma regra do convite: só na conversa aberta. E só com o botão ligado
+       (`onQuerFalar`), senão não há o que oferecer. */
+    const pediuPraFalar = !unit && !cardDrill && typeof onQuerFalar === 'function'
+      && querFalar(text) && ofertaLiberada(estaMensagem, ultimaOferta.current);
 
-       Pro modelo: ele chegaria como fala da Cady, e ela passaria a achar que
-       convidou — repetindo, ou respondendo ao próprio convite.
-       Pro banco: ele entraria no transcript salvo e voltaria no `prior_context`
-       de uma retomada, com o mesmo efeito, dias depois.
-
-       Filtrar aqui (e não tirar do `messages`) mantém o convite VISÍVEL na
-       conversa. Tirá-lo do estado faria ele sumir da tela no envio seguinte. */
-    const paraFora = (lista) => lista.filter((m) => m.role !== 'convite');
+    // O convite e a oferta ficam de fora do que vai pro modelo: ver paraFora.
     const history = paraFora(withYou).map((m) => ({ role: m.role === 'you' ? 'user' : 'assistant', content: m.text }));
 
     try {
@@ -230,7 +269,14 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
       if (!unit && !cardDrill) {
         if (!faltamPraConvite.current) faltamPraConvite.current = INTERVALO_CONVITE();
         faltamPraConvite.current -= 1;
-        if (faltamPraConvite.current <= 0) {
+        /* A oferta pedida vence o convite sorteado, e reinicia a contagem dele:
+           sem isso, uma oferta agora e um convite na mensagem seguinte seriam
+           duas propagandas coladas — a segunda respondendo a nada. */
+        if (pediuPraFalar) {
+          faltamPraConvite.current = INTERVALO_CONVITE();
+          ultimaOferta.current = estaMensagem;
+          setMessages((atual) => [...atual, { role: 'convite', text: OFERTA_FALAR, acao: true }]);
+        } else if (faltamPraConvite.current <= 0) {
           faltamPraConvite.current = INTERVALO_CONVITE();
           setMessages((atual) => [...atual, { role: 'convite', text: CONVITE_FALAR }]);
         }
@@ -397,6 +443,22 @@ export function TextChatClient({ firstName, agent, onSaved, initialMessages, res
               }}
             >
               {line.text}
+              {/* O botão da oferta é o MESMO clique do 🎙 Falar lá de cima —
+                  mesmo emoji, mesma função. Quem não pagou vê o Falar e o popup
+                  do Plano Pro por cima; quem pagou já cai no Falar. */}
+              {line.acao && onQuerFalar && (
+                <button
+                  type="button"
+                  onClick={onQuerFalar}
+                  style={{
+                    display: 'block', margin: '8px auto 0', padding: '7px 16px',
+                    borderRadius: 999, border: 'none', background: 'var(--green)', color: '#fff',
+                    fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  🎙 Falar agora
+                </button>
+              )}
             </div>
           ) : (
           <div
