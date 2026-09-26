@@ -19,6 +19,17 @@ import { lerFonte, RAIZ } from './fonte.js';
 
 const idade = TERMS_CLAUSES.find((c) => /18 anos/.test(c.title));
 
+/* Recorta UMA tela de um arquivo com várias: de `export function <nome>(`
+   até o próximo `export` de nível de topo (ou o fim do arquivo). Não amarra
+   em qual tela vem depois, então reordenar as telas não quebra o recorte. */
+const tela = (caminho, nome) => {
+  const fonte = lerFonte(caminho);
+  const ini = fonte.indexOf(`export function ${nome}(`);
+  if (ini < 0) return '';
+  const prox = fonte.indexOf('\nexport ', ini + 1);
+  return fonte.slice(ini, prox < 0 ? undefined : prox);
+};
+
 describe('a cláusula de idade mínima', () => {
   it('existe, com "18 anos" no título', () => {
     expect(idade, 'nenhuma cláusula tem "18 anos" no título').toBeTruthy();
@@ -105,16 +116,98 @@ describe('o aceite declara a maioridade', () => {
   });
 
   it('a caixinha do cadastro (/comecar) diz "Declaro ter 18 anos ou mais" na MESMA label do aceite', () => {
-    const tela = lerFonte('components/comecar/screens/app.js');
-    expect(tela).toMatch(/<label className=\{`termos[^>]*>[\s\S]*?Declaro ter 18 anos ou mais e aceito os <a href="\/termos"[\s\S]*?<\/label>/);
+    const conta = tela('components/comecar/screens/app.js', 'Conta');
+    expect(conta).toMatch(/<label className=\{`termos[^>]*>[\s\S]*?Declaro ter 18 anos ou mais e aceito os <a href="\/termos"[\s\S]*?<\/label>/);
   });
 
   it('sem caixinha nova: o cadastro continua com UM checkbox, o mesmo `aceito`', () => {
     // Pedido do dono: não quebrar o funil. A declaração entrou no texto da
     // caixinha que já existia; nenhuma condição nova pro "criar conta".
-    const tela = lerFonte('components/comecar/screens/app.js');
-    expect(tela.match(/type="checkbox"/g) || []).toHaveLength(1);
-    expect(tela).toMatch(/checked=\{aceito\}/);
+    //
+    // Conta SÓ dentro da tela Conta. A primeira versão contava o arquivo
+    // inteiro — e screens/app.js tem treze telas (lição, plano, paywall,
+    // login, home…). Um "lembrar de mim" no Login derrubaria este teste com
+    // uma mensagem falsa sobre o funil de cadastro, com a Conta intacta.
+    const conta = tela('components/comecar/screens/app.js', 'Conta');
+    expect(conta.match(/type="checkbox"/g) || []).toHaveLength(1);
+    expect(conta).toMatch(/checked=\{aceito\}/);
+  });
+
+  it('o recorte da tela Conta pega a caixinha e para antes da tela seguinte', () => {
+    // Guarda do próprio recorte: se `tela()` devolvesse o arquivo até o fim
+    // (ou nada), o teste de cima passaria ou cairia pelo motivo errado.
+    const conta = tela('components/comecar/screens/app.js', 'Conta');
+    expect(conta).toMatch(/^export function Conta\(/);
+    expect(conta).toMatch(/Declaro ter 18 anos ou mais/);
+    expect(conta).not.toMatch(/\nexport /);
+  });
+});
+
+/* OS OUTROS CAMINHOS QUE CRIAM CONTA.
+
+   "Continuar com o Google" no /login e na tela Login do /comecar serve pra
+   quem já tem conta — mas pro Supabase um e-mail Google novo vira conta nova
+   na hora, e o /auth/callback manda direto pro /v2. Esse caminho nunca passou
+   pela caixinha da tela Conta, então a pessoa ganhava conta sem ter declarado
+   18+ em lugar nenhum.
+
+   O conserto é SÓ TEXTO (AvisoTermos, em components/comecar/shell.js): uma
+   linha dizendo que continuar é declarar 18+ e aceitar os termos. Caixinha ou
+   portão aqui cobraria uma condição nova de todo mundo que volta pro app —
+   isso é decisão do dono, e estes testes também travam que ela não entrou
+   escondida. */
+describe('as telas de entrar avisam que continuar é declarar 18+', () => {
+  const aviso = lerFonte('components/comecar/shell.js');
+  const login = lerFonte('app/login/page.js');
+  const loginComecar = tela('components/comecar/screens/app.js', 'Login');
+
+  it('o aviso diz 18 anos ou mais e leva aos termos e à política de privacidade', () => {
+    const corpo = aviso.slice(aviso.indexOf('export const AvisoTermos'));
+    expect(corpo).toMatch(/^export const AvisoTermos/);
+    expect(corpo).toMatch(/Ao continuar, voc[êe] declara ter 18 anos ou mais e aceita os/);
+    expect(corpo).toMatch(/href="\/termos"/);
+    expect(corpo).toMatch(/href="\/privacy"/);
+  });
+
+  it('o /login mostra o aviso no modo entrar (onde está o botão do Google)', () => {
+    expect(login).toMatch(/import \{[^}]*\bAvisoTermos\b[^}]*\} from '..\/..\/components\/comecar\/shell'/);
+    expect(login).toMatch(/\{!recuperando && <AvisoTermos \/>\}/);
+  });
+
+  it('a tela Login do /comecar mostra o aviso', () => {
+    expect(loginComecar).toMatch(/entrarComGoogleExistente/);
+    expect(loginComecar).toMatch(/<AvisoTermos \/>/);
+  });
+
+  it('é aviso, não portão: nenhuma caixinha nem aceite novo pra entrar', () => {
+    for (const fonte of [login, loginComecar, aviso]) {
+      expect(fonte).not.toMatch(/type="checkbox"/);
+    }
+    for (const fonte of [login, loginComecar]) {
+      expect(fonte).not.toMatch(/exigirAceite|setAceito/);
+    }
+  });
+});
+
+/* O /onboarding ANTIGO AINDA ABRE.
+
+   Ele saiu do funil, e o middleware manda embora quem cai nele — mas só
+   quando consegue decidir o passo. Se a leitura do banco falha, nextStep()
+   devolve undefined e a pessoa fica onde está: a tela aparece inteira, com o
+   aceite. Um comentário da primeira versão deste ajuste dizia que ela era
+   sempre "expulsa"; não é, e por isso a caixinha de lá também tem que
+   declarar 18+. */
+describe('o aceite do /onboarding antigo', () => {
+  it('a página ainda pode abrir: é tela de passo e fica quando o middleware não decide', () => {
+    const middleware = lerFonte('middleware.js');
+    const funil = lerFonte('lib/funil.js');
+    expect(funil).toMatch(/TELAS_DE_PASSO = \[[^\]]*'\/onboarding'/);
+    expect(middleware).toMatch(/if \(step === undefined\) return response;/);
+  });
+
+  it('por isso a caixinha de lá também declara 18+', () => {
+    const onboarding = lerFonte('components/v2/OnboardingClient.js');
+    expect(onboarding).toMatch(/Li e aceito os[\s\S]{0,400}e declaro ter 18 anos ou mais\./);
   });
 });
 

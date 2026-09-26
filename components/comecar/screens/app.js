@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Cady, CadyViva } from '../Cady';
 import { Constelacao, Glyph, Icon } from '../ui';
-import { Card, Cta, Field, Ghost, Grow, Kicker, Lede, NavCard, NavRow, Opts, Wordmark } from '../shell';
+import { AvisoTermos, Card, Cta, Field, Ghost, Grow, Kicker, Lede, NavCard, NavRow, Opts, Wordmark } from '../shell';
 import { Mic } from './abertura';
 import { agrupar, memorias } from '../../../lib/comecar/state';
 import { resumoDaMemoria } from '../../../lib/comecar/resumo';
@@ -655,6 +655,10 @@ export function Login({ go }) {
         <Cta disabled={enviando}>{enviando ? 'entrando…' : 'entrar'}</Cta>
       </form>
       {erro && <Erro>{erro}</Erro>}
+      {/* Mesmo buraco do /login: o Google daqui (entrarComGoogleExistente) cria
+          conta pra e-mail novo e vai pro /v2 sem passar pela caixinha da tela
+          Conta. Ver AvisoTermos em components/comecar/shell.js. */}
+      <AvisoTermos />
       <Ghost onClick={() => go('conta')}>ainda não tenho conta · criar</Ghost>
       <Grow />
     </div>

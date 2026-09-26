@@ -52,6 +52,30 @@ export const Field = ({ label, erro, ...rest }) => (
   </div>
 );
 
+/* O AVISO DE 18+ NAS TELAS DE ENTRAR — TEXTO, NÃO CAIXINHA.
+
+   "Continuar com o Google" nas duas telas de login (/login e a tela Login do
+   /comecar) também CRIA conta: o Supabase cria a conta na hora pra um e-mail
+   Google que nunca entrou, e o /auth/callback manda direto pro /v2. Esse
+   caminho nunca passou pela caixinha do cadastro (a da tela Conta), então a
+   pessoa ganhava conta sem ter visto os Termos nem declarado ter 18 anos — e
+   a cláusula 2.3 dos Termos se apoia justamente nessa declaração.
+
+   Por que só uma linha de texto, e não a caixinha: estas telas são a porta de
+   QUEM JÁ TEM CONTA. Uma caixinha aqui seria uma condição nova pra entrar no
+   app, cobrada de todo mundo que volta, pra fechar um caminho que quase só
+   acontece por engano. Portão de aceite de verdade (conta sem aceite gravado
+   não passa) muda o funil e é decisão do dono, não efeito colateral de um
+   ajuste de texto. A linha fica logo abaixo do formulário, colada nos dois
+   botões que ela cobre ("Continuar com o Google" e "entrar"). */
+export const AvisoTermos = () => (
+  <p className="aviso-termos">
+    Ao continuar, você declara ter 18 anos ou mais e aceita os{' '}
+    <a href="/termos" target="_blank" rel="noreferrer">termos de uso</a> e a{' '}
+    <a href="/privacy" target="_blank" rel="noreferrer">política de privacidade</a>.
+  </p>
+);
+
 /* Marca d'água do topo das telas de abertura. */
 export const Wordmark = ({ px = 34 }) => (
   <div className="wm" style={{ fontSize: `${px}px` }}>
