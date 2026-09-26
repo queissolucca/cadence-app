@@ -70,7 +70,6 @@ describe('frases no mesmo sentido disparam', () => {
     "I'd rather talk",
     'can I talk',
     'can we talk instead',
-    'voice',
     // EN, variações
     'I rather talk',
     'I prefer speak',
@@ -227,6 +226,9 @@ describe('falar DE alguma coisa não é pedir pra falar POR voz', () => {
     'Tive um dia horrível no trabalho, meu chefe gritou comigo e eu fiquei mal. Queria falar.',
     // resposta de vocabulário, hábito e mensagem de celular
     'Voice. She has a beautiful voice.',
+    // "voice" sozinho é a resposta a "como se diz 'voz'?", não pedido de Falar.
+    'voice',
+    'Voice.',
     'out loud',
     'aloud',
     'eu mando audio',
