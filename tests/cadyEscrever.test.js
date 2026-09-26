@@ -354,6 +354,20 @@ describe('o fallback do servidor quando a resposta vem sem texto', () => {
     expect(corpo).toMatch(/console\.error\(/);
   });
 
+  it('se a API cai no meio do loop, o texto que a Cady já escreveu não vira 500', () => {
+    /* O catch de fora respondia `chat_failed` direto, mesmo com a correção já
+       em `falas` e o card já na Revisão. Agora ele entrega o que tem e só cai
+       no 500 quando não há fala nenhuma. O comportamento roda de verdade em
+       tests/respostaEscreverRota.test.js; aqui trava a forma. */
+    const i = ROTA.indexOf("console.error('chat error:', err);");
+    expect(i, 'o erro continua indo pro log').toBeGreaterThan(-1);
+    const resto = ROTA.slice(i);
+    const usaFalas = resto.indexOf('juntarTextos(falas)');
+    const erro500 = resto.indexOf("{ error: 'chat_failed' }");
+    expect(usaFalas, 'o catch olha as rodadas antes de desistir').toBeGreaterThan(-1);
+    expect(usaFalas).toBeLessThan(erro500);
+  });
+
   it('o teto de tokens deixou de ser apertado', () => {
     // 400 era o que fazia o turno estourar dentro da chamada da ferramenta.
     const m = ROTA.match(/max_tokens: (\d+),\s+\/\/ 400 era apertado/);

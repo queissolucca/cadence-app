@@ -54,10 +54,65 @@ describe('juntarTextos — a bolha é a soma das rodadas', () => {
 
   it('repetição de uma frase que estava no meio de uma linha também é cortada', () => {
     /* A Cady escreve várias frases numa linha só. Comparar linha com linha
-       deixaria passar a pergunta repetida; por isso a comparação é por
-       inclusão. */
+       deixaria passar a pergunta repetida; por isso a comparação é por frase. */
     const umaLinha = "Ai. É 'I went'. Where did you go?";
     expect(juntarTextos([umaLinha, 'Where did you go?'])).toBe(umaLinha);
+  });
+
+  /* Os quatro casos abaixo são do revisor, e todos passavam errado na primeira
+     versão, que deduplicava por LINHA e com "está contido em" (substring de
+     caracteres). Ela só olhava linha inteira contra o texto já dito: pegava a
+     pergunta repetida sozinha numa linha, mas não a pergunta colada numa frase
+     nova, nem a resposta reescrita com outra quebra de linha — e, por ser
+     substring sem limite de palavra, sumia com frase nova que nunca foi dita. */
+  const CORRIGIU = "Almost! It's 'I went'.\nWhere did you go?";
+
+  it('a pergunta repetida colada numa frase nova: fica só a frase nova', () => {
+    // Antes: "…\nWhere did you go?\nSaved! Where did you go?" — a pergunta duas vezes.
+    expect(juntarTextos([CORRIGIU, 'Saved! Where did you go?']))
+      .toBe("Almost! It's 'I went'.\nWhere did you go?\nSaved!");
+  });
+
+  it('a mesma resposta com outra quebra de linha não sai duplicada', () => {
+    // Antes: a resposta INTEIRA duas vezes, porque as linhas não batiam.
+    expect(juntarTextos([CORRIGIU, "Almost! It's 'I went'. Where did you go?"])).toBe(CORRIGIU);
+  });
+
+  it('aspa tipográfica numa rodada e reta na outra é a mesma frase', () => {
+    // Antes: a correção saía duas vezes, uma com ’ e outra com '.
+    const curva = 'Almost! It’s ‘I went’.\nWhere did you go?';
+    expect(juntarTextos([curva, CORRIGIU])).toBe(curva);
+    expect(juntarTextos([CORRIGIU, curva])).toBe(CORRIGIU);
+  });
+
+  it('frase nova e curta não some por estar "dentro" de uma palavra já dita', () => {
+    // Antes: "So?" sumia, porque "so?" é substring de "also?".
+    expect(juntarTextos(['Nice! Did you bring your sister also?', 'So?']))
+      .toBe('Nice! Did you bring your sister also?\nSo?');
+  });
+
+  it('ponto de abreviação não vira frase — senão o "Mr." de outra frase sumiria', () => {
+    /* Se "Mr." fosse um pedaço sozinho, a rodada 2 perderia o título no meio da
+       frase dela ("Jones too."). */
+    expect(juntarTextos(['Mr. Smith is nice.', 'Mr. Jones too.'])).toBe('Mr. Smith is nice.\nMr. Jones too.');
+    expect(juntarTextos(['Use it, e.g. at work.', 'E.g. at home too.'])).toBe('Use it, e.g. at work.\nE.g. at home too.');
+  });
+
+  it('aspa que fecha depois do ponto ainda termina a frase', () => {
+    expect(juntarTextos(["Say 'I went.' Then tell me more.", 'Then tell me more.']))
+      .toBe("Say 'I went.' Then tell me more.");
+  });
+
+  it('dentro da MESMA rodada nada é cortado: o texto do modelo passa como veio', () => {
+    /* O filtro existe pra replay entre rodadas. Mexer no que o modelo escreveu
+       numa rodada só seria editar a Cady — e uma linha sem repetição sai byte
+       por byte igual, inclusive o espaçamento. */
+    expect(juntarTextos(['Where did you go? Where did you go?', ''])).toBe('Where did you go? Where did you go?');
+    expect(juntarTextos(['Ai.  Errado.', ''])).toBe('Ai.  Errado.');
+  });
+
+  it('frase repetida entre parágrafos não deixa buraco de três linhas', () => {
+    expect(juntarTextos(['A.', 'B.\n\nA.\n\nC.'])).toBe('A.\nB.\n\nC.');
   });
 
   it('repetiu tudo e acrescentou: entra só o que é novo', () => {

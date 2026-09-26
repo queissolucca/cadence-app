@@ -154,6 +154,50 @@ describe('o Escrever quando a Cady corrige e salva na Revisão', () => {
   });
 });
 
+describe('o Escrever quando a API cai no meio do loop', () => {
+  it('a Cady já tinha escrito e salvado: a fala sai, com o saved, em vez do 500', async () => {
+    /* Achado do revisor. A rodada 0 trouxe a correção E o save_to_review; a
+       rodada 1, que só devolve o tool_result, estourou. Antes, o catch de fora
+       respondia 500 `chat_failed` e jogava fora o texto que já estava em
+       `falas` — a pessoa via "Não consegui responder agora", o card já estava
+       na Revisão, e reenviar salvava o mesmo termo de novo. */
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    api.respostas.push(
+      { stop_reason: 'tool_use', content: [texto(CORRECAO), salva('t1')] },
+      Object.assign(new Error('529 overloaded'), { status: 529 }),
+    );
+    const { status, corpo } = await enviar();
+    expect(status).toBe(200);
+    expect(corpo.reply).toBe(CORRECAO);
+    expect(corpo.saved).toEqual([{ term: 'I went', category: 'correction' }]);
+    expect(api.inserts).toHaveLength(1);
+    // Sem segunda tentativa: tinha texto, e a API estava caindo.
+    expect(api.chamadas).toHaveLength(2);
+    // O erro continua no log, mesmo com a pessoa recebendo a resposta.
+    expect(log).toHaveBeenCalledWith('chat error:', expect.objectContaining({ status: 529 }));
+  });
+
+  it('sem texto nenhum antes da queda, continua 500 — não há fala pra entregar', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    api.respostas.push(
+      { stop_reason: 'tool_use', content: [salva('t1')] },
+      Object.assign(new Error('529 overloaded'), { status: 529 }),
+    );
+    const { status, corpo } = await enviar();
+    expect(status).toBe(500);
+    expect(corpo).toEqual({ error: 'chat_failed' });
+    expect(api.chamadas, 'com a API caindo, nada de terceira ida').toHaveLength(2);
+  });
+
+  it('a primeira chamada já falha: 500, como sempre foi', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    api.respostas.push(Object.assign(new Error('529 overloaded'), { status: 529 }));
+    const { status, corpo } = await enviar();
+    expect(status).toBe(500);
+    expect(corpo).toEqual({ error: 'chat_failed' });
+  });
+});
+
 describe('o Escrever quando nenhuma rodada traz texto', () => {
   it('a segunda tentativa leva tools + tool_choice none, na conversa limpa', async () => {
     api.respostas.push(

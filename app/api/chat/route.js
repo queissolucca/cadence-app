@@ -425,6 +425,24 @@ export async function POST(request) {
     return NextResponse.json({ reply: await comTexto(juntarTextos(falas), pedidoSoTexto, client), saved });
   } catch (err) {
     console.error('chat error:', err);
+    /* SE A CADY JÁ TINHA FALADO, A FALA SAI MESMO COM A API CAINDO NO MEIO.
+
+       O caso: a rodada 0 veio [texto, tool_use] — a correção escrita E o card
+       já salvo na Revisão — e a rodada 1, a que só existe pra devolver o
+       tool_result, estourou (529 depois dos retries do SDK, timeout, rede).
+       Devolver 500 aqui jogava fora uma resposta que estava pronta: a pessoa
+       via "Não consegui responder agora", o card já estava na Revisão, e ao
+       reenviar a mensagem o mesmo termo tendia a ser salvo de novo, em
+       duplicata. Com texto na mão, ele é a resposta; `saved` vai junto pra tela
+       mostrar o que foi guardado.
+
+       Sem texto nenhum, continua 500: não existe fala pra entregar, e com a API
+       falhando uma segunda tentativa só somaria espera antes do mesmo erro. */
+    const jaTem = juntarTextos(falas);
+    if (jaTem) {
+      logChat();
+      return NextResponse.json({ reply: jaTem, saved });
+    }
     return NextResponse.json({ error: 'chat_failed' }, { status: 500 });
   }
 }
