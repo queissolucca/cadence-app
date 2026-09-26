@@ -460,6 +460,11 @@ h2{font-family:var(--f-display);font-size:21px;line-height:1.22;letter-spacing:-
   border-left:2.2px solid #08160e;border-bottom:2.2px solid #08160e;
   transform:rotate(-45deg) translate(1px,-1.5px)}
 .termos a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+/* Aviso de 18+ nas telas de entrar (AvisoTermos, em shell.js). Menor e mais
+   apagado que a caixinha do cadastro: é informação, não uma ação a fazer. */
+.aviso-termos{margin-top:12px;font-size:12px;line-height:1.45;color:var(--ink-soft);
+  text-align:center}
+.aviso-termos a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 
 /* tabbar do app */
 .tabbar{display:flex;border-top:1px solid var(--line);background:var(--card);flex-shrink:0;
@@ -527,6 +532,8 @@ body{background:linear-gradient(180deg,#0C0A0C 0%,#040304 100%)}
 #phone.dark .termos input{background:var(--dark-soft);border-color:var(--dk-line)}
 #phone.dark .termos input:checked{background:var(--green);border-color:var(--green)}
 #phone.dark .termos a{color:#f2f2ea}
+#phone.dark .aviso-termos{color:var(--dk-soft)}
+#phone.dark .aviso-termos a{color:#f2f2ea}
 #phone.dark .tabbar{background:var(--dark-soft);border-top-color:var(--dk-line)}
 #phone.dark .tab{color:var(--dk-soft)}
 #phone.dark .tab.on{color:#f2f2ea}

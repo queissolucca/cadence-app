@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '../../lib/supabase/client';
 import { Constellation } from '../../components/comecar/Constellation';
 import { Icon, SphereDefs } from '../../components/comecar/ui';
-import { Cta, Field, Ghost, Grow, Lede, Wordmark } from '../../components/comecar/shell';
+import { AvisoTermos, Cta, Field, Ghost, Grow, Lede, Wordmark } from '../../components/comecar/shell';
 import { friendlyAuthError } from '../../lib/authErrors';
 
 /* Entrar — a única tela de login do produto.
@@ -188,6 +188,12 @@ export default function LoginPage() {
             )}
 
             {erro && <Erro>{erro}</Erro>}
+
+            {/* O "Continuar com o Google" daqui também cria conta pra quem nunca
+                entrou — sem passar pela caixinha do cadastro. Ver AvisoTermos
+                em components/comecar/shell.js. Só no modo entrar: a
+                recuperação não cria conta nem entra em nada. */}
+            {!recuperando && <AvisoTermos />}
 
             {recuperando ? (
               <Ghost onClick={() => trocar('entrar')}>voltar pro login</Ghost>
