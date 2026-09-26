@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '../../../lib/supabase/server';
 import { loadMemoryBlock } from '../../../lib/memory';
 import { logUsage } from '../../../lib/usage';
+import { textoDe, juntarTextos, comTexto } from '../../../lib/respostaEscrever';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,44 +41,6 @@ const SAVE_TOOL = {
 
    A data vira linguagem ("ontem", "semana passada") porque o prompt pede que
    ela DIGA quando era, e timestamp cru viraria timestamp na bolha. */
-const textoDe = (resp) => (resp.content || [])
-  .filter((b) => b.type === 'text')
-  .map((b) => b.text)
-  .join('\n')
-  .trim();
-
-/* QUANDO A RESPOSTA VEM SEM TEXTO, PERGUNTA DE NOVO — NÃO INVENTA UMA FRASE.
-
-   Aqui morava o bug mais visível do Escrever: `text || "Go on — tell me more!"`.
-   Quando o turno terminava sem bloco de texto — o caso comum é o modelo gastar
-   os tokens na chamada do save_to_review e parar por max_tokens —, o servidor
-   entregava essa frase. Era por isso que ela se repetia IDÊNTICA, palavra por
-   palavra, e por isso aparecia mais em mensagem curta: mensagem curta com um
-   errinho é exatamente o turno que vira "chama a ferramenta e acaba".
-
-   Ninguém ia achar isso mexendo no prompt, porque não era o modelo falando.
-
-   O conserto é pedir de novo, e a segunda ida vai SEM `tools`: sem ferramenta
-   disponível, não existe resposta que não seja texto. É uma chamada a mais só
-   no caso raro, e ela devolve a Cady de verdade em vez de um bordão.
-
-   A frase de último recurso ficou, porque prometer que nunca falha é pior que
-   ter um plano B. Mas ela agora é honesta sobre o que houve e ainda cobra
-   inglês — e, ao contrário da anterior, praticamente nunca deve aparecer. */
-async function comTexto(texto, system, convo) {
-  if (texto) return texto;
-  try {
-    const r = await client.messages.create({
-      model: MODEL, max_tokens: 500, temperature: 0.7, system, messages: convo,
-    });
-    const segundo = textoDe(r);
-    if (segundo) return segundo;
-  } catch {
-    /* a rede falhou na segunda tentativa: cai no plano B abaixo */
-  }
-  return 'Opa, me perdi aqui — manda de novo? And say it in English this time: what were you telling me?';
-}
-
 async function loadPastCorrections(supabase, userId) {
   const r = await supabase
     .from('review_saved')
@@ -381,9 +344,31 @@ export async function POST(request) {
 
   const convo = [...messages];
   const saved = [];
+  /* O texto de CADA rodada, na ordem — inclusive o que veio junto com um
+     tool_use. A bolha é a soma delas (juntarTextos), não só a última: ler só a
+     última era o que fazia a resposta da Cady sumir justo nos turnos em que ela
+     corrigia e salvava na Revisão. Ver lib/respostaEscrever.js. */
+  const falas = [];
   let usageIn = 0;
   let usageOut = 0;
   const logChat = () => logUsage(supabase, user.id, { kind: unit ? 'chat_lesson' : card ? 'chat_card' : 'chat', model: MODEL, inputTokens: usageIn, outputTokens: usageOut });
+
+  /* A SEGUNDA TENTATIVA, PRA QUANDO NENHUMA RODADA ESCREVEU NADA.
+
+     Vai com `messages` — a conversa como a pessoa mandou —, e não com `convo`.
+     Só se chega nela quando nenhuma rodada trouxe texto, então as rodadas de
+     ferramenta que estão em `convo` não têm fala nenhuma que a resposta precise.
+     O que elas têm é o contrário: um histórico em que a Cady já encerrou o turno
+     depois do tool_result. A doc da Anthropic diz que, nesse estado, o modelo
+     tende a continuar encerrado — reenviar aquilo voltaria vazio de novo. Na
+     conversa limpa, a última mensagem é da pessoa e ainda não tem resposta.
+
+     As ferramentas vão DEFINIDAS e o comTexto acrescenta tool_choice 'none': a
+     requisição é válida em qualquer caso e o modelo não tem como chamar
+     ferramenta, só escrever. O que já foi salvo na Revisão continua salvo. */
+  const pedidoSoTexto = {
+    model: MODEL, max_tokens: 500, temperature: 0.7, system, tools: [SAVE_TOOL], messages,
+  };
 
   try {
     // Loop de tool use: a Cady pode salvar 1+ itens antes de responder em texto.
@@ -398,6 +383,7 @@ export async function POST(request) {
       });
       usageIn += resp.usage?.input_tokens || 0;
       usageOut += resp.usage?.output_tokens || 0;
+      falas.push(textoDe(resp));
 
       const toolUses = (resp.content || []).filter((b) => b.type === 'tool_use');
       if (resp.stop_reason === 'tool_use' && toolUses.length) {
@@ -423,14 +409,20 @@ export async function POST(request) {
         continue;
       }
 
-      logChat();
-      return NextResponse.json({ reply: await comTexto(textoDe(resp), system, convo), saved });
+      /* Fim do turno: end_turn, e também max_tokens. No max_tokens pode vir um
+         tool_use pela metade, com o input truncado — esse NÃO roda (salvaria
+         um termo cortado na Revisão). Mas o texto que veio antes dele já está
+         em `falas`: a Cady escreve a resposta e só depois chama a ferramenta,
+         então é o tool_use que fica cortado, não a fala. */
+      break;
     }
 
-    /* Quatro rodadas e nenhuma virou texto: o modelo ficou preso chamando a
-       ferramenta. Mesmo remédio — uma última ida SEM ferramenta. */
+    /* Uma saída só, pros dois jeitos de sair do loop: o fim normal (break) e as
+       quatro rodadas seguidas de ferramenta. Nos dois, vale o que a Cady já
+       escreveu em qualquer rodada; a segunda tentativa só entra se não houver
+       texto nenhum — e, sem poder chamar ferramenta, ela não fica presa de novo. */
     logChat();
-    return NextResponse.json({ reply: await comTexto('', system, convo), saved });
+    return NextResponse.json({ reply: await comTexto(juntarTextos(falas), pedidoSoTexto, client), saved });
   } catch (err) {
     console.error('chat error:', err);
     return NextResponse.json({ error: 'chat_failed' }, { status: 500 });
