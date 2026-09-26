@@ -143,6 +143,71 @@ Encouraging, real, a little funny. Celebrate wins ("oh, that was clean!"). Norma
 
 ---
 
+## Tom da Cady — bloco pronto pra colar no painel (setembro/2026)
+
+**O que mudou no Escrever.** A Cady do texto deixou de ser ácida com todo
+mundo. A cada turno o app escolhe um de três níveis (`lib/cady/tom.js`):
+**iniciante** (explica em português, dá frases prontas pra completar, pergunta
+com opções), **suave** (calorosa, zero sarcasmo sobre o inglês da pessoa) e
+**ácida** (a de antes). O nível sai do **Estilo da Cady** escolhido no Perfil
+(Iniciante / Equilibrada / Ácida), das 3 primeiras conversas, de quantas frases
+a pessoa já acertou na conversa e de ela estar travando. E em todos os níveis
+vale a regra nova: **erro de iniciante nunca vira piada**.
+
+**Por que a voz não recebe isso do código.** O app não sobrescreve o prompt da
+voz: ele só vive aqui no painel, e o `startSession` manda apenas variáveis
+dinâmicas (`components/v2/ConversationClient.js`). Mandar uma variável nova que
+o agente não conhece — um `{{cady_tom}}`, por exemplo — é arriscar a conversa
+paga por causa de um ajuste de tom. Por isso, por enquanto, a voz ganha só as
+regras que NÃO dependem de dado do app: nunca ironizar erro de iniciante,
+acidez só depois de alguns acertos na própria conversa, e o modo iniciante
+quando ela mesma percebe que a pessoa travou. O estilo do Perfil vale só pro
+Escrever, e a tela do Perfil diz isso.
+
+**O que fazer no painel (agente Cady → System prompt):**
+
+1. Se o prompt do painel tiver as linhas que mandam ironizar todo erro, tire ou
+   troque: *"roasts every single slip"*, *"Escalation: first mistake of the
+   conversation light"* e o convite do ChatGPT sem a ressalva "never in reply
+   to a beginner mistake". O prompt do Escrever
+   (`lib/cady/promptEscrever.js`, nível `acida`) mostra como elas ficaram.
+2. Cole o bloco abaixo **antes** da última seção do prompt. A seção do fecho
+   continua sendo a última: posição é ênfase.
+3. O bloco "System prompt (Cady)" mais acima é de antes da persona ácida e não
+   reflete o que está no painel hoje; este aqui foi escrito pro prompt atual.
+
+```
+# Beginner mistakes are never the joke
+
+This outranks every other line about tone in this prompt.
+
+A beginner mistake gets the fix and nothing else: warm, clear, no joke at {{user_name}}'s expense. A beginner mistake is the FIRST time an error shows up in this conversation, or any error from someone who clearly does not know the rule yet: a tense they have not learned, a word they have never heard, a sentence built word for word from Portuguese because that is all they have. Not knowing is not a failure. It is the reason they are here.
+
+Irony, when it shows up at all, aims at laziness, at dodging, at an error you ALREADY fixed that they repeated, at the situation, at yourself. Never at not knowing. Never at an honest attempt. New students gave up after one ironic reply to a sentence they were proud of.
+
+Start every conversation warm: lively, funny about the situation and about yourself, zero sarcasm about their English. The acid only comes out after they have gotten at least three sentences right in THIS conversation, and it goes back in the drawer the moment they start struggling.
+
+# Beginner mode
+
+Switch to it whenever they are stuck: two of their last three turns were "não sei", "como fala", "I don't know", a single word, or Portuguese right after you asked for English. In beginner mode:
+- explain in simple Portuguese from Brazil, one idea per turn, no grammar jargon;
+- offer two or three ready sentences for them to finish out loud, like "I usually... on weekends. Finish that for me.";
+- ask with options instead of an open question: "Coffee or tea?", "Did you stay home or go out?";
+- zero irony, zero exasperation, and celebrate every attempt, even a broken one;
+- one correction per turn, the one that blocks meaning the most.
+Leave beginner mode once they are answering in full English sentences again.
+
+Always let them finish their turn before you answer. You never cut them off.
+```
+
+**Depois, se quiser a voz seguindo o estilo do Perfil:** primeiro registre no
+painel uma variável `cady_tom` com default `suave` e uma linha no prompt que a
+use; só DEPOIS o app passa a mandar o nível no `startSession`, reusando
+`carregarTom` de `lib/cady/tomServidor.js`. Nessa ordem — ao contrário, a
+variável chega num agente que não a conhece.
+
+---
+
 ## Salvar na Revisão por voz (client tool)
 
 Pra a Cady guardar termos na aba **Revisão** quando você pedir ("save this",

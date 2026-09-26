@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight, Brain, KeyRound } from 'lucide-react';
+import { Target, Palette, Send, ShieldCheck, LogOut, ChevronRight, Brain, KeyRound, Smile, Check } from 'lucide-react';
 import { createClient } from '../../lib/supabase/client';
 import { APP_VERSION } from '../../lib/version';
 import { usePreferenceSave } from '../../lib/usePreferenceSave';
@@ -21,7 +21,8 @@ import { Toast } from './Toast';
 // profundidade), o grupo "Fala e áudio" (sotaque/velocidade do TTS do
 // navegador, que o agente do ElevenLabs substituiu) e o lembrete diário (que
 // só persistia, sem disparar nada) saíram. A configuração de persona e estilo
-// de feedback volta na Fase 1, aí de verdade plugada no agente.
+// de feedback volta na Fase 1, aí de verdade plugada no agente. O primeiro a
+// voltar é o "Estilo da Cady", plugado no Escrever (a voz ainda não o lê).
 
 function RowIcon({ Icon }) {
   return (
@@ -60,7 +61,23 @@ function Group({ title, children }) {
 
 const WEEKLY_LABEL = (n) => `${n} dias/sem`;
 
-export function AjustesClient({ profile, email, game, hasPassword = false }) {
+/* O ESTILO DA CADY — o que cada opção faz, dito sem prometer mais do que faz.
+
+   A regra por trás de cada uma está em lib/cady/tom.js. Três cuidados no
+   texto:
+   - vale SÓ pro Escrever. O prompt da voz vive no painel do ElevenLabs e não
+     recebe esta escolha; dizer "a Cady" sem qualificar prometeria a voz junto;
+   - a Ácida não é "sem freio": erro de quem está começando continua recebendo
+     só a correção, e quem trava recebe ajuda, em qualquer estilo;
+   - a Equilibrada é o padrão, e é a que suaviza as primeiras conversas. */
+const ESTILOS_DA_CADY = [
+  { value: 'iniciante', label: 'Iniciante', explica: 'Explica em português, te dá frases prontas pra completar e pergunta com opções.' },
+  { value: 'equilibrada', label: 'Equilibrada', explica: 'Gentil nas primeiras conversas e quando você trava. A ironia só entra depois que você acerta algumas frases.' },
+  { value: 'acida', label: 'Ácida', explica: 'Ironia desde a primeira mensagem. Mesmo assim, erro de iniciante recebe só a correção.' },
+];
+const ROTULO_ESTILO = (v) => ESTILOS_DA_CADY.find((e) => e.value === v)?.label || 'Equilibrada';
+
+export function AjustesClient({ profile, email, game, hasPassword = false, cadyEstilo = null }) {
   const router = useRouter();
   /* O MESMO DIÁLOGO DO MOBILE, AGORA TAMBÉM AQUI.
 
@@ -86,8 +103,9 @@ export function AjustesClient({ profile, email, game, hasPassword = false }) {
   const [state, setState] = useState({
     weeklyCadence: profile?.weekly_cadence_target || 5,
     themePref: profile?.theme === 'dark' ? 'dark' : 'light',
+    cadyEstilo: cadyEstilo || 'equilibrada',
   });
-  const [sheet, setSheet] = useState(null); // 'weekly' | null
+  const [sheet, setSheet] = useState(null); // 'weekly' | 'estilo' | null
   const [signingOut, setSigningOut] = useState(false);
   const [showMemories, setShowMemories] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -97,6 +115,13 @@ export function AjustesClient({ profile, email, game, hasPassword = false }) {
   const setWeekly = async (value) => {
     setState((prev) => ({ ...prev, weeklyCadence: value }));
     await save({ weeklyCadence: value });
+  };
+
+  // Fecha a folha na hora: a escolha é uma só, e o toast confirma o salvamento.
+  const escolherEstilo = async (value) => {
+    setState((prev) => ({ ...prev, cadyEstilo: value }));
+    setSheet(null);
+    await save({ cadyEstilo: value });
   };
 
   const changeTheme = async (value) => {
@@ -193,6 +218,12 @@ export function AjustesClient({ profile, email, game, hasPassword = false }) {
 
       {/* Personalização */}
       <Group title="Personalização">
+        {/* `cadyEstilo` null = a coluna ainda não existe (migration 0040 não
+            rodou). Aí a linha não aparece: uma opção que não salva é pior que
+            opção nenhuma. */}
+        {cadyEstilo && (
+          <Row icon={Smile} label="Estilo da Cady" valueLabel={ROTULO_ESTILO(state.cadyEstilo)} onClick={() => setSheet('estilo')} />
+        )}
         <Row icon={Brain} label="Suas memórias" onClick={() => setShowMemories(true)} />
       </Group>
 
@@ -243,6 +274,38 @@ export function AjustesClient({ profile, email, game, hasPassword = false }) {
           </button>
         </div>
         <p style={{ textAlign: 'center', marginTop: 10, fontSize: 13, color: 'var(--ink-soft)' }}>dias por semana</p>
+      </BottomSheet>
+
+      <BottomSheet open={sheet === 'estilo'} onClose={() => setSheet(null)} title="Estilo da Cady">
+        <div role="radiogroup" aria-label="Estilo da Cady" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {ESTILOS_DA_CADY.map((op) => {
+            const ativo = state.cadyEstilo === op.value;
+            return (
+              <button
+                key={op.value}
+                type="button"
+                role="radio"
+                aria-checked={ativo}
+                onClick={() => escolherEstilo(op.value)}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', textAlign: 'left', cursor: 'pointer',
+                  padding: '12px 14px', borderRadius: 14, font: 'inherit', color: 'var(--v2-card-fg)',
+                  border: ativo ? '1.5px solid var(--green)' : '1px solid var(--line)',
+                  background: ativo ? 'var(--green-soft)' : 'none',
+                }}
+              >
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <strong style={{ display: 'block', fontSize: 14.5 }}>
+                    {op.label}{op.value === 'equilibrada' ? ' (padrão)' : ''}
+                  </strong>
+                  <span style={{ display: 'block', marginTop: 3, fontSize: 12.5, lineHeight: 1.45, color: 'var(--ink-soft)' }}>{op.explica}</span>
+                </span>
+                {ativo && <Check size={18} strokeWidth={2.2} color="var(--green-dark, var(--green))" style={{ flexShrink: 0, marginTop: 2 }} />}
+              </button>
+            );
+          })}
+        </div>
+        <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--ink-soft)', textAlign: 'center' }}>Vale para as conversas no Escrever.</p>
       </BottomSheet>
 
       <MemoriesDialog open={showMemories} onClose={() => setShowMemories(false)} />
