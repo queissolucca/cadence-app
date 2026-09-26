@@ -292,31 +292,80 @@ describe('o teto de 500 caracteres na caixa', () => {
 
 describe('o fallback do servidor quando a resposta vem sem texto', () => {
   const ROTA = lerFonte('app/api/chat/route.js');
+  /* A lógica de juntar as rodadas e a segunda tentativa saíram da rota pra
+     lib/respostaEscrever.js, pra poderem ser testadas rodando (ver
+     tests/respostaEscrever.test.js e tests/respostaEscreverRota.test.js).
+     Aqui fica só o que precisa ser afirmado sobre o texto da fonte. */
+  const RESPOSTA = lerFonte('lib/respostaEscrever.js');
 
   /* A frase que o usuário via repetida não era do modelo: era
      `reply: text || "Go on — tell me more!"`. Quando o turno terminava sem
      bloco de texto — tipicamente o modelo gastando os tokens na chamada do
      save_to_review —, o servidor entregava esse bordão. Sempre idêntico,
-     porque foi escrito à mão uma vez. */
+     porque foi escrito à mão uma vez.
+
+     A que veio depois ("me perdi ... say it in English this time") repetiu a
+     história por outro caminho, e ainda acusava de não escrever em inglês quem
+     muitas vezes tinha escrito. Nenhuma das três pode voltar. */
   it('as frases fixas antigas não existem mais', () => {
-    expect(ROTA).not.toContain('Go on — tell me more!');
-    expect(ROTA).not.toContain("Let's keep going — what's on your mind?");
+    for (const fonte of [ROTA, RESPOSTA]) {
+      expect(fonte).not.toContain('Go on — tell me more!');
+      expect(fonte).not.toContain("Let's keep going — what's on your mind?");
+      expect(fonte).not.toMatch(/me perdi/i);
+      expect(fonte).not.toMatch(/in English this time/i);
+    }
   });
 
-  it('pergunta de novo em vez de inventar a resposta', () => {
-    expect(ROTA).toMatch(/async function comTexto\(/);
-    expect(ROTA, 'os dois retornos passam pelo reparo').toMatch(/reply: await comTexto\(textoDe\(resp\)/);
-    expect(ROTA).toMatch(/reply: await comTexto\(''/);
+  it('a bolha é a soma das rodadas, e só pergunta de novo se não houver texto nenhum', () => {
+    expect(ROTA).toMatch(/import \{[^}]*comTexto[^}]*\} from '\.\.\/\.\.\/\.\.\/lib\/respostaEscrever'/);
+    /* O bug morava aqui: a rota lia `textoDe(resp)` só da ÚLTIMA resposta, e a
+       última, depois do tool_result, costuma vir vazia — o texto estava na
+       rodada anterior, junto do tool_use. */
+    expect(ROTA, 'o texto de toda rodada entra, inclusive a que chamou ferramenta').toMatch(/falas\.push\(textoDe\(resp\)\)/);
+    expect(ROTA).toMatch(/reply: await comTexto\(juntarTextos\(falas\)/);
+    // Uma saída só. Com duas, uma delas pode voltar a esquecer as rodadas.
+    expect(ROTA.match(/reply: await comTexto\(/g)).toHaveLength(1);
   });
 
-  it('a segunda tentativa vai SEM ferramenta — é o que garante texto', () => {
-    /* Com `tools` disponível, a segunda ida pode voltar em tool_use de novo e
-       o problema se repete. Sem ferramenta, não existe resposta que não seja
-       texto. */
-    const i = ROTA.indexOf('async function comTexto(');
-    const corpo = ROTA.slice(i, ROTA.indexOf('\n}', i));
-    expect(corpo).toMatch(/client\.messages\.create/);
-    expect(corpo, 'passar tools aqui reabriria o buraco').not.toMatch(/tools:/);
+  it('a segunda tentativa é uma requisição VÁLIDA: mantém as ferramentas e trava com tool_choice none', () => {
+    /* A versão anterior deste teste exigia o OPOSTO — "a segunda tentativa vai
+       SEM ferramenta" — e era ela que travava o bug no lugar. A segunda ida
+       mandava o convo com os blocos tool_use/tool_result da rodada anterior, e
+       a API recusa isso com 400 quando `tools` não vem definido ("Requests
+       which include tool_use or tool_result blocks must define tools"). O catch
+       engolia o 400 em silêncio, e a pessoa via a frase de reserva.
+
+       O jeito certo de "não deixar chamar ferramenta" é tool_choice 'none' com
+       as ferramentas definidas. E a conversa vai limpa (`messages`, não
+       `convo`): o motivo está no comentário do pedidoSoTexto na rota. */
+    const i = ROTA.indexOf('const pedidoSoTexto = {');
+    expect(i, 'o pedido da segunda tentativa precisa existir').toBeGreaterThan(-1);
+    const pedido = ROTA.slice(i, ROTA.indexOf('};', i));
+    expect(pedido, 'sem tools, qualquer bloco de ferramenta na conversa vira 400').toMatch(/tools: \[SAVE_TOOL\]/);
+    expect(pedido).toMatch(/\bmessages,/);
+    expect(pedido, 'o convo carrega a Cady que "já encerrou o turno"').not.toMatch(/convo/);
+    expect(RESPOSTA).toMatch(/tool_choice: \{ type: 'none' \}/);
+  });
+
+  it('o erro da segunda tentativa vai pro log, não some', () => {
+    const i = RESPOSTA.indexOf('export async function comTexto(');
+    const corpo = RESPOSTA.slice(i, RESPOSTA.indexOf('\n}', i));
+    expect(corpo).toMatch(/catch \(err\)/);
+    expect(corpo).toMatch(/console\.error\(/);
+  });
+
+  it('se a API cai no meio do loop, o texto que a Cady já escreveu não vira 500', () => {
+    /* O catch de fora respondia `chat_failed` direto, mesmo com a correção já
+       em `falas` e o card já na Revisão. Agora ele entrega o que tem e só cai
+       no 500 quando não há fala nenhuma. O comportamento roda de verdade em
+       tests/respostaEscreverRota.test.js; aqui trava a forma. */
+    const i = ROTA.indexOf("console.error('chat error:', err);");
+    expect(i, 'o erro continua indo pro log').toBeGreaterThan(-1);
+    const resto = ROTA.slice(i);
+    const usaFalas = resto.indexOf('juntarTextos(falas)');
+    const erro500 = resto.indexOf("{ error: 'chat_failed' }");
+    expect(usaFalas, 'o catch olha as rodadas antes de desistir').toBeGreaterThan(-1);
+    expect(usaFalas).toBeLessThan(erro500);
   });
 
   it('o teto de tokens deixou de ser apertado', () => {
