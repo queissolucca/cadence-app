@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { BottomSheet } from './BottomSheet';
-import { NICHOS, NICHO_OUTROS, soDigitos, formatarNumero, validarCreator } from '../../lib/creators';
+import { NICHOS, NICHO_OUTROS, SEGUIDORES, soDigitos, formatarNumero, validarCreator } from '../../lib/creators';
 
 // Diálogo "Para Creators" da aba Perfil: e-mail, telefone (DDD separado, só
-// números), @ do Instagram e nicho(s). Tudo obrigatório — as regras vivem em
-// lib/creators.js e o servidor confere de novo em /api/creators.
+// números), @ do Instagram, faixa de seguidores e nicho(s). Tudo obrigatório —
+// as regras vivem em lib/creators.js e o servidor confere de novo em
+// /api/creators.
 
 const labelStyle = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: 'var(--ink-soft)' };
 const inputStyle = {
@@ -17,7 +18,17 @@ const errStyle = { margin: 0, fontSize: 12, color: 'var(--red)' };
 
 const inputComErro = (erro) => (erro ? { ...inputStyle, border: '1px solid var(--red)' } : inputStyle);
 
-const VAZIO = { email: '', ddd: '', telefone: '', instagram: '', nichos: [], outro: '' };
+// Pílula das escolhas (faixa de seguidores e nichos). Borda vermelha só no
+// grupo com erro e só enquanto nada foi marcado.
+const chipStyle = (on, erro = false) => ({
+  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 999,
+  border: `1px solid ${on ? 'var(--green-dark)' : erro ? 'var(--red)' : 'var(--line)'}`,
+  background: on ? 'var(--green-soft)' : 'transparent',
+  color: on ? 'var(--green-dark)' : 'var(--v2-card-fg, var(--ink))',
+  fontSize: 13, fontWeight: on ? 600 : 400, cursor: 'pointer',
+});
+
+const VAZIO = { email: '', ddd: '', telefone: '', instagram: '', seguidores: '', nichos: [], outro: '' };
 
 export function CreatorsDialog({ open, onClose, email = '' }) {
   const [form, setForm] = useState({ ...VAZIO, email });
@@ -139,22 +150,36 @@ export function CreatorsDialog({ open, onClose, email = '' }) {
             {mostra.instagram && <p style={errStyle}>{mostra.instagram}</p>}
           </label>
 
+          <div role="radiogroup" aria-label="Quantos seguidores você tem?" style={labelStyle}>
+            Quantos seguidores você tem?
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+              {SEGUIDORES.map((faixa) => {
+                const on = form.seguidores === faixa;
+                return (
+                  <label key={faixa} style={chipStyle(on, mostra.seguidores)}>
+                    <input
+                      type="radio"
+                      name="seguidores"
+                      value={faixa}
+                      checked={on}
+                      onChange={() => set('seguidores', faixa)}
+                      style={{ margin: 0, accentColor: 'var(--green-dark)' }}
+                    />
+                    {faixa}
+                  </label>
+                );
+              })}
+            </div>
+            {mostra.seguidores && <p style={errStyle}>{mostra.seguidores}</p>}
+          </div>
+
           <div style={labelStyle}>
             Qual é o seu nicho hoje? (pode marcar mais de um)
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
               {[...NICHOS, NICHO_OUTROS].map((n) => {
                 const on = form.nichos.includes(n);
                 return (
-                  <label
-                    key={n}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 999,
-                      border: `1px solid ${on ? 'var(--green-dark)' : 'var(--line)'}`,
-                      background: on ? 'var(--green-soft)' : 'transparent',
-                      color: on ? 'var(--green-dark)' : 'var(--v2-card-fg, var(--ink))',
-                      fontSize: 13, fontWeight: on ? 600 : 400, cursor: 'pointer',
-                    }}
-                  >
+                  <label key={n} style={chipStyle(on)}>
                     <input type="checkbox" checked={on} onChange={() => toggleNicho(n)} style={{ margin: 0, accentColor: 'var(--green-dark)' }} />
                     {n}
                   </label>

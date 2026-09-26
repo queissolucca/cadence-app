@@ -24,7 +24,7 @@ async function emailOwner(c) {
 
 function resumo(c) {
   const nichos = c.nichos.map((n) => (n === NICHO_OUTROS ? `Outros: ${c.nicho_outro}` : n)).join(', ');
-  return `[Para Creators]\nE-mail: ${c.email}\nTelefone: (${c.ddd}) ${c.telefone}\nInstagram: ${c.instagram}\nNichos: ${nichos}`;
+  return `[Para Creators]\nE-mail: ${c.email}\nTelefone: (${c.ddd}) ${c.telefone}\nInstagram: ${c.instagram}\nSeguidores: ${c.seguidores}\nNichos: ${nichos}`;
 }
 
 export async function POST(request) {
@@ -46,8 +46,9 @@ export async function POST(request) {
 
   const c = limparCreator(body);
 
-  // Sem a migration 0039 a tabela creators não existe: aí o pedido cai na
-  // tabela feedback (que já existe) como texto, pra nada se perder.
+  // Sem a migration 0039 a tabela creators não existe (ou, sem a 0041, a
+  // coluna seguidores): aí o pedido cai na tabela feedback (que já existe)
+  // como texto, com tudo dentro, pra nada se perder.
   const { error } = await supabase.from('creators').insert({ user_id: user.id, ...c });
   if (error) {
     const fallback = await supabase.from('feedback').insert({ user_id: user.id, message: resumo(c) });
