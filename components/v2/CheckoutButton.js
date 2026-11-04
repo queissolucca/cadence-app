@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 // Botão que cria o checkout no servidor e redireciona pra página hospedada do
-// AbacatePay. Nunca manda preço nem id de produto — só o planId.
+// Asaas. Nunca manda preço nem id de produto — só o planId.
 export function CheckoutButton({ planId, label = 'assinar com cartão ou pix', style }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');

@@ -793,3 +793,27 @@ html[data-conversa="ativa"] .v2-tabbar { backdrop-filter: none; background: var(
 :root.dark .pg-plano-alvo{border-color:#3E9B5F;background:rgba(62,155,95,.12)}
 :root.dark .pg-selo{background:#3E9B5F;color:#08160e}
 :root.dark .pg-plano-preco i,:root.dark .pg-plano-cta{color:#7fd3a0}
+
+/* ---- PIX AUTOMÁTICO, DENTRO DO POPUP ----
+   CPF → QR Code → "esperando". 16px no campo: abaixo disso o Safari do iPhone
+   dá zoom na página ao focar, e o popup sai do enquadramento. */
+.pg-campo{
+  width:100%;box-sizing:border-box;padding:14px 16px;border-radius:14px;
+  border:1.5px solid var(--line,#e7e7de);background:transparent;color:inherit;
+  font-family:var(--font-mono-v2,monospace);font-size:16px;letter-spacing:.04em;
+}
+.pg-campo:focus{outline:none;border-color:#205C39}
+/* O QR em fundo branco SEMPRE, inclusive no tema escuro: leitor de QR de app
+   de banco erra com código claro sobre escuro. */
+.pg-qr{display:grid;place-items:center;margin:0 0 14px;padding:12px;border-radius:16px;background:#fff}
+.pg-qr img{width:min(220px,100%);height:auto;image-rendering:pixelated}
+.pg-espera{
+  display:flex;align-items:center;justify-content:center;gap:8px;margin:12px 0 0;
+  font-size:12px;color:var(--ink-soft,#6b6b63);text-align:center;
+}
+.pg-pulso{width:8px;height:8px;border-radius:50%;background:#3E9B5F;flex-shrink:0;animation:pg-pulsa 1.4s ease-in-out infinite}
+@keyframes pg-pulsa{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.pg-pulso{animation:none}}
+
+:root.dark .pg-campo{border-color:#2c312c}
+:root.dark .pg-campo:focus{border-color:#3E9B5F}

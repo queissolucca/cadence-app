@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PLANS, getPlan, centavosPorDia } from '../lib/plans.js';
+import { PLANS, getPlan, centavosPorDia, planoVendavel } from '../lib/plans.js';
 import { validadeEmDias } from '../lib/payments.js';
 import { lerFonte as ler } from './fonte.js';
 
@@ -93,16 +93,27 @@ describe('o popup não tem a sua própria tabela de preços', () => {
     expect(pop, 'preço escrito à mão no popup').not.toMatch(/R\$\s*89,90/);
   });
 
-  it('oferece os dois planos', () => {
-    expect(pop).toContain("'pro-semanal'");
+  /* O SEMANAL SAIU DA VITRINE na troca pro Asaas (2026-11): o mensal, que
+     renova sozinho, ocupou o lugar de porta de entrada. O plano continua em
+     plans.js por causa dos pedidos antigos — mas não se vende. */
+  it('oferece o trimestral e o mensal, e não mais o semanal', () => {
     expect(pop).toContain("'pro-trimestral'");
+    expect(pop).toContain("'pro-mensal'");
+    expect(pop).not.toContain("'pro-semanal'");
   });
 
   it('o trimestral vem primeiro', () => {
     /* Num popup, a primeira opção carrega o peso de "recomendada". Enterrar a
        que se quer vender embaixo da mais barata é ler contra a corrente — e
        supõe que a pessoa compare as duas antes de decidir. */
-    expect(pop.indexOf("'pro-trimestral'")).toBeLessThan(pop.indexOf("'pro-semanal'"));
+    expect(pop.indexOf("'pro-trimestral'")).toBeLessThan(pop.indexOf("'pro-mensal'"));
+  });
+
+  it('o semanal não se compra nem mandando o id direto no POST', () => {
+    expect(planoVendavel('pro-semanal')).toBe(false);
+    expect(planoVendavel('pro-trimestral')).toBe(true);
+    expect(planoVendavel('pro-mensal')).toBe(true);
+    expect(ler('app/api/checkout/route.js')).toContain('planoVendavel(planId)');
   });
 
   it('o quadrante inteiro é clicável, não só um botãozinho', () => {
@@ -112,7 +123,7 @@ describe('o popup não tem a sua própria tabela de preços', () => {
     expect(pop).toMatch(/onClick=\{\(\) => pagar\(pl\.id\)\}/);
   });
 
-  it('sabe dizer quando um plano ainda não existe no AbacatePay', () => {
+  it('sabe dizer quando o pagamento ainda não está configurado', () => {
     /* `plan_not_configured` tem causa e conserto conhecidos. Dizer "tenta de
        novo" aí manda a pessoa repetir uma ação que nunca vai funcionar. */
     expect(pop).toContain('plan_not_configured');

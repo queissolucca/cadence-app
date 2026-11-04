@@ -1,22 +1,21 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../lib/supabase/server';
 import { createAdminClient } from '../../../lib/supabase/admin';
-import { getPlan } from '../../../lib/plans';
-import { createCheckout } from '../../../lib/abacatepay';
-import { corpoCheckout, maxInstallmentsFor, metodoRecusado } from '../../../lib/payments';
+import { getPlan, planoVendavel } from '../../../lib/plans';
+import { criarCheckout, linkDoCheckout } from '../../../lib/asaas';
+import { corpoCheckoutAsaas } from '../../../lib/asaasPedido';
+import { baseUrl, sandboxEmProducao, gravarPedido } from '../../../lib/asaasCheckout';
 
 export const dynamic = 'force-dynamic';
 
-// Base pública da app (returnUrl/completionUrl). Nunca hardcoded: vem de env
-// (funciona em prod, preview e local); fallback pra origin da própria request.
-function baseUrl(request) {
-  const env = process.env.NEXT_PUBLIC_APP_URL;
-  if (env) return env.replace(/\/+$/, '');
-  return request.nextUrl.origin;
-}
-
-// POST /api/checkout — cria um checkout hospedado no AbacatePay e devolve { url }.
-// O cliente manda SÓ { planId }. Preço e prod_... nunca vêm do cliente.
+// POST /api/checkout — cria um checkout hospedado no Asaas e devolve { url }.
+// O cliente manda SÓ { planId }. Preço e forma de cobrança nunca vêm do cliente.
+//
+//   pro-trimestral → pagamento único, Pix ou cartão (até 8x)
+//   pro-mensal     → assinatura no CARTÃO (renova todo mês)
+//
+// O mensal no Pix é outro fluxo — Pix Automático, com QR Code na nossa tela —
+// e mora em /api/checkout/pix-automatico.
 export async function POST(request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -25,113 +24,75 @@ export async function POST(request) {
   let body = {};
   try { body = await request.json(); } catch { /* body vazio ok */ }
 
-  const plan = getPlan(body?.planId);
-  if (!plan) return NextResponse.json({ error: 'invalid_plan' }, { status: 400 });
-  if (!plan.prodId) {
-    // Produto ainda não criado no AbacatePay / env não configurada.
-    console.error('[checkout] produto não configurado — rode scripts/abacate-setup-products.mjs e defina ABACATEPAY_PROD_*');
+  const planId = body?.planId;
+  const plan = getPlan(planId);
+  // `planoVendavel`: o semanal ainda está no mapa (pedidos antigos), mas não
+  // se compra mais. Sem esta checagem bastaria mandar o id dele no POST.
+  if (!plan || !planoVendavel(planId)) return NextResponse.json({ error: 'invalid_plan' }, { status: 400 });
+
+  if (!process.env.ASAAS_API_KEY) {
+    console.error('[checkout] ASAAS_API_KEY não configurada na Vercel');
+    return NextResponse.json({ error: 'plan_not_configured' }, { status: 500 });
+  }
+  if (sandboxEmProducao()) {
+    console.error('[checkout] chave de SANDBOX em produção — ninguém pagaria de verdade. Recusado.');
     return NextResponse.json({ error: 'plan_not_configured' }, { status: 500 });
   }
 
   const admin = createAdminClient();
 
-  // Registra a intenção de pagamento ANTES de redirecionar (best-effort: se a
-  // tabela orders não existir ainda, não bloqueia o pagamento).
-  let orderId = null;
-  try {
-    const { data: order, error } = await admin
-      .from('orders')
-      .insert({
-        user_id: user.id,
-        email: user.email,
-        plan: body.planId,
-        amount: plan.price / 100,
-        currency: plan.currency,
-        provider: 'abacatepay',
-        status: 'pending',
-      })
-      .select('id')
-      .single();
-    if (!error) orderId = order?.id || null;
-  } catch (e) {
-    console.error('[checkout] falha ao gravar order (segue mesmo assim):', e?.message);
+  // A intenção de pagamento é gravada ANTES de abrir o checkout: é o id dela
+  // que volta em cada cobrança e diz ao webhook de quem é o pagamento.
+  const orderId = await gravarPedido(admin, {
+    user, planId, plan, metodo: plan.cycle ? 'cartao' : null,
+  });
+  if (!orderId) {
+    /* Diferente do AbacatePay, aqui o pedido NÃO é opcional. Sem ele, a
+       cobrança do mês 2 de uma assinatura não tem como achar o dono — o
+       checkout do Asaas deixa o pagador digitar outro e-mail. Melhor não
+       vender do que vender sem saber pra quem. */
+    return NextResponse.json({ error: 'checkout_failed' }, { status: 502 });
   }
 
-  const base = baseUrl(request);
-  const externalId = orderId || `cad_${user.id}_${Date.now()}`;
+  let nome = null;
+  try {
+    const { data } = await admin.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+    nome = data?.full_name || null;
+  } catch { /* só pré-preenchimento */ }
 
-  // SÓ PIX, por decisão de produto — e a loja também não tem cartão habilitado.
-  // A tela promete "pague via pix", então o pedido tem que combinar com ela.
-  const METODOS = ['PIX'];
-
-  // Assinatura (cycle) cobra 1x por ciclo — sem parcelamento; compra avulsa
-  // parcela dinamicamente respeitando o mínimo de R$ 10 por parcela.
-  const installments = plan.cycle ? 1 : maxInstallmentsFor(plan.price);
-
-  const buildBody = (methods) => corpoCheckout({
-    prodId: plan.prodId,
-    methods,
-    installments,
-    externalId,
-    baseUrl: base,
-    /* ATENÇÃO: o AbacatePay NÃO devolve este metadata no webhook. Ele serve
-       só pro painel/conferência. Quem amarra o pagamento ao usuário é o
-       externalId (= orders.id) e o bill_id que gravamos logo abaixo — é por
-       eles que o webhook descobre de quem é o pagamento. */
-    metadata: { userId: user.id, email: user.email, plan: body.planId },
+  const montar = (cliente) => corpoCheckoutAsaas({
+    plan, planId, orderId, baseUrl: baseUrl(request), cliente,
   });
 
-  // Diagnóstico: mostra QUAL produto/ciclo este deploy está usando.
-  console.log('[checkout] criando', { plan: body.planId, prod: plan.prodId, cycle: plan.cycle, metodos: METODOS });
-
-  /* O AbacatePay recusa o checkout inteiro se QUALQUER método pedido estiver
-     desabilitado na loja, com um 400 do tipo "CARD is not available for this
-     store". A versão anterior só tratava o caso do PIX faltando — e, pior,
-     reagia caindo pra CARD. Quando o erro era justamente sobre CARD (que é o
-     caso desta conta), não havia fallback nenhum e o botão morria em 502.
-
-     Agora a recuperação segue o que o erro DIZ: tira do pedido o método que a
-     loja não tem e tenta com o resto. PIX vem primeiro na lista porque é o que
-     a tela promete ("pague via pix") e o que toda conta AbacatePay tem. */
-  async function criarComFallback() {
-    let metodos = [...METODOS];
-    const removidos = [];
-    for (let tentativa = 0; tentativa < METODOS.length; tentativa++) {
-      try {
-        return await createCheckout(buildBody(metodos));
-      } catch (e) {
-        const msg = String(e?.apiError || e?.message || '');
-        // "<METODO> is not available for this store" — pega o método pelo nome
-        // que veio na mensagem, em vez de adivinhar qual era.
-        const culpado = metodoRecusado(msg, metodos);
-        if (!culpado) throw e;
-        removidos.push(culpado);
-        metodos = metodos.filter((m) => m !== culpado);
-        console.warn(`[checkout] ${culpado} indisponível nesta loja; tentando com [${metodos.join(', ')}]`);
-        if (!metodos.length) {
-          throw new Error(`nenhum método de pagamento habilitado na loja (recusados: ${removidos.join(', ')})`);
-        }
+  try {
+    let checkout;
+    try {
+      checkout = await criarCheckout(montar({ nome, email: user.email }));
+    } catch (e) {
+      /* O pré-preenchimento é cortesia. Se o Asaas recusar os dados do cliente
+         (ex.: exigir CPF junto do nome), tenta sem eles — o checkout pergunta.
+         Qualquer outro 400 sobe: mascarar com retentativa esconderia o erro. */
+      if (e?.status === 400 && /customer|cliente|cpf|cnpj|name|nome|e-?mail/i.test(String(e?.message))) {
+        console.warn('[checkout] Asaas recusou o pré-preenchimento; tentando sem:', e.message);
+        checkout = await criarCheckout(montar(null));
+      } else {
+        throw e;
       }
     }
-    throw new Error('não consegui criar o checkout com nenhum método');
-  }
 
-  try {
-    const checkout = await criarComFallback();
+    const url = linkDoCheckout(checkout);
+    if (!url) throw new Error('Asaas não devolveu id nem link do checkout');
 
-    if (orderId && checkout?.id) {
-      try {
-        await admin
-          .from('orders')
-          .update({ bill_id: checkout.id, checkout_url: checkout.url, updated_at: new Date().toISOString() })
-          .eq('id', orderId);
-      } catch { /* best-effort */ }
-    }
+    try {
+      await admin.from('orders')
+        .update({ bill_id: checkout.id, checkout_url: url, updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+    } catch { /* best-effort: o externalReference também amarra */ }
 
-    return NextResponse.json({ url: checkout.url });
+    return NextResponse.json({ url });
   } catch (e) {
     // Log detalhado no servidor; mensagem genérica pro cliente (nada de secret).
-    console.error('[checkout] erro no AbacatePay:', e?.message, e?.apiError);
+    console.error('[checkout] erro no Asaas:', e?.status, e?.message, JSON.stringify(e?.erros || []));
     return NextResponse.json({ error: 'checkout_failed' }, { status: 502 });
   }
 }

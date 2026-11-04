@@ -19,6 +19,9 @@ import { Toast } from './Toast';
 // aquela linha que toda linha nova do Perfil edita, e duas edições nela ao
 // mesmo tempo viram conflito de merge.
 import { Smile, Check } from 'lucide-react';
+// Idem pra linha da Assinatura (pagamento pelo Asaas).
+import { CreditCard } from 'lucide-react';
+import { AssinaturaSheet } from './AssinaturaSheet';
 
 // Ajustes enxuto pro app voice-first: só o que realmente funciona hoje —
 // perfil, meta semanal (que alimenta a sequência da aba Hoje), tema, ajuda e
@@ -115,6 +118,7 @@ export function AjustesClient({ profile, email, game, hasPassword = false, cadyE
   const [showMemories, setShowMemories] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showCreators, setShowCreators] = useState(false);
+  const [showAssinatura, setShowAssinatura] = useState(false);
   // Depois de definir/redefinir, a linha já mostra "definida" sem recarregar.
   const [passwordSet, setPasswordSet] = useState(hasPassword);
 
@@ -241,6 +245,11 @@ export function AjustesClient({ profile, email, game, hasPassword = false, cadyE
           valueLabel={passwordSet ? 'definida' : 'não definida'}
           onClick={() => setShowPassword(true)}
         />
+        {/* Sempre visível, inclusive pra quem não assina: é aqui que alguém
+            procura "como cancelo", e uma linha que só aparece pra assinante
+            some exatamente no dia em que a cobrança falhou e a pessoa quer
+            conferir. A folha diz se há algo ativo. */}
+        <Row icon={CreditCard} label="Assinatura" onClick={() => setShowAssinatura(true)} />
       </Group>
 
       {/* Para Creators — quem cria conteúdo deixa os contatos (/api/creators). */}
@@ -329,6 +338,8 @@ export function AjustesClient({ profile, email, game, hasPassword = false, cadyE
       />
 
       <CreatorsDialog open={showCreators} onClose={() => setShowCreators(false)} email={email} />
+
+      <AssinaturaSheet open={showAssinatura} onClose={() => setShowAssinatura(false)} />
 
       <Toast message={toast} />
     </>

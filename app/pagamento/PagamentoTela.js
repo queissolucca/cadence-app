@@ -7,6 +7,9 @@ import { SphereDefs } from '../../components/comecar/ui';
 import { Cta, Ghost, Grow, Kicker, Lede } from '../../components/comecar/shell';
 import { PlanoCard } from '../../components/comecar/PlanoCard';
 import { abrirCheckout, mensagemDe } from '../../lib/comecar/conta';
+import { PLANS } from '../../lib/plans';
+
+const reais = (centavos) => `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`;
 
 /* A tela de pagamento, com a mesma casca das 33 telas.
 
@@ -14,7 +17,7 @@ import { abrirCheckout, mensagemDe } from '../../lib/comecar/conta';
    link ESTÁTICO do AbacatePay (NEXT_PUBLIC_PAYMENT_LINK_URL). Aquele link não
    sabe quem está pagando: o pagamento voltava anônimo e o acesso não chegava em
    ninguém — foi esse exatamente o bug que abriu este projeto. Agora o botão
-   chama /api/checkout, que cria a cobrança amarrada à sessão. */
+   chama /api/checkout, que cria a cobrança (hoje no Asaas) amarrada à sessão. */
 
 export function PagamentoTela({ email, minutos, expirado }) {
   const [indo, setIndo] = useState(false);
@@ -25,7 +28,7 @@ export function PagamentoTela({ email, minutos, expirado }) {
     setIndo(true);
     setErro('');
     try {
-      await abrirCheckout();   // não retorna: sai da página pro AbacatePay
+      await abrirCheckout();   // não retorna: sai da página pro checkout do Asaas
     } catch (e) {
       setErro(mensagemDe(e));
       setIndo(false);
@@ -65,8 +68,14 @@ export function PagamentoTela({ email, minutos, expirado }) {
               <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--red)', textAlign: 'center' }}>{erro}</p>
             )}
             <Kicker style={{ textAlign: 'center', marginTop: 10 }}>
-              pague via pix · acesso liberado na hora
+              pix ou cartão em até 8x · acesso liberado na hora
             </Kicker>
+            {/* O mensal também existe, e a vitrine precisa dizer — mas a compra
+                dele (que pergunta Pix Automático ou cartão) acontece no popup
+                do app, onde a pessoa já está logada. Preço vindo de plans.js. */}
+            <p style={{ margin: '6px 0 0', fontSize: 12, textAlign: 'center', color: 'var(--dk-mute)' }}>
+              ou {reais(PLANS['pro-mensal'].price)}/mês no plano mensal · cancele quando quiser
+            </p>
 
             {/* Quem pagou com OUTRO e-mail cai aqui de novo, porque o acesso é
                 casado por e-mail. Sem esta saída a pessoa fica presa numa tela

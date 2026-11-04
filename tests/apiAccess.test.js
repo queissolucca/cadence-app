@@ -106,6 +106,10 @@ describe('portão das rotas de API', () => {
     const abertas = TODAS.filter(apiLiberada);
     expect(TODAS.length).toBeGreaterThan(40);
     // Se um dia isso disparar, alguém liberou demais.
-    expect(abertas.length).toBeLessThanOrEqual(12);
+    // Eram 11 abertas (teto 12). A troca pro Asaas (2026-11) trouxe duas
+    // portas que precisam abrir pra quem não pagou: /api/webhooks/asaas (sem
+    // sessão, protegido por token) e /api/checkout/pix-automatico (exige
+    // sessão; é por onde se paga o mensal no Pix). Teto = o número exato.
+    expect(abertas.length).toBeLessThanOrEqual(13);
   });
 });

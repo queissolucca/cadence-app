@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
    já tem acesso válido pro /v2. Esta página é o passo de cobrança do funil.
 
    O que ela NÃO faz: liberar acesso. Acesso é uma linha em paid_emails escrita
-   pela service_role a partir do webhook do AbacatePay — a tabela tem RLS com
+   pela service_role a partir do webhook de pagamento (Asaas) — a tabela tem RLS com
    uma única policy, SELECT da própria linha, e nenhuma de escrita. Nem esta
    página nem o cliente conseguem se conceder acesso. */
 
